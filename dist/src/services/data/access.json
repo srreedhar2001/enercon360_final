@@ -1,0 +1,102 @@
+{
+  "designations": {
+    "3": {
+      "permissions": {
+        "dashboard": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "orders": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "collections": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "payments": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "users": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "products": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "counters": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "reports": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "page-access": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        }
+      }
+    },
+    "4": {
+      "permissions": {
+        "dashboard": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "orders": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "collections": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "payments": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "users": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "products": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "counters": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "reports": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "page-access": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        }
+      }
+    }
+  }
+}

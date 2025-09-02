@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+    <div class="bg-white p-8 rounded-lg shadow-md w-96">
+        <h2 class="text-2xl font-bold mb-6">OTP Verification Test</h2>
+        
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
+            <input type="text" id="mobileInput" value="9701533362" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        
+        <div class="mb-4">
+            <button id="sendOtpBtn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                Send OTP
+            </button>
+        </div>
+        
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">OTP</label>
+            <input type="text" id="otpInput" maxlength="6" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+        </div>
+        
+        <div class="mb-4">
+            <button id="verifyOtpBtn" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
+                Verify OTP
+            </button>
+        </div>
+        
+        <div id="message" class="mt-4 text-sm"></div>
+        <div id="result" class="mt-4 text-xs bg-gray-100 p-2 rounded"></div>
+    </div>
+
+    <script>
+        const sendOtpBtn = document.getElementById('sendOtpBtn');
+        const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+        const mobileInput = document.getElementById('mobileInput');
+        const otpInput = document.getElementById('otpInput');
+        const messageDiv = document.getElementById('message');
+        const resultDiv = document.getElementById('result');
+
+        function showMessage(msg, type) {
+            messageDiv.textContent = msg;
+            messageDiv.className = type === 'error' ? 'mt-4 text-sm text-red-600' : 'mt-4 text-sm text-green-600';
+        }
+
+        sendOtpBtn.addEventListener('click', async () => {
+            const mobile = mobileInput.value.trim();
+            if (!mobile) {
+                showMessage('Please enter mobile number', 'error');
+                return;
+            }
+
+            try {
+                showMessage('Sending OTP...', 'info');
+                const response = await fetch('/api/auth/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobile })
+                });
+
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+
+                if (data.success) {
+                    showMessage('OTP sent successfully!', 'success');
+                    if (data.otp) {
+                        otpInput.value = data.otp; // Auto-fill for testing
+                    }
+                } else {
+                    showMessage(data.message || 'Failed to send OTP', 'error');
+                }
+            } catch (error) {
+                console.error('Send OTP Error:', error);
+                showMessage('Error sending OTP: ' + error.message, 'error');
+            }
+        });
+
+        verifyOtpBtn.addEventListener('click', async () => {
+            const mobile = mobileInput.value.trim();
+            const otp = otpInput.value.trim();
+
+            if (!mobile || !otp) {
+                showMessage('Please enter both mobile number and OTP', 'error');
+                return;
+            }
+
+            try {
+                showMessage('Verifying OTP...', 'info');
+                const response = await fetch('/api/auth/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mobile, otp })
+                });
+
+                const data = await response.json();
+                resultDiv.textContent = JSON.stringify(data, null, 2);
+
+                if (data.success) {
+                    showMessage('OTP verified successfully!', 'success');
+                    localStorage.setItem('authToken', data.token);
+                    localStorage.setItem('userData', JSON.stringify(data.user));
+                } else {
+                    showMessage(data.message || 'OTP verification failed', 'error');
+                }
+            } catch (error) {
+                console.error('Verify OTP Error:', error);
+                showMessage('Error verifying OTP: ' + error.message, 'error');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Management - Enercon 360</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/navigation.js"></script>
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        
+        .status-paid {
+            background: #10b981;
+        }
+        
+        .status-unpaid {
+            background: #f59e0b;
+        }
+        
+        .product-row {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .product-row:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Navigation Container -->
+    <div id="navigation-container"></div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-16">
+        <!-- Header Section -->
+        <div class="px-4 py-6 sm:px-0">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Order Management</h2>
+                    <p class="text-gray-600">Manage pharmaceutical orders and invoices</p>
+                </div>
+                <button id="addOrderBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium">
+                    Create New Order
+                </button>
+            </div>
+
+            <!-- Filter and Search Section -->
+            <div class="bg-white rounded-lg shadow p-4 mb-6">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1">
+                        <input type="text" id="searchOrders" 
+                               placeholder="Search by order ID, counter name, or invoice..."
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="all">All Status</option>
+                            <option value="open">Open Orders</option>
+                            <option value="completed">Completed Orders</option>
+                            <option value="cancelled">Cancelled Orders</option>
+                        </select>
+                        <select id="paymentFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Orders</option>
+                            <option value="1">Paid Orders</option>
+                            <option value="0">Unpaid Orders</option>
+                        </select>
+                        <select id="counterFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Counters</option>
+                            <!-- Counters will be loaded dynamically -->
+                        </select>
+                        <input type="date" id="dateFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <button id="refreshBtn" class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg">
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Grid -->
+            <div id="ordersContainer" class="space-y-6">
+                <!-- Orders will be loaded here -->
+                <div class="text-center py-8">
+                    <div class="text-gray-500">Loading orders...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Order Modal -->
+    <div id="orderModal" class="fixed inset-0 modal-backdrop hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[95vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900">Create New Order - Invoice Style</h3>
+                        <button id="closeModal" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Invoice Header -->
+                    <div class="border-2 border-gray-300 rounded-lg p-6 mb-6 bg-gradient-to-r from-blue-50 to-indigo-50">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <div class="flex items-center mb-2">
+                                    <div class="h-12 w-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                                        <span class="text-white font-bold text-xl">E</span>
+                                    </div>
+                                    <div>
+                                        <h2 class="text-2xl font-bold text-gray-900">Enercon 360</h2>
+                                        <p class="text-sm text-gray-600">Pharmaceutical Distribution System</p>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-600">
+                                    <p>123 Medical Complex, Pharmaceutical District</p>
+                                    <p>Hyderabad, Telangana - 500001</p>
+                                    <p>GST: 36ABCDE1234F1Z5 | Phone: +91 40 1234 5678</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <h3 class="text-2xl font-bold text-blue-600 mb-2">SALES ORDER</h3>
+                                <div class="text-sm text-gray-600">
+                                    <p><strong>Order No:</strong> <span id="orderNumber">SO-2025-001</span></p>
+                                    <p><strong>Date:</strong> <span id="invoiceDate"></span></p>
+                                    <p><strong>Time:</strong> <span id="invoiceTime"></span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form id="orderForm" class="space-y-6">
+                        <!-- Bill To Section -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                            <div>
+                                <h4 class="font-semibold text-gray-900 mb-3 text-lg">📍 Bill To:</h4>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Select Counter *</label>
+                                    <select id="orderCounter" required
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                        <option value="">Select Counter</option>
+                                        <!-- Counters will be loaded dynamically -->
+                                    </select>
+                                </div>
+                                <div id="counterDetails" class="mt-3 text-sm text-gray-600 hidden">
+                                    <p id="counterAddress">Address will appear here</p>
+                                    <p id="counterContact">Contact details</p>
+                                    <p id="counterGST">GST Number</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 class="font-semibold text-gray-900 mb-3 text-lg">📅 Order Details:</h4>
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Order Date *</label>
+                                        <input type="date" id="orderDate" required
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Delivery Date</label>
+                                        <input type="date" id="deliveryDate"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Payment Terms</label>
+                                        <select id="paymentTerms" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                            <option value="net30">Net 30 Days</option>
+                                            <option value="net15">Net 15 Days</option>
+                                            <option value="cod">Cash on Delivery</option>
+                                            <option value="advance">Advance Payment</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Product Selection - Invoice Table Style -->
+                        <div class="border border-gray-300 rounded-lg overflow-hidden">
+                            <div class="bg-blue-600 text-white px-6 py-4">
+                                <h4 class="font-semibold text-lg">📦 Order Items</h4>
+                            </div>
+                            
+                            <div class="p-6">
+                                <div class="mb-4">
+                                    <button type="button" id="addProductBtn" 
+                                            class="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-medium flex items-center">
+                                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                                        </svg>
+                                        Add Product Line
+                                    </button>
+                                </div>
+
+                                <!-- Invoice Table Header -->
+                                <div class="overflow-x-auto">
+                                    <table class="w-full border-collapse border border-gray-300">
+                                        <thead>
+                                            <tr class="bg-gray-100">
+                                                <th class="border border-gray-300 px-4 py-3 text-left font-semibold">#</th>
+                                                <th class="border border-gray-300 px-4 py-3 text-left font-semibold">Product Description</th>
+                                                <th class="border border-gray-300 px-4 py-3 text-center font-semibold">Qty</th>
+                                                <th class="border border-gray-300 px-4 py-3 text-center font-semibold">Free</th>
+                                                <th class="border border-gray-300 px-4 py-3 text-right font-semibold">MRP</th>
+                                                <th class="border border-gray-300 px-4 py-3 text-right font-semibold">Offer Price</th>
+                                                <th class="border border-gray-300 px-4 py-3 text-center font-semibold">Disc%</th>
+                                                <th class="border border-gray-300 px-4 py-3 text-right font-semibold">Line Total</th>
+                                                <th class="border border-gray-300 px-4 py-3 text-center font-semibold">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="orderItems">
+                                            <!-- Order items will be added here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Invoice Summary -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Terms and Conditions -->
+                            <div class="border border-gray-300 rounded-lg p-4">
+                                <h4 class="font-semibold text-gray-900 mb-3">📋 Terms & Conditions:</h4>
+                                <div class="text-sm text-gray-700 space-y-1">
+                                    <p>• All pharmaceutical products are subject to batch verification</p>
+                                    <p>• Delivery within 24-48 hours of order confirmation</p>
+                                    <p>• Returns accepted within 7 days for unopened items</p>
+                                    <p>• Payment terms as per agreement</p>
+                                    <p>• All disputes subject to local jurisdiction</p>
+                                </div>
+                                <div class="mt-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Special Instructions</label>
+                                    <textarea id="specialInstructions" rows="3" 
+                                              placeholder="Any special delivery or handling instructions..."
+                                              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Order Summary -->
+                            <div class="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                                <h4 class="font-semibold text-gray-900 mb-4 text-lg">💰 Order Summary</h4>
+                                <div class="space-y-3">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-600">Subtotal:</span>
+                                        <span id="subtotalDisplay" class="font-medium">₹0.00</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-600">Total Discount:</span>
+                                        <span id="discountDisplay" class="font-medium text-green-600">₹0.00</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-600">Taxable Amount:</span>
+                                        <span id="taxableDisplay" class="font-medium">₹0.00</span>
+                                    </div>
+                                    <hr class="border-gray-300">
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-600">CGST (6%):</span>
+                                        <span id="cgstDisplay" class="font-medium">₹0.00</span>
+                                    </div>
+                                    <div class="flex justify-between text-sm">
+                                        <span class="text-gray-600">SGST (6%):</span>
+                                        <span id="sgstDisplay" class="font-medium">₹0.00</span>
+                                    </div>
+                                    <hr class="border-gray-400">
+                                    <div class="flex justify-between text-lg font-bold">
+                                        <span class="text-gray-900">Grand Total:</span>
+                                        <span id="grandTotalDisplay" class="text-blue-600">₹0.00</span>
+                                    </div>
+                                    <div class="mt-3 p-3 bg-white rounded border">
+                                        <p class="text-xs text-gray-600 mb-1">Amount in Words:</p>
+                                        <p id="amountInWords" class="text-sm font-medium text-gray-800">Zero Rupees Only</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-4 pt-6 border-t border-gray-200">
+                            <button type="submit" id="submitBtn"
+                                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-medium text-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                Generate Order & Invoice
+                            </button>
+                            <button type="button" id="previewBtn"
+                                    class="bg-gray-500 hover:bg-gray-600 text-white py-3 px-6 rounded-lg font-medium flex items-center">
+                                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                Preview
+                            </button>
+                            <button type="button" id="cancelBtn"
+                                    class="bg-red-500 hover:bg-red-600 text-white py-3 px-6 rounded-lg font-medium">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Order Modal -->
+    <div id="viewOrderModal" class="fixed inset-0 modal-backdrop hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[95vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-semibold text-gray-900">Order Details</h3>
+                        <button id="closeViewModal" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Order Header -->
+                    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-lg p-6 mb-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-800 mb-4">📋 Order Information</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Order #:</span>
+                                        <span id="viewOrderId" class="font-semibold text-gray-900"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Date:</span>
+                                        <span id="viewOrderDate" class="font-semibold text-gray-900"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Status:</span>
+                                        <span id="viewOrderStatus" class="font-semibold"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-semibold text-blue-800 mb-4">🏪 Counter Details</h4>
+                                <div class="space-y-2 text-sm">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Name:</span>
+                                        <span id="viewCounterName" class="font-semibold text-gray-900"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Items:</span>
+                                        <span id="viewOrderItems" class="font-semibold text-gray-900"></span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Quantity:</span>
+                                        <span id="viewOrderQuantity" class="font-semibold text-gray-900"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Order Summary -->
+                    <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4">💰 Order Summary</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Subtotal:</span>
+                                    <span id="viewSubtotal" class="font-semibold text-gray-900"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">CGST (6%):</span>
+                                    <span id="viewCGST" class="font-semibold text-gray-900"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">SGST (6%):</span>
+                                    <span id="viewSGST" class="font-semibold text-gray-900"></span>
+                                </div>
+                            </div>
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Total Tax:</span>
+                                    <span id="viewTotalTax" class="font-semibold text-gray-900"></span>
+                                </div>
+                                <div class="flex justify-between text-lg border-t pt-3">
+                                    <span class="font-semibold text-gray-900">Grand Total:</span>
+                                    <span id="viewGrandTotal" class="font-bold text-blue-600"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Invoice Section -->
+                    <div id="viewInvoiceSection" class="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4">📄 Invoice</h4>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-gray-600">Invoice File:</p>
+                                <p id="viewInvoiceFile" class="font-semibold text-gray-900"></p>
+                            </div>
+                            <div class="flex space-x-3">
+                                <button id="viewInvoiceBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium">
+                                    📄 View PDF
+                                </button>
+                                <button id="downloadInvoiceBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium">
+                                    💾 Download PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end space-x-3">
+                        <button id="closeViewModalBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium">
+                            Close
+                        </button>
+                        <button id="viewOrderPaymentBtn" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium hidden">
+                            Mark as Paid
+                        </button>
+                        <button id="viewOrderDeleteBtn" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium">
+                            Delete Order
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let orders = [];
+        let counters = [];
+        let products = [];
+        let orderItemCount = 0;
+    let isEditing = false;
+    let editingOrderId = null;
+
+        // DOM elements
+        const ordersContainer = document.getElementById('ordersContainer');
+        const orderModal = document.getElementById('orderModal');
+        const orderForm = document.getElementById('orderForm');
+        const addOrderBtn = document.getElementById('addOrderBtn');
+        const closeModal = document.getElementById('closeModal');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const addProductBtn = document.getElementById('addProductBtn');
+        const orderItems = document.getElementById('orderItems');
+        const searchOrders = document.getElementById('searchOrders');
+        const statusFilter = document.getElementById('statusFilter');
+        const paymentFilter = document.getElementById('paymentFilter');
+        const counterFilter = document.getElementById('counterFilter');
+        const dateFilter = document.getElementById('dateFilter');
+        const refreshBtn = document.getElementById('refreshBtn');
+
+        // View Modal DOM elements
+        const viewOrderModal = document.getElementById('viewOrderModal');
+        const closeViewModal = document.getElementById('closeViewModal');
+        const closeViewModalBtn = document.getElementById('closeViewModalBtn');
+
+        // API Helper functions
+        function getAuthToken() {
+            return localStorage.getItem('token') || localStorage.getItem('authToken') || null;
+        }
+
+        function getAuthHeaders() {
+            const token = getAuthToken();
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : ''
+            };
+        }
+
+    // Do not auto-create demo tokens; enforce authentication strictly
+
+        // API functions
+        async function fetchOrders(status = null) {
+            try {
+                let url = '/api/orders';
+                if (status && status !== 'all') {
+                    url += `?status=${encodeURIComponent(status)}`;
+                }
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('Unauthorized - Please log in');
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    return result.data || [];
+                } else {
+                    throw new Error(result.message || 'Failed to fetch orders');
+                }
+            } catch (error) {
+                console.error('Error fetching orders:', error);
+                if (error.message.includes('Unauthorized') || error.message.includes('401')) {
+                    throw error; // Re-throw auth errors to be handled by caller
+                }
+                showError('Failed to load orders: ' + error.message);
+                return [];
+            }
+        }
+
+        async function fetchCounters() {
+            try {
+                const response = await fetch('/api/counters', {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    return result.data || [];
+                } else {
+                    throw new Error(result.message || 'Failed to fetch counters');
+                }
+            } catch (error) {
+                console.error('Error fetching counters:', error);
+                showError('Failed to load counters: ' + error.message);
+                return [];
+            }
+        }
+
+        async function fetchProducts() {
+            try {
+                const response = await fetch('/api/products', {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    return result.products || result.data || [];
+                } else {
+                    throw new Error(result.message || 'Failed to fetch products');
+                }
+            } catch (error) {
+                console.error('Error fetching products:', error);
+                showError('Failed to load products: ' + error.message);
+                return [];
+            }
+        }
+
+        // Utility functions
+        function showError(message) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            errorDiv.textContent = message;
+            document.body.appendChild(errorDiv);
+            
+            setTimeout(() => {
+                if (document.body.contains(errorDiv)) {
+                    document.body.removeChild(errorDiv);
+                }
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            successDiv.textContent = message;
+            document.body.appendChild(successDiv);
+            
+            setTimeout(() => {
+                if (document.body.contains(successDiv)) {
+                    document.body.removeChild(successDiv);
+                }
+            }, 3000);
+        }
+
+        function showSuccessWithInvoice(message, invoiceInfo) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-sm';
+            successDiv.innerHTML = `
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3 flex-1">
+                        <div class="text-sm font-medium">${message}</div>
+                        <div class="mt-2">
+                            <button onclick="window.open('${invoiceInfo.url}', '_blank')" 
+                                    class="bg-white text-green-600 px-3 py-1 rounded text-xs font-medium hover:bg-green-50">
+                                📄 View PDF
+                            </button>
+                            <button onclick="downloadInvoiceFile('${invoiceInfo.fileName}')" 
+                                    class="bg-white text-green-600 px-3 py-1 rounded text-xs font-medium hover:bg-green-50 ml-2">
+                                💾 Download PDF
+                            </button>
+                        </div>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                            class="ml-2 text-white hover:text-green-100">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(successDiv);
+            
+            setTimeout(() => {
+                if (document.body.contains(successDiv)) {
+                    document.body.removeChild(successDiv);
+                }
+            }, 10000); // Keep longer since it has action buttons
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 2
+            }).format(amount);
+        }
+
+        function roundRupee(n) {
+            const x = Number(n) || 0;
+            return Math.round(x);
+        }
+
+        function formatDate(dateStr) {
+            return new Date(dateStr).toLocaleDateString('en-IN', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function dateToInput(value) {
+            if (!value) return new Date().toISOString().split('T')[0];
+            try {
+                // If already in YYYY-MM-DD
+                if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+                const d = new Date(value);
+                if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+            } catch (_) {}
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function showAuthenticationError() {
+            ordersContainer.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto">
+                        <div class="flex items-center justify-center w-12 h-12 bg-yellow-100 rounded-full mx-auto mb-4">
+                            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Authentication Required</h3>
+                        <p class="text-gray-600 mb-4">Please log in to access the order management system.</p>
+                        <div class="flex gap-3 justify-center">
+                            <button onclick="window.location.href='/login.html'" 
+                                    class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium">
+                                Go to Login
+                            </button>
+                            <button onclick="useDemoMode()" 
+                                    class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium">
+                                Demo Mode
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function useDemoMode() {
+            // Demo mode disabled; require real authentication
+            window.location.href = '/login.html';
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Load navigation first
+            try {
+                NavigationLoader.loadNavigation();
+                console.log('Navigation loader called successfully');
+            } catch (error) {
+                console.error('Navigation loader error:', error);
+            }
+
+            // Check authentication
+            const token = getAuthToken();
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            // Set default date to today
+            document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
+
+            // Try to load data
+            try {
+                await loadInitialData();
+                setupEventListeners();
+            } catch (error) {
+                console.error('Failed to initialize:', error);
+                if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+                    showAuthenticationError();
+                } else {
+                    showError('Failed to load application data');
+                }
+            }
+        });
+
+        async function loadInitialData() {
+            try {
+                // Load data in parallel
+                const [ordersData, countersData, productsData] = await Promise.all([
+                    fetchOrders(),
+                    fetchCounters(),
+                    fetchProducts()
+                ]);
+                
+                orders = ordersData;
+                counters = countersData;
+                products = productsData;
+                
+                populateDropdowns();
+                renderOrders(orders);
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                showError('Failed to load initial data');
+            }
+        }
+
+        function populateDropdowns() {
+            // Populate counter filter
+            const counterOptions = counters.map(counter => 
+                `<option value="${counter.id}">${counter.CounterName}</option>`
+            ).join('');
+            
+            counterFilter.innerHTML = `
+                <option value="">All Counters</option>
+                ${counterOptions}
+            `;
+
+            // Populate modal counter dropdown
+            const modalCounterSelect = document.getElementById('orderCounter');
+            modalCounterSelect.innerHTML = `
+                <option value="">Select Counter</option>
+                ${counterOptions}
+            `;
+        }
+
+        function setupEventListeners() {
+            addOrderBtn.addEventListener('click', openAddModal);
+            closeModal.addEventListener('click', closeOrderModal);
+            cancelBtn.addEventListener('click', closeOrderModal);
+            orderForm.addEventListener('submit', handleSubmit);
+            addProductBtn.addEventListener('click', addProductRow);
+            searchOrders.addEventListener('input', filterOrders);
+            statusFilter.addEventListener('change', filterOrders);
+            paymentFilter.addEventListener('change', filterOrders);
+            counterFilter.addEventListener('change', filterOrders);
+            dateFilter.addEventListener('change', filterOrders);
+            refreshBtn.addEventListener('click', refreshData);
+
+            // Counter selection handler
+            document.getElementById('orderCounter').addEventListener('change', function() {
+                const counterId = parseInt(this.value);
+                const counter = counters.find(c => c.id === counterId);
+                const counterDetails = document.getElementById('counterDetails');
+                
+                if (counter) {
+                    document.getElementById('counterAddress').textContent = counter.address || '123 Medical Street, City';
+                    document.getElementById('counterContact').textContent = `Phone: ${counter.phone || '+91 9876543210'}`;
+                    document.getElementById('counterGST').textContent = `GST: ${counter.gst || '36ABCDE1234F1Z5'}`;
+                    counterDetails.classList.remove('hidden');
+                } else {
+                    counterDetails.classList.add('hidden');
+                }
+            });
+
+            // Preview button handler
+            document.getElementById('previewBtn').addEventListener('click', function() {
+                const productRows = document.querySelectorAll('.product-row');
+                if (productRows.length === 0) {
+                    showError('Please add at least one product to preview');
+                    return;
+                }
+                
+                showSuccess('Preview functionality - Would open print preview of invoice');
+                // In a real application, this would open a print preview
+            });
+
+            // Close modal when clicking outside
+            orderModal.addEventListener('click', (e) => {
+                if (e.target === orderModal) {
+                    closeOrderModal();
+                }
+            });
+
+            // View Modal event listeners
+            closeViewModal.addEventListener('click', closeViewOrderModal);
+            closeViewModalBtn.addEventListener('click', closeViewOrderModal);
+            
+            // Close view modal when clicking outside
+            viewOrderModal.addEventListener('click', (e) => {
+                if (e.target === viewOrderModal) {
+                    closeViewOrderModal();
+                }
+            });
+        }
+
+        function renderOrders(orderList) {
+            if (orderList.length === 0) {
+                ordersContainer.innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="text-gray-500">No orders found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            ordersContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order #</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${orderList.map(order => `
+                                    <tr class="hover:bg-gray-50 fade-in">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm font-medium text-gray-900">#${order.id}</div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            ${formatDate(order.orderDate)}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            ${escapeHtml(order.counterName)}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            ${order.itemCount} items (${order.totalQuantity} qty)
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm font-medium text-gray-900">${formatCurrency(order.grandTotal)}</div>
+                                            <div class="text-xs text-gray-500">
+                                                Subtotal: ${formatCurrency(order.subTotal)} + Tax: ${formatCurrency(order.totalCGST + order.totalSGST)}
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                                order.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                                                order.status === 'cancelled' ? 'bg-red-100 text-red-800' : 
+                                                'bg-blue-100 text-blue-800'
+                                            }">
+                                                ${order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Open'}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${order.paymentReceived ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                                                ${order.paymentReceived ? 'Paid' : 'Unpaid'}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            ${order.invoiceFileName ? `
+                                                <button onclick="downloadInvoice('${order.invoiceFileName}')" 
+                                                        class="text-blue-600 hover:text-blue-900">
+                                                    Download PDF
+                                                </button>
+                                            ` : 'N/A'}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <div class="flex space-x-2">
+                                                <button onclick="viewOrder(${order.id})" 
+                                                        class="text-indigo-600 hover:text-indigo-900">View</button>
+                        <button onclick="editOrder(${order.id})" 
+                            class="text-blue-600 hover:text-blue-900" title="Edit Order">Edit</button>
+                                                <button onclick="deleteOrder(${order.id})" 
+                                                        class="text-red-600 hover:text-red-900"
+                                                        title="Delete Order">Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function filterOrders() {
+            const search = searchOrders.value.toLowerCase();
+            const status = statusFilter.value;
+            const payment = paymentFilter.value;
+            const counter = counterFilter.value;
+            const date = dateFilter.value;
+
+            let filtered = [...orders];
+
+            if (search) {
+                filtered = filtered.filter(order => 
+                    order.id.toString().includes(search) ||
+                    order.counterName.toLowerCase().includes(search) ||
+                    (order.invoiceFileName && order.invoiceFileName.toLowerCase().includes(search))
+                );
+            }
+
+            if (status && status !== 'all') {
+                filtered = filtered.filter(order => order.status === status);
+            }
+
+            if (payment) {
+                filtered = filtered.filter(order => order.paymentReceived == payment);
+            }
+
+            if (counter) {
+                filtered = filtered.filter(order => order.counterID == counter);
+            }
+
+            if (date) {
+                filtered = filtered.filter(order => order.orderDate === date);
+            }
+
+            renderOrders(filtered);
+        }
+
+        function openAddModal() {
+            orderModal.classList.remove('hidden');
+            orderItems.innerHTML = '';
+            orderItemCount = 0;
+            isEditing = false;
+            editingOrderId = null;
+            
+            // Set invoice date and time
+            const now = new Date();
+            document.getElementById('invoiceDate').textContent = now.toLocaleDateString('en-IN');
+            document.getElementById('invoiceTime').textContent = now.toLocaleTimeString('en-IN');
+            
+            // Generate order number
+            const orderNum = `SO-${now.getFullYear()}-${String(Date.now()).slice(-6)}`;
+            document.getElementById('orderNumber').textContent = orderNum;
+            
+            // Set delivery date to 3 days from order date
+            const deliveryDate = new Date();
+            deliveryDate.setDate(deliveryDate.getDate() + 3);
+            document.getElementById('deliveryDate').value = deliveryDate.toISOString().split('T')[0];
+            
+            addProductRow(); // Add first product row
+            updateOrderSummary();
+
+            // Update titles/buttons
+            document.querySelector('#orderModal h3').textContent = 'Create New Order - Invoice Style';
+            const submitBtn = document.getElementById('submitBtn');
+            submitBtn.innerHTML = submitBtn.innerHTML.replace('Save Changes', 'Generate Order & Invoice');
+        }
+
+        function closeOrderModal() {
+            orderModal.classList.add('hidden');
+            orderForm.reset();
+            orderItems.innerHTML = '';
+            orderItemCount = 0;
+        }
+
+        function addProductRow(prefill) {
+            orderItemCount++;
+            const productOptions = products.map(product => 
+                `<option value="${product.id}" data-price="${product.mrp}">${product.name} - ${formatCurrency(product.mrp)}</option>`
+            ).join('');
+
+            const rowHtml = `
+                <tr class="product-row" id="productRow${orderItemCount}">
+                    <td class="border border-gray-300 px-4 py-3 text-center font-medium">${orderItemCount}</td>
+                    <td class="border border-gray-300 px-4 py-3">
+                        <select class="product-select w-full px-2 py-1 border border-gray-200 rounded focus:ring-2 focus:ring-blue-500" required>
+                            <option value="">Select Product</option>
+                            ${productOptions}
+                        </select>
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3">
+                        <input type="number" class="quantity-input w-full px-2 py-1 border border-gray-200 rounded text-center focus:ring-2 focus:ring-blue-500" 
+                               min="1" value="1" required>
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3">
+                        <input type="number" class="free-qty-input w-full px-2 py-1 border border-gray-200 rounded text-center focus:ring-2 focus:ring-blue-500" 
+                               min="0" value="0">
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3">
+                        <input type="number" class="price-input w-full px-2 py-1 border border-gray-200 rounded text-right focus:ring-2 focus:ring-blue-500" 
+                               step="0.01" min="0" readonly>
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3">
+                        <input type="number" class="offer-price-input w-full px-2 py-1 border border-gray-200 rounded text-right focus:ring-2 focus:ring-blue-500" 
+                               step="0.01" min="0" placeholder="Enter offer price">
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3">
+                        <input type="number" class="discount-input w-full px-2 py-1 border border-gray-200 rounded text-center focus:ring-2 focus:ring-blue-500" 
+                               step="0.01" min="0" max="100" value="0">
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3 text-right">
+                        <span class="line-total font-semibold">₹0.00</span>
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3 text-center">
+                        <button type="button" onclick="removeProductRow(${orderItemCount})" 
+                                class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm">
+                            ✕
+                        </button>
+                    </td>
+                </tr>
+            `;
+
+            orderItems.insertAdjacentHTML('beforeend', rowHtml);
+
+            // Add event listeners for the new row
+            const row = document.getElementById(`productRow${orderItemCount}`);
+            const productSelect = row.querySelector('.product-select');
+            const quantityInput = row.querySelector('.quantity-input');
+            const priceInput = row.querySelector('.price-input');
+            const offerPriceInput = row.querySelector('.offer-price-input');
+            const discountInput = row.querySelector('.discount-input');
+
+            productSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption.value) {
+                    const mrpPrice = selectedOption.dataset.price;
+                    priceInput.value = mrpPrice;
+                    // Set offer price to MRP by default, user can modify it
+                    offerPriceInput.value = mrpPrice;
+                    updateLineTotal(row);
+                }
+            });
+
+            quantityInput.addEventListener('input', () => updateLineTotal(row));
+            offerPriceInput.addEventListener('input', () => updateLineTotal(row));
+            discountInput.addEventListener('input', () => updateLineTotal(row));
+
+            // Apply prefill if provided
+            if (prefill) {
+                if (prefill.productId) {
+                    productSelect.value = String(prefill.productId);
+                    const selectedOption = productSelect.options[productSelect.selectedIndex];
+                    if (selectedOption && selectedOption.dataset.price) {
+                        priceInput.value = selectedOption.dataset.price;
+                    }
+                }
+                if (prefill.quantity !== undefined && !isNaN(Number(prefill.quantity))) {
+                    quantityInput.value = String(Number(prefill.quantity));
+                }
+                const freeInput = row.querySelector('.free-qty-input');
+                freeInput.value = (prefill.freeQty !== undefined && !isNaN(Number(prefill.freeQty))) ? String(Number(prefill.freeQty)) : '0';
+                const prefillOffer = Number(prefill.offerPrice ?? prefill.rate);
+                if (!isNaN(prefillOffer) && prefillOffer > 0) {
+                    offerPriceInput.value = String(prefillOffer);
+                } else if (priceInput.value) {
+                    // Default to MRP if offer price missing/zero
+                    offerPriceInput.value = priceInput.value;
+                }
+                if (prefill.discount !== undefined && !isNaN(Number(prefill.discount))) {
+                    discountInput.value = String(Number(prefill.discount));
+                }
+                updateLineTotal(row);
+            }
+        }
+
+        function removeProductRow(rowId) {
+            const row = document.getElementById(`productRow${rowId}`);
+            if (row) {
+                row.remove();
+                updateOrderSummary();
+            }
+        }
+
+        function updateLineTotal(row) {
+            const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
+            const offerPrice = parseFloat(row.querySelector('.offer-price-input').value) || 0;
+            const discount = parseFloat(row.querySelector('.discount-input').value) || 0;
+
+            // Use offer price for calculations instead of MRP
+            const subtotal = roundRupee(quantity * offerPrice);
+            const discountAmount = roundRupee((subtotal * discount) / 100);
+            const lineTotal = roundRupee(subtotal - discountAmount);
+
+            row.querySelector('.line-total').textContent = formatCurrency(lineTotal);
+            updateOrderSummary();
+        }
+
+        function updateOrderSummary() {
+            let subtotal = 0;
+            let totalDiscount = 0;
+
+            document.querySelectorAll('.product-row').forEach(row => {
+                const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
+                const offerPrice = parseFloat(row.querySelector('.offer-price-input').value) || 0;
+                const discount = parseFloat(row.querySelector('.discount-input').value) || 0;
+
+                // Use offer price for calculations instead of MRP
+                const lineSubtotal = roundRupee(quantity * offerPrice);
+                const lineDiscount = roundRupee((lineSubtotal * discount) / 100);
+
+                subtotal = roundRupee(subtotal + lineSubtotal);
+                totalDiscount = roundRupee(totalDiscount + lineDiscount);
+            });
+
+            const taxableAmount = roundRupee(subtotal - totalDiscount);
+            const cgst = roundRupee(taxableAmount * 0.06); // 6% CGST
+            const sgst = roundRupee(taxableAmount * 0.06); // 6% SGST
+            const grandTotal = roundRupee(taxableAmount + cgst + sgst);
+
+            document.getElementById('subtotalDisplay').textContent = formatCurrency(subtotal);
+            document.getElementById('discountDisplay').textContent = formatCurrency(totalDiscount);
+            document.getElementById('taxableDisplay').textContent = formatCurrency(taxableAmount);
+            document.getElementById('cgstDisplay').textContent = formatCurrency(cgst);
+            document.getElementById('sgstDisplay').textContent = formatCurrency(sgst);
+            document.getElementById('grandTotalDisplay').textContent = formatCurrency(grandTotal);
+
+            // Update amount in words
+            document.getElementById('amountInWords').textContent = numberToWords(Math.round(grandTotal));
+        }
+
+        function numberToWords(num) {
+            if (num === 0) return 'Zero Rupees Only';
+            
+            const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+            const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+            const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+            
+            function convertHundreds(n) {
+                let result = '';
+                if (n >= 100) {
+                    result += ones[Math.floor(n / 100)] + ' Hundred ';
+                    n %= 100;
+                }
+                if (n >= 20) {
+                    result += tens[Math.floor(n / 10)] + ' ';
+                    n %= 10;
+                }
+                if (n >= 10) {
+                    result += teens[n - 10] + ' ';
+                    n = 0;
+                }
+                if (n > 0) {
+                    result += ones[n] + ' ';
+                }
+                return result;
+            }
+            
+            let rupees = Math.floor(num);
+            let paise = Math.round((num - rupees) * 100);
+            
+            let result = '';
+            
+            if (rupees >= 10000000) {
+                result += convertHundreds(Math.floor(rupees / 10000000)) + 'Crore ';
+                rupees %= 10000000;
+            }
+            if (rupees >= 100000) {
+                result += convertHundreds(Math.floor(rupees / 100000)) + 'Lakh ';
+                rupees %= 100000;
+            }
+            if (rupees >= 1000) {
+                result += convertHundreds(Math.floor(rupees / 1000)) + 'Thousand ';
+                rupees %= 1000;
+            }
+            if (rupees > 0) {
+                result += convertHundreds(rupees);
+            }
+            
+            result += 'Rupees';
+            
+            if (paise > 0) {
+                result += ' and ' + convertHundreds(paise) + 'Paise';
+            }
+            
+            return result.trim() + ' Only';
+        }
+
+    async function handleSubmit(e) {
+            e.preventDefault();
+
+            // Validate form
+            const counterID = document.getElementById('orderCounter').value;
+            const orderDate = document.getElementById('orderDate').value;
+            const productRows = document.querySelectorAll('.product-row');
+
+            if (!counterID || !orderDate || productRows.length === 0) {
+                showError('Please fill in all required fields and add at least one product');
+                return;
+            }
+
+            // Collect order details
+            const orderDetails = [];
+            let hasValidItems = false;
+            let subTotal = 0;
+            let totalCGST = 0;
+            let totalSGST = 0;
+
+            productRows.forEach(row => {
+                const productId = row.querySelector('.product-select').value;
+                const quantity = parseInt(row.querySelector('.quantity-input').value);
+                const freeQty = parseInt(row.querySelector('.free-qty-input').value) || 0;
+                const offerPrice = parseFloat(row.querySelector('.offer-price-input').value);
+                const discount = parseFloat(row.querySelector('.discount-input').value) || 0;
+
+                if (productId && quantity > 0 && offerPrice > 0) {
+                    hasValidItems = true;
+                    
+                    // Use offer price for calculations
+                    const lineSubtotal = roundRupee(quantity * offerPrice);
+                    const discountAmount = roundRupee((lineSubtotal * discount) / 100);
+                    const amount = roundRupee(lineSubtotal - discountAmount);
+                    const cgst = roundRupee(amount * 0.06); // 6% CGST
+                    const sgst = roundRupee(amount * 0.06); // 6% SGST
+                    const totalAmount = roundRupee(amount + cgst + sgst);
+                    
+                    orderDetails.push({
+                        productID: parseInt(productId),
+                        quantity: quantity,
+                        freeQty: freeQty, // Add freeQty to the order details
+                        rate: roundRupee(offerPrice), // Use offer price as the rate
+                        discount: discount, // Include discount percentage
+                        amount: amount,
+                        cgst: cgst,
+                        sgst: sgst,
+                        totalAmount: totalAmount
+                    });
+                    
+                    subTotal = roundRupee(subTotal + lineSubtotal);
+                    totalCGST = roundRupee(totalCGST + cgst);
+                    totalSGST = roundRupee(totalSGST + sgst);
+                }
+            });
+
+            if (!hasValidItems) {
+                showError('Please add at least one valid product with quantity and offer price');
+                return;
+            }
+
+            const grandTotal = roundRupee(subTotal + totalCGST + totalSGST);
+
+            // Prepare order data
+            const orderData = {
+                counterID: parseInt(counterID),
+                orderDate: orderDate,
+                subTotal: roundRupee(subTotal),
+                totalCGST: roundRupee(totalCGST),
+                totalSGST: roundRupee(totalSGST),
+                grandTotal: roundRupee(grandTotal),
+                paymentReceived: isEditing ? (orders.find(o => o.id === editingOrderId)?.paymentReceived ? 1 : 0) : 0,
+                orderDetails: orderDetails
+            };
+
+            // Show loading state
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Creating Order...';
+            submitBtn.disabled = true;
+
+            try {
+                const url = isEditing ? `/api/orders/${editingOrderId}` : '/api/orders';
+                const method = isEditing ? 'PUT' : 'POST';
+                const response = await fetch(url, {
+                    method,
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(orderData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    closeOrderModal();
+                    await refreshData();
+                    
+                    // Show success message with invoice download link
+                    if (!isEditing && result.invoice) {
+                        showSuccessWithInvoice('Order and invoice created successfully!', result.invoice);
+                    } else {
+                        showSuccess(isEditing ? 'Order updated successfully!' : 'Order created successfully!');
+                    }
+                } else {
+                    throw new Error(result.message || (isEditing ? 'Failed to update order' : 'Failed to create order'));
+                }
+            } catch (error) {
+                console.error(isEditing ? 'Error updating order:' : 'Error creating order:', error);
+                showError((isEditing ? 'Failed to update order: ' : 'Failed to create order: ') + error.message);
+            } finally {
+                // Restore button state
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function refreshData() {
+            try {
+                await loadInitialData();
+                showSuccess('Data refreshed');
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+                showError('Failed to refresh data');
+            }
+        }
+
+        function viewOrder(orderId) {
+            const order = orders.find(o => o.id === orderId);
+            if (order) {
+                // Populate modal with order details
+                document.getElementById('viewOrderId').textContent = `#${order.id}`;
+                document.getElementById('viewOrderDate').textContent = formatDate(order.orderDate);
+                document.getElementById('viewOrderStatus').textContent = order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Open';
+                document.getElementById('viewOrderStatus').className = `font-semibold ${
+                    order.status === 'completed' ? 'text-green-600' : 
+                    order.status === 'cancelled' ? 'text-red-600' : 
+                    'text-blue-600'
+                }`;
+                
+                document.getElementById('viewCounterName').textContent = order.counterName;
+                document.getElementById('viewOrderItems').textContent = `${order.itemCount || 0} items`;
+                document.getElementById('viewOrderQuantity').textContent = `${order.totalQuantity || 0} qty`;
+                
+                document.getElementById('viewSubtotal').textContent = formatCurrency(order.subTotal);
+                document.getElementById('viewCGST').textContent = formatCurrency(order.totalCGST || 0);
+                document.getElementById('viewSGST').textContent = formatCurrency(order.totalSGST || 0);
+                document.getElementById('viewTotalTax').textContent = formatCurrency((order.totalCGST || 0) + (order.totalSGST || 0));
+                document.getElementById('viewGrandTotal').textContent = formatCurrency(order.grandTotal);
+                
+                // Handle invoice section
+                const invoiceSection = document.getElementById('viewInvoiceSection');
+                const viewInvoiceBtn = document.getElementById('viewInvoiceBtn');
+                const downloadInvoiceBtn = document.getElementById('downloadInvoiceBtn');
+                
+                if (order.invoiceFileName) {
+                    document.getElementById('viewInvoiceFile').textContent = order.invoiceFileName;
+                    invoiceSection.classList.remove('hidden');
+                    
+                    viewInvoiceBtn.onclick = () => window.open(`/invoices/${order.invoiceFileName}`, '_blank');
+                    downloadInvoiceBtn.onclick = () => downloadInvoiceFile(order.invoiceFileName);
+                } else {
+                    invoiceSection.classList.add('hidden');
+                }
+                
+                // Handle action buttons
+                const paymentBtn = document.getElementById('viewOrderPaymentBtn');
+                const deleteBtn = document.getElementById('viewOrderDeleteBtn');
+                
+                if (!order.paymentReceived) {
+                    paymentBtn.classList.remove('hidden');
+                    paymentBtn.onclick = () => {
+                        closeViewOrderModal();
+                        markPaid(order.id);
+                    };
+                } else {
+                    paymentBtn.classList.add('hidden');
+                }
+                
+                deleteBtn.onclick = () => {
+                    closeViewOrderModal();
+                    deleteOrder(order.id);
+                };
+                
+                // Show modal
+                viewOrderModal.classList.remove('hidden');
+            }
+        }
+
+        function closeViewOrderModal() {
+            viewOrderModal.classList.add('hidden');
+        }
+
+        async function markPaid(orderId) {
+            if (!confirm('Mark this order as paid?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/orders/${orderId}`, {
+                    method: 'PUT',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({
+                        paymentReceived: 1
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // Update local orders array
+                    const orderIndex = orders.findIndex(o => o.id === orderId);
+                    if (orderIndex !== -1) {
+                        orders[orderIndex].paymentReceived = 1;
+                    }
+                    
+                    filterOrders(); // Re-render the table
+                    showSuccess('Order marked as paid successfully');
+                } else {
+                    throw new Error(result.message || 'Failed to update order');
+                }
+            } catch (error) {
+                console.error('Error marking order as paid:', error);
+                showError('Failed to mark order as paid: ' + error.message);
+            }
+        }
+
+        async function deleteOrder(orderId) {
+            // Get order details for confirmation message
+            const order = orders.find(o => o.id === orderId);
+            const orderInfo = order ? `Order #${order.id} for ${order.counterName}` : `Order #${orderId}`;
+            
+            if (!confirm(`Are you sure you want to delete ${orderInfo}?\n\nThis action cannot be undone and will remove all order details.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/orders/${orderId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    // Remove from local orders array
+                    const orderIndex = orders.findIndex(o => o.id === orderId);
+                    if (orderIndex !== -1) {
+                        orders.splice(orderIndex, 1);
+                    }
+                    
+                    filterOrders(); // Re-render the table
+                    showSuccess('Order deleted successfully');
+                } else {
+                    throw new Error(result.message || 'Failed to delete order');
+                }
+            } catch (error) {
+                console.error('Error deleting order:', error);
+                showError('Failed to delete order: ' + error.message);
+            }
+        }
+
+        function downloadInvoice(fileName) {
+            if (fileName) {
+                window.open(`/invoices/${fileName}`, '_blank');
+            } else {
+                showError('Invoice file not available');
+            }
+        }
+
+        function downloadInvoiceFile(fileName) {
+            if (fileName) {
+                // Create a temporary link to download the file
+                const link = document.createElement('a');
+                link.href = `/invoices/${fileName}`;
+                link.download = fileName;
+                link.target = '_blank';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                showError('Invoice file not available');
+            }
+        }
+
+                // Edit order using the main Order modal with line items
+                function editOrder(orderId) {
+                    const order = orders.find(o => o.id === orderId);
+                    if (!order) return;
+                    isEditing = true;
+                    editingOrderId = orderId;
+
+                    // Open modal and set title/button
+                    orderModal.classList.remove('hidden');
+                    document.querySelector('#orderModal h3').textContent = 'Edit Order';
+                    const submitBtn = document.getElementById('submitBtn');
+                    submitBtn.innerHTML = submitBtn.innerHTML.replace('Generate Order & Invoice', 'Save Changes');
+
+                    // Set header fields
+                    const now = new Date();
+                    document.getElementById('invoiceDate').textContent = now.toLocaleDateString('en-IN');
+                    document.getElementById('invoiceTime').textContent = now.toLocaleTimeString('en-IN');
+                    document.getElementById('orderNumber').textContent = `SO-${now.getFullYear()}-${String(order.id).padStart(3, '0')}`;
+
+                    // Prefill counter and show its details
+                    const counterSelect = document.getElementById('orderCounter');
+                    counterSelect.value = order.counterID;
+                    counterSelect.dispatchEvent(new Event('change'));
+
+                    // Prefill dates with safe formatting
+                    const inputOrderDate = dateToInput(order.orderDate);
+                    document.getElementById('orderDate').value = inputOrderDate;
+                    const delivery = order.deliveryDate ? dateToInput(order.deliveryDate) : (() => {
+                        const base = new Date(inputOrderDate);
+                        base.setDate(base.getDate() + 3);
+                        return base.toISOString().split('T')[0];
+                    })();
+                    document.getElementById('deliveryDate').value = delivery;
+
+                    // Populate items
+                    orderItems.innerHTML = '';
+                    orderItemCount = 0;
+                    const details = Array.isArray(order.orderDetails) ? order.orderDetails : [];
+                    if (details.length === 0) {
+                        addProductRow();
+                    } else {
+                        details.forEach(d => {
+                            addProductRow({
+                                productId: d.productId || d.productID,
+                                quantity: d.qty || d.quantity,
+                                freeQty: d.freeQty || 0,
+                                offerPrice: d.offerPrice || d.rate,
+                                discount: d.discount || 0
+                            });
+                        });
+                    }
+
+                    updateOrderSummary();
+                }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/navigation.js"></script>
+    <style>
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Image hover styles */
+        .image-hover-container {
+            position: relative;
+        }
+        
+        .image-hover-overlay {
+            position: absolute;
+            left: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+            margin-left: 8px;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease-in-out;
+        }
+        
+        .image-hover-container:hover .image-hover-overlay {
+            opacity: 1;
+        }
+        
+        /* Ensure hover works when moving to large image */
+        .image-hover-container:hover .image-hover-overlay:hover {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Navigation Container -->
+    <div id="navigation-container"></div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-16">
+        <!-- Header Section -->
+        <div class="px-4 py-6 sm:px-0">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Products</h2>
+                    <p class="text-gray-600">Manage your product catalog</p>
+                </div>
+                <button id="addProductBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium">
+                    Add Product
+                </button>
+            </div>
+
+            <!-- Search and Filter Section -->
+            <div class="bg-white rounded-lg shadow p-4 mb-6">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="flex-1">
+                        <input type="text" id="searchProducts" 
+                               placeholder="Search products by name, SKU, or category..."
+                               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="categoryFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Categories</option>
+                            <option value="electronics">Electronics</option>
+                            <option value="clothing">Clothing</option>
+                            <option value="books">Books</option>
+                            <option value="home">Home & Garden</option>
+                            <option value="sports">Sports</option>
+                        </select>
+                        <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="out-of-stock">Out of Stock</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory Value Cards: single row with three cards -->
+            <div id="inventoryCards" class="mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Total -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-8 w-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M6 6h12M6 14h12M6 18h6"></path>
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Total Inventory Value (MRP x Qty)</dt>
+                                        <dd id="cardTotalValue" class="text-xl font-semibold text-gray-900">₹0.00</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- ENT -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-8 w-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">ENT Products Value</dt>
+                                        <dd id="cardEndValue" class="text-xl font-semibold text-gray-900">₹0.00</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Opthomology -->
+                    <div class="bg-white overflow-hidden shadow rounded-lg">
+                        <div class="p-5">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-8 w-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                    </svg>
+                                </div>
+                                <div class="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt class="text-sm font-medium text-gray-500 truncate">Opthomology Products Value</dt>
+                                        <dd id="cardOpthValue" class="text-xl font-semibold text-gray-900">₹0.00</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Grid -->
+            <div id="productsContainer" class="space-y-6">
+                <!-- Products will be loaded here -->
+                <div class="text-center py-8">
+                    <div class="text-gray-500">Loading products...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Product Modal -->
+    <div id="productModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 id="modalTitle" class="text-lg font-semibold text-gray-900">Add Product</h3>
+                        <button id="closeModal" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <form id="productForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+                            <input type="text" id="productName" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">SKU</label>
+                            <input type="text" id="productSku" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                            <select id="productCategory" required
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <option value="">Select Category</option>
+                                <option value="electronics">Electronics</option>
+                                <option value="clothing">Clothing</option>
+                                <option value="books">Books</option>
+                                <option value="home">Home & Garden</option>
+                                <option value="sports">Sports</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">MRP</label>
+                                <input type="number" id="productPrice" step="0.01" min="0" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Manufacturing Price</label>
+                                <input type="number" id="productManufacturingPrice" step="0.01" min="0"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Stock Quantity</label>
+                                <input type="number" id="productStock" min="0" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                                <input type="date" id="productExpDate"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                            <textarea id="productDescription" rows="3"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+                            <input type="file" id="productImage" accept="image/*"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <div id="productImagePreview" class="mt-2 hidden">
+                                <img id="productImagePreviewImg" src="" alt="Preview" class="h-24 w-24 object-cover rounded border" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                            <div class="flex space-x-6">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="productStatus" value="active" checked
+                                           class="sr-only">
+                                    <div class="flex items-center space-x-2 px-3 py-2 bg-green-50 border-2 border-green-300 rounded-lg">
+                                        <span class="text-green-600 text-lg">✓</span>
+                                        <span class="text-green-700 font-medium">Active</span>
+                                    </div>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="productStatus" value="inactive"
+                                           class="sr-only">
+                                    <div class="flex items-center space-x-2 px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-red-300">
+                                        <span class="text-red-500 text-lg">✗</span>
+                                        <span class="text-gray-600">Inactive</span>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-3 pt-4">
+                            <button type="submit" id="submitBtn"
+                                    class="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg font-medium">
+                                Add Product
+                            </button>
+                            <button type="button" id="cancelBtn"
+                                    class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg font-medium">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+    let products = [];
+    // Master list that ignores search/filter; use this for totals
+    let allProducts = [];
+    let categories = [];
+        let editingProductId = null;
+    let selectedImageBase64 = null;
+
+        // DOM elements
+        const productsContainer = document.getElementById('productsContainer');
+        const productModal = document.getElementById('productModal');
+        const productForm = document.getElementById('productForm');
+        const addProductBtn = document.getElementById('addProductBtn');
+        const closeModal = document.getElementById('closeModal');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const modalTitle = document.getElementById('modalTitle');
+        const submitBtn = document.getElementById('submitBtn');
+        const searchProducts = document.getElementById('searchProducts');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const statusFilter = document.getElementById('statusFilter');
+
+        // API Helper functions
+        function getAuthToken() {
+            return localStorage.getItem('authToken') || localStorage.getItem('token') || null;
+        }
+
+        function getAuthHeaders() {
+            const token = getAuthToken();
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': token ? `Bearer ${token}` : ''
+            };
+        }
+
+        async function makeAPIRequest(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        ...getAuthHeaders(),
+                        ...options.headers
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        // Show authentication error instead of immediate redirect
+                        console.error('Authentication failed');
+                        throw new Error('Unauthorized access - please log in');
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                console.error('API request failed:', error);
+                throw error;
+            }
+        }
+
+        // API functions
+        async function fetchProducts() {
+            try {
+                const data = await makeAPIRequest('/api/products');
+                return data?.products || [];
+            } catch (error) {
+                console.error('Error fetching products:', error);
+                showError('Failed to load products');
+                return [];
+            }
+        }
+
+    async function fetchCategories() {
+            try {
+                // Primary attempt using global API helper (with auth headers)
+                const data = await makeAPIRequest('/api/products/categories');
+                let cats = data?.categories || [];
+                // Fallback: try a plain fetch without custom headers (public route)
+                if (!Array.isArray(cats) || cats.length === 0) {
+                    try {
+                        const res = await fetch('/api/products/categories', { method: 'GET' });
+                        if (res.ok) {
+                            const d = await res.json();
+                            if (Array.isArray(d?.categories) && d.categories.length) {
+                                cats = d.categories;
+                            }
+                        }
+                    } catch (e) {
+                        // ignore and use whatever we have
+                    }
+                }
+                return cats;
+            } catch (error) {
+                console.error('Error fetching categories (primary):', error);
+                // Last-chance fallback: plain fetch
+                try {
+                    const res = await fetch('/api/products/categories', { method: 'GET' });
+                    if (res.ok) {
+                        const d = await res.json();
+                        return d?.categories || [];
+                    }
+                } catch (e) {
+                    // swallow
+                }
+                return [];
+            }
+        }
+
+        async function searchProductsAPI(query) {
+            try {
+                const data = await makeAPIRequest(`/api/products/search?q=${encodeURIComponent(query)}`);
+                return data?.products || [];
+            } catch (error) {
+                console.error('Error searching products:', error);
+                return [];
+            }
+        }
+
+        async function createProduct(productData) {
+            try {
+                const data = await makeAPIRequest('/api/products', {
+                    method: 'POST',
+                    body: JSON.stringify(productData)
+                });
+                return data;
+            } catch (error) {
+                console.error('Error creating product:', error);
+                throw error;
+            }
+        }
+
+        async function updateProduct(id, productData) {
+            try {
+                const data = await makeAPIRequest(`/api/products/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(productData)
+                });
+                return data;
+            } catch (error) {
+                console.error('Error updating product:', error);
+                throw error;
+            }
+        }
+
+        async function deleteProductAPI(id) {
+            try {
+                await makeAPIRequest(`/api/products/${id}`, {
+                    method: 'DELETE'
+                });
+                return true;
+            } catch (error) {
+                console.error('Error deleting product:', error);
+                throw error;
+            }
+        }
+
+        // Utility functions
+        function showError(message) {
+            // Create and show error message
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            errorDiv.textContent = message;
+            document.body.appendChild(errorDiv);
+            
+            setTimeout(() => {
+                document.body.removeChild(errorDiv);
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            // Create and show success message
+            const successDiv = document.createElement('div');
+            successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+            successDiv.textContent = message;
+            document.body.appendChild(successDiv);
+            
+            setTimeout(() => {
+                document.body.removeChild(successDiv);
+            }, 3000);
+        }
+
+        // Currency formatter (INR)
+        function formatINR(amount) {
+            const n = Number(amount || 0);
+            return new Intl.NumberFormat('en-IN', {
+                style: 'currency',
+                currency: 'INR',
+                minimumFractionDigits: 2
+            }).format(n);
+        }
+
+        // Update inventory cards (ignores search/filter; uses allProducts)
+        function updateInventoryCards() {
+            try {
+                const getCatName = (p) => {
+                    try { return String(getCategoryLabel(p.category) || '').trim(); } catch { return String(p.category || '').trim(); }
+                };
+                const isEnt = (name) => name.toLowerCase() === 'ent';
+                const isOpth = (name) => {
+                    const n = name.toLowerCase();
+                    return n === 'opthomology' || n === 'ophthalmology';
+                };
+
+                let total = 0, entTotal = 0, opthTotal = 0;
+                (allProducts || []).forEach(p => {
+                    const mrp = Number(p.price ?? p.mrp ?? 0);
+                    const qty = Number(p.stock ?? p.qty ?? 0);
+                    const value = (isNaN(mrp) || isNaN(qty)) ? 0 : mrp * qty;
+                    total += value;
+                    const name = getCatName(p);
+                    if (isEnt(name)) entTotal += value;
+                    if (isOpth(name)) opthTotal += value;
+                });
+
+                const elTotal = document.getElementById('cardTotalValue');
+                const elEnd = document.getElementById('cardEndValue');
+                const elOpth = document.getElementById('cardOpthValue');
+                if (elTotal) elTotal.textContent = formatINR(total);
+                if (elEnd) elEnd.textContent = formatINR(entTotal);
+                if (elOpth) elOpth.textContent = formatINR(opthTotal);
+            } catch (e) {
+                console.error('Failed to update inventory cards', e);
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Load navigation first
+            try {
+                NavigationLoader.loadNavigation();
+                console.log('Navigation loader called successfully');
+            } catch (error) {
+                console.error('Navigation loader error:', error);
+            }
+
+            // Enforce authentication strictly
+            const token = getAuthToken();
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            // Load application data
+            try {
+                await loadInitialData();
+                setupEventListeners();
+                setupStatusRadioButtons();
+                updateInventoryCards();
+            } catch (error) {
+                console.error('Failed to initialize:', error);
+                if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+                    window.location.href = '/login.html';
+                } else {
+                    showError('Failed to load application data');
+                }
+            }
+        });
+
+        function showAuthenticationError() {
+            productsContainer.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto">
+                        <div class="flex items-center justify-center w-12 h-12 bg-yellow-100 rounded-full mx-auto mb-4">
+                            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">Authentication Required</h3>
+                        <p class="text-gray-600 mb-4">Please log in to access the product management system.</p>
+                        <div class="flex gap-3 justify-center">
+                            <button onclick="window.location.href='/login.html'" 
+                                    class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium">
+                                Go to Login
+                            </button>
+                            <button onclick="useDemoMode()" 
+                                    class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium">
+                                Demo Mode
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function useDemoMode() {
+            window.location.href = '/login.html';
+        }
+
+        async function loadInitialData() {
+            try {
+                // Load categories and products in parallel
+                const [categoriesData, productsData] = await Promise.all([
+                    fetchCategories(),
+                    fetchProducts()
+                ]);
+                
+                categories = categoriesData;
+                products = productsData;
+                allProducts = productsData;
+                
+                populateCategoryFilters();
+                renderProducts(products);
+                updateInventoryCards();
+            } catch (error) {
+                console.error('Error loading initial data:', error);
+                showError('Failed to load initial data');
+            }
+        }
+
+        function populateCategoryFilters() {
+            // Update category filter dropdown
+            const categoryOptions = categories.map(cat => {
+                // support both {id,name} objects and legacy string values
+                const id = typeof cat === 'object' ? cat.id : cat;
+                const name = typeof cat === 'object' ? cat.name : cat;
+                const label = (name || '').toString();
+                const pretty = label.charAt(0).toUpperCase() + label.slice(1);
+                return `<option value="${id}">${pretty}</option>`;
+            }).join('');
+            
+            categoryFilter.innerHTML = `
+                <option value="">All Categories</option>
+                ${categoryOptions}
+            `;
+
+            // Update modal category dropdown  
+            const modalCategorySelect = document.getElementById('productCategory');
+            modalCategorySelect.innerHTML = `
+                <option value="">Select Category</option>
+                ${categoryOptions}
+            `;
+        }
+
+        function setupEventListeners() {
+            addProductBtn.addEventListener('click', openAddModal);
+            closeModal.addEventListener('click', closeProductModal);
+            cancelBtn.addEventListener('click', closeProductModal);
+            productForm.addEventListener('submit', handleSubmit);
+            searchProducts.addEventListener('input', handleSearch);
+            categoryFilter.addEventListener('change', filterProducts);
+            statusFilter.addEventListener('change', filterProducts);
+
+            // Product image selection
+            const imageInput = document.getElementById('productImage');
+            imageInput.addEventListener('change', async (e) => {
+                const file = e.target.files?.[0];
+                selectedImageBase64 = null;
+                const previewWrap = document.getElementById('productImagePreview');
+                const previewImg = document.getElementById('productImagePreviewImg');
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        selectedImageBase64 = reader.result; // data URL
+                        if (typeof selectedImageBase64 === 'string') {
+                            previewImg.src = selectedImageBase64;
+                            previewWrap.classList.remove('hidden');
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    previewWrap.classList.add('hidden');
+                    previewImg.src = '';
+                }
+            });
+
+            // Close modal when clicking outside
+            productModal.addEventListener('click', (e) => {
+                if (e.target === productModal) {
+                    closeProductModal();
+                }
+            });
+        }
+
+        function setupStatusRadioButtons() {
+            const radioButtons = document.querySelectorAll('input[name="productStatus"]');
+            radioButtons.forEach(radio => {
+                radio.addEventListener('change', updateStatusVisual);
+            });
+        }
+
+        function updateStatusVisual() {
+            const radioButtons = document.querySelectorAll('input[name="productStatus"]');
+            radioButtons.forEach(radio => {
+                const label = radio.closest('label');
+                const div = label.querySelector('div');
+                const span = div.querySelector('span:last-child');
+                
+                if (radio.checked) {
+                    if (radio.value === 'active') {
+                        div.className = 'flex items-center space-x-2 px-3 py-2 bg-green-50 border-2 border-green-300 rounded-lg';
+                        span.className = 'text-green-700 font-medium';
+                    } else {
+                        div.className = 'flex items-center space-x-2 px-3 py-2 bg-red-50 border-2 border-red-300 rounded-lg';
+                        span.className = 'text-red-700 font-medium';
+                    }
+                } else {
+                    div.className = 'flex items-center space-x-2 px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-' + (radio.value === 'active' ? 'green' : 'red') + '-300';
+                    span.className = 'text-gray-600';
+                }
+            });
+        }
+
+        async function handleSearch() {
+            const query = searchProducts.value.trim();
+            
+            if (query.length === 0) {
+                // If search is empty, load all products
+                products = await fetchProducts();
+                allProducts = products;
+            } else if (query.length >= 2) {
+                // Search when at least 2 characters
+                // Do not touch allProducts so totals ignore search
+                products = await searchProductsAPI(query);
+            }
+            
+            filterProducts();
+        }
+
+    function filterProducts() {
+            const category = categoryFilter.value;
+            const status = statusFilter.value;
+
+            let filtered = [...products];
+
+            if (category) {
+        filtered = filtered.filter(product => String(product.category ?? '') === String(category));
+            }
+
+            if (status) {
+                filtered = filtered.filter(product => product.status === status);
+            }
+
+            renderProducts(filtered);
+        }
+
+        function getCategoryLabel(categoryValue) {
+            // Try to resolve using categories array
+            if (categories && categories.length) {
+                const match = categories.find(c => String((c && c.id) ?? c) === String(categoryValue));
+                if (match) return typeof match === 'object' ? match.name : match;
+            }
+            return categoryValue || 'N/A';
+        }
+
+        function renderProducts(productList) {
+            if (productList.length === 0) {
+                productsContainer.innerHTML = `
+                    <div class="text-center py-8">
+                        <div class="text-gray-500">No products found</div>
+                    </div>
+                `;
+                return;
+            }
+
+            productsContainer.innerHTML = `
+                <div class="col-span-full bg-white rounded-lg shadow overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MRP</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Manufacturing Price</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                ${productList.map(product => `
+                                    <tr class="hover:bg-gray-50 fade-in">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="image-hover-container">
+                                                <img src="/api/products/image/${product.id}" 
+                                                     alt="${escapeHtml(product.name)}"
+                                                     class="h-8 w-8 rounded object-cover cursor-pointer border border-gray-200 hover:border-gray-400 transition-all duration-200"
+                                                     onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNiAyNEMyMC40MTgzIDI0IDI0IDIwLjQxODMgMjQgMTZDMjQgMTEuNTgxNyAyMC40MTgzIDggMTYgOEMxMS41ODE3IDggOCAxMS41ODE3IDggMTZDOCAyMC40MTgzIDExLjU4MTcgMjQgMTYgMjQiIGZpbGw9IiNEMUQ1REIiLz4KPHBhdGggZD0iTTE4LjY2NjcgMTQuNjY2N0MxOC42NjY3IDE2LjEzOTQgMTcuNDcyNyAxNy4zMzMzIDE2IDE3LjMzMzNDMTQuNTI3MyAxNy4zMzMzIDEzLjMzMzMgMTYuMTM5NCAxMy4zMzMzIDE0LjY2NjdDMTMuMzMzMyAxMy4xOTM5IDE0LjUyNzMgMTIgMTYgMTJDMTcuNDcyNyAxMiAxOC42NjY3IDEzLjE5MzkgMTguNjY2NyAxNC42NjY3IiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4='">
+                                                
+                                                <!-- Large image on hover -->
+                                                <div class="image-hover-overlay">
+                                                    <div class="bg-white border-2 border-gray-300 rounded-lg shadow-xl p-3">
+                                                        <div class="text-sm text-gray-600 mb-2 font-medium">${escapeHtml(product.name)}</div>
+                                                        <img src="/api/products/image/${product.id}" 
+                                                             alt="${escapeHtml(product.name)}"
+                                                             class="h-96 w-96 rounded object-cover"
+                                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                        <div class="h-96 w-96 bg-gray-100 rounded flex items-center justify-center text-gray-400 text-lg border-2 border-dashed border-gray-300" style="display: none;">
+                                                            <div class="text-center">
+                                                                <svg class="h-12 w-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                                                </svg>
+                                                                <div class="font-medium">No Image Available</div>
+                                                                <div class="text-sm text-gray-400 mt-1">400x400</div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div>
+                                                    <div class="text-sm font-medium text-gray-900">${escapeHtml(product.name)}</div>
+                                                    ${product.description ? `<div class="text-sm text-gray-500">${escapeHtml(product.description.substring(0, 60))}${product.description.length > 60 ? '...' : ''}</div>` : ''}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${escapeHtml(product.sku)}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${escapeHtml(getCategoryLabel(product.category))}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${product.price}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${product.manufacturingPrice ?? ''}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${product.stock}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${escapeHtml(product.brand || 'N/A')}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(product.status)}">
+                                                ${product.status.charAt(0).toUpperCase() + product.status.slice(1).replace('-', ' ')}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <div class="flex space-x-2">
+                                                <button onclick="editProduct(${product.id})" 
+                                                        class="text-indigo-600 hover:text-indigo-900">Edit</button>
+                                                <button onclick="deleteProduct(${product.id})" 
+                                                        class="text-red-600 hover:text-red-900">Delete</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function getStatusBadgeClass(status) {
+            switch (status) {
+                case 'active':
+                    return 'bg-green-100 text-green-800';
+                case 'inactive':
+                    return 'bg-red-100 text-red-800';
+                case 'out-of-stock':
+                    return 'bg-yellow-100 text-yellow-800';
+                default:
+                    return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function openAddModal() {
+            editingProductId = null;
+            modalTitle.textContent = 'Add Product';
+            submitBtn.textContent = 'Add Product';
+            productForm.reset();
+            
+            // Reset status radio buttons
+            document.querySelector('input[name="productStatus"][value="active"]').checked = true;
+            updateStatusVisual();
+            
+            productModal.classList.remove('hidden');
+        }
+
+        async function editProduct(id) {
+            const product = products.find(p => p.id === id);
+            if (!product) return;
+
+            editingProductId = id;
+            modalTitle.textContent = 'Edit Product';
+            submitBtn.textContent = 'Update Product';
+
+            // Populate form
+            document.getElementById('productName').value = product.name;
+            document.getElementById('productSku').value = product.sku;
+            // For edit, product.category may be id or name; try to select by exact match, else try name match
+            const categorySelect = document.getElementById('productCategory');
+            const desired = product.category ?? '';
+            // try direct value match
+            if ([...categorySelect.options].some(o => o.value == desired)) {
+                categorySelect.value = desired;
+            } else {
+                // try matching by name when categories are objects
+                const match = [...categorySelect.options].find(o => o.text.trim().toLowerCase() === String(desired).trim().toLowerCase());
+                if (match) categorySelect.value = match.value;
+            }
+            document.getElementById('productPrice').value = product.price;
+            document.getElementById('productManufacturingPrice').value = product.manufacturingPrice || '';
+            document.getElementById('productStock').value = product.stock;
+            document.getElementById('productDescription').value = product.description || '';
+            // Expiry date (expecting YYYY-MM-DD)
+            const expDateInput = document.getElementById('productExpDate');
+            if (product.expDate) {
+                try {
+                    const d = new Date(product.expDate);
+                    const yyyy = d.getFullYear();
+                    const mm = String(d.getMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getDate()).padStart(2, '0');
+                    expDateInput.value = `${yyyy}-${mm}-${dd}`;
+                } catch {}
+            } else {
+                expDateInput.value = '';
+            }
+            // Reset image preview
+            selectedImageBase64 = null;
+            const previewWrap = document.getElementById('productImagePreview');
+            const previewImg = document.getElementById('productImagePreviewImg');
+            previewWrap.classList.add('hidden');
+            previewImg.src = '';
+            
+            // Set status radio button
+            const statusValue = product.status || 'active';
+            const statusRadio = document.querySelector(`input[name="productStatus"][value="${statusValue}"]`);
+            if (statusRadio) {
+                statusRadio.checked = true;
+                updateStatusVisual();
+            }
+
+            productModal.classList.remove('hidden');
+        }
+
+        async function deleteProduct(id) {
+            if (confirm('Are you sure you want to delete this product?')) {
+                try {
+                    await deleteProductAPI(id);
+                    showSuccess('Product deleted successfully');
+                    
+                    // Remove from local array and re-render
+                    products = products.filter(p => p.id !== id);
+                    allProducts = allProducts.filter(p => p.id !== id);
+                    filterProducts();
+                    updateInventoryCards();
+                } catch (error) {
+                    showError('Failed to delete product');
+                }
+            }
+        }
+
+        function closeProductModal() {
+            productModal.classList.add('hidden');
+            productForm.reset();
+            editingProductId = null;
+            selectedImageBase64 = null;
+            const previewWrap = document.getElementById('productImagePreview');
+            const previewImg = document.getElementById('productImagePreviewImg');
+            previewWrap.classList.add('hidden');
+            previewImg.src = '';
+        }
+
+        async function handleSubmit(e) {
+            e.preventDefault();
+
+            // Disable submit button to prevent double submission
+            submitBtn.disabled = true;
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Processing...';
+
+            try {
+                const formData = new FormData(productForm);
+                const productData = {
+                    name: document.getElementById('productName').value.trim(),
+                    sku: document.getElementById('productSku').value.trim(),
+                    // Send categoryId primarily; keep category string for legacy fallback when id is not numeric
+                    categoryId: document.getElementById('productCategory').value,
+                    category: (() => {
+                        const sel = document.getElementById('productCategory');
+                        const val = sel.value;
+                        const isNumeric = val !== '' && !isNaN(Number(val));
+                        return isNumeric ? undefined : sel.options[sel.selectedIndex]?.text || '';
+                    })(),
+                    price: parseFloat(document.getElementById('productPrice').value),
+                    manufacturingPrice: (() => {
+                        const v = document.getElementById('productManufacturingPrice').value;
+                        return v === '' ? undefined : parseFloat(v);
+                    })(),
+                    stock: parseInt(document.getElementById('productStock').value),
+                    description: document.getElementById('productDescription').value.trim(),
+                    expDate: (() => {
+                        const v = document.getElementById('productExpDate').value;
+                        return v || undefined;
+                    })(),
+                    status: document.querySelector('input[name="productStatus"]:checked').value
+                };
+
+                // Validate required fields
+                if (!productData.name || !productData.sku || !(productData.categoryId || productData.category)) {
+                    showError('Please fill in all required fields');
+                    return;
+                }
+
+                if (editingProductId) {
+                    // Update existing product
+                    await updateProduct(editingProductId, productData);
+                    // Upload image if selected
+                    if (selectedImageBase64) {
+                        try {
+                            await makeAPIRequest(`/api/products/${editingProductId}/image`, {
+                                method: 'PUT',
+                                body: JSON.stringify({ image: selectedImageBase64 })
+                            });
+                        } catch (e) {
+                            console.warn('Image upload failed:', e);
+                        }
+                    }
+                    showSuccess('Product updated successfully');
+                    
+                    // Update local array
+                    const index = products.findIndex(p => p.id === editingProductId);
+                    if (index !== -1) {
+                        products[index] = { ...products[index], ...productData };
+                    }
+                    const mIndex = allProducts.findIndex(p => p.id === editingProductId);
+                    if (mIndex !== -1) {
+                        allProducts[mIndex] = { ...allProducts[mIndex], ...productData };
+                    }
+                } else {
+                    // Add new product
+                    const newProduct = await createProduct(productData);
+                    const newId = newProduct?.product?.id;
+                    // Upload image if selected
+                    if (newId && selectedImageBase64) {
+                        try {
+                            await makeAPIRequest(`/api/products/${newId}/image`, {
+                                method: 'PUT',
+                                body: JSON.stringify({ image: selectedImageBase64 })
+                            });
+                        } catch (e) {
+                            console.warn('Image upload failed:', e);
+                        }
+                    }
+                    showSuccess('Product created successfully');
+                    
+                    // Add to local array
+                    products.push(newProduct.product);
+                    allProducts.push(newProduct.product);
+                }
+
+                closeProductModal();
+                filterProducts();
+                updateInventoryCards();
+            } catch (error) {
+                showError(editingProductId ? 'Failed to update product' : 'Failed to create product');
+            } finally {
+                // Re-enable submit button
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
+            }
+        }
+    </script>
+</body>
+</html>

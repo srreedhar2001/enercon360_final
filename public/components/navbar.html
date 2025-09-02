@@ -1,0 +1,146 @@
+<!-- Navigation Component -->
+<nav class="glass-effect fixed w-full top-0 z-50" id="mainNavigation">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between items-center h-16">
+            <div class="flex items-center">
+                <div class="flex-shrink-0">
+                    <div class="h-10 w-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
+                        <span class="text-white font-bold text-lg">E</span>
+                    </div>
+                </div>
+                <span class="ml-3 text-gray-900 font-bold text-xl">Enercon 360</span>
+            </div>
+            <div class="hidden md:block">
+                <div class="ml-10 flex items-baseline space-x-4">
+                    <!-- <a href="/home.html" class="nav-link" data-page="home">Home</a>
+                    <a href="#" class="nav-link" data-page="features">Features</a> -->
+                    <a href="/dashboard.html" class="nav-link" data-page="dashboard">Dashboard</a>
+                    <a href="/product.html" class="nav-link" data-page="products">Products</a>
+                    <a href="/counter.html" class="nav-link" data-page="counters">Counters</a>
+                    <a href="/order.html" class="nav-link" data-page="orders">Orders</a>
+                    <a href="/collections.html" class="nav-link" data-page="collections">Collections</a>
+                    <a href="/payments.html" class="nav-link" data-page="payments">Payments</a>
+                    <a href="/user.html" class="nav-link" data-page="users">Users</a>
+                    <a href="/page-access.html" class="nav-link" data-page="page-access">Page Access</a>
+                    <!-- <a href="#" class="nav-link" data-page="about">About</a>
+                    <a href="#" class="nav-link" data-page="contact">Contact</a> -->
+                </div>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span id="userInfo" class="text-gray-700 font-medium hidden"></span>
+                <button id="logoutBtn" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-300 hidden">
+                    Sign Out
+                </button>
+                <a href="/login.html" id="loginBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-300">
+                    Sign In
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<style>
+    .glass-effect {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .nav-link {
+        color: rgb(75 85 99);
+        padding: 0.5rem 0.75rem;
+        border-radius: 0.375rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: color 0.3s ease;
+        text-decoration: none;
+    }
+    
+    .nav-link:hover {
+        color: rgb(79 70 229);
+    }
+    
+    .nav-link.active {
+        color: rgb(17 24 39);
+        font-weight: 600;
+    }
+</style>
+
+<script>
+    // Navigation functionality
+    function initializeNavigation() {
+        // Check if user is logged in
+        const token = localStorage.getItem('authToken');
+        const userData = localStorage.getItem('userData');
+        
+        if (token) {
+            // Always show logout when authenticated
+            document.getElementById('logoutBtn').classList.remove('hidden');
+            document.getElementById('loginBtn').classList.add('hidden');
+            // Show user info only if present
+            if (userData) {
+                const user = JSON.parse(userData);
+                document.getElementById('userInfo').textContent = `Welcome, ${user.name || user.mobile || user.emailID || ''}`;
+                document.getElementById('userInfo').classList.remove('hidden');
+            }
+        }
+        
+        // Logout functionality
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('token');
+            localStorage.removeItem('userData');
+            if (window.__accessCache) window.__accessCache = { loaded: false, designationId: null, modules: [], permissions: {} };
+            window.location.href = '/login.html';
+        });
+        
+        // Set active navigation item
+        const currentPage = getCurrentPage();
+        setActiveNavItem(currentPage);
+        
+        // Add navbar background on scroll
+        window.addEventListener('scroll', function() {
+            const nav = document.querySelector('#mainNavigation');
+            if (window.scrollY > 0) {
+                nav.classList.add('bg-white', 'shadow-lg');
+                nav.classList.remove('glass-effect');
+            } else {
+                nav.classList.remove('bg-white', 'shadow-lg');
+                nav.classList.add('glass-effect');
+            }
+        });
+    }
+    
+    function getCurrentPage() {
+        const path = window.location.pathname;
+        if (path.includes('home.html') || path === '/') return 'home';
+    if (path.includes('dashboard.html')) return 'dashboard';
+        if (path.includes('user.html')) return 'users';
+        if (path.includes('product.html')) return 'products';
+        if (path.includes('counter.html')) return 'counters';
+        if (path.includes('order.html')) return 'orders';
+        if (path.includes('collections.html')) return 'collections';
+        if (path.includes('payments.html')) return 'payments';
+    if (path.includes('page-access.html')) return 'page-access';
+        if (path.includes('features')) return 'features';
+        if (path.includes('about')) return 'about';
+        if (path.includes('contact')) return 'contact';
+        return 'home';
+    }
+    
+    function setActiveNavItem(page) {
+        // Remove active class from all nav links
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        // Add active class to current page
+        const activeLink = document.querySelector(`[data-page="${page}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+    }
+    
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', initializeNavigation);
+</script>
