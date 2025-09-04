@@ -193,6 +193,21 @@ class OrderController {
 
             // Create order details
             for (const detail of orderDetails) {
+                // Normalize numeric fields so that 0 is preserved and undefined/NaN become 0
+                const qtyParsed = parseInt(detail.quantity ?? detail.qty, 10);
+                const safeQty = Number.isFinite(qtyParsed) ? qtyParsed : 0;
+                const freeQtyParsed = parseInt(detail.freeQty, 10);
+                const safeFreeQty = Number.isFinite(freeQtyParsed) ? freeQtyParsed : 0;
+                const rateParsed = Number(detail.rate);
+                const safeRate = Number.isFinite(rateParsed) ? rateParsed : 0;
+                const totalAmountParsed = Number(detail.totalAmount);
+                const safeTotalAmount = Number.isFinite(totalAmountParsed) ? totalAmountParsed : 0;
+                const cgstParsed = Number(detail.cgst);
+                const safeCgst = Number.isFinite(cgstParsed) ? cgstParsed : 0;
+                const sgstParsed = Number(detail.sgst);
+                const safeSgst = Number.isFinite(sgstParsed) ? sgstParsed : 0;
+                const discountParsed = Number(detail.discount);
+                const safeDiscount = Number.isFinite(discountParsed) ? discountParsed : 0;
                 const detailQuery = `
                     INSERT INTO orderdetails (
                         orderId, productId, qty, freeQty, offerPrice, total, 
@@ -203,13 +218,13 @@ class OrderController {
                 await dbQuery(detailQuery, [
                     orderId,
                     detail.productID,
-                    detail.quantity || 1,
-                    detail.freeQty || 0,
-                    detail.rate || 0,
-                    detail.totalAmount || 0,
-                    detail.cgst || 0,
-                    detail.sgst || 0,
-                    detail.discount || 0 // Use discount from frontend
+                    safeQty,
+                    safeFreeQty,
+                    safeRate,
+                    safeTotalAmount,
+                    safeCgst,
+                    safeSgst,
+                    safeDiscount // Use discount from frontend
                 ]);
             }
 
@@ -357,6 +372,21 @@ class OrderController {
 
                 // Insert new details
                 for (const detail of orderDetails) {
+                    // Normalize numeric fields so that 0 is preserved and undefined/NaN become 0
+                    const qtyParsed = parseInt(detail.quantity ?? detail.qty, 10);
+                    const safeQty = Number.isFinite(qtyParsed) ? qtyParsed : 0;
+                    const freeQtyParsed = parseInt(detail.freeQty, 10);
+                    const safeFreeQty = Number.isFinite(freeQtyParsed) ? freeQtyParsed : 0;
+                    const rateParsed = Number(detail.rate ?? detail.offerPrice);
+                    const safeRate = Number.isFinite(rateParsed) ? rateParsed : 0;
+                    const totalAmountParsed = Number(detail.totalAmount ?? detail.amount);
+                    const safeTotalAmount = Number.isFinite(totalAmountParsed) ? totalAmountParsed : 0;
+                    const cgstParsed = Number(detail.cgst);
+                    const safeCgst = Number.isFinite(cgstParsed) ? cgstParsed : 0;
+                    const sgstParsed = Number(detail.sgst);
+                    const safeSgst = Number.isFinite(sgstParsed) ? sgstParsed : 0;
+                    const discountParsed = Number(detail.discount);
+                    const safeDiscount = Number.isFinite(discountParsed) ? discountParsed : 0;
                     const detailQuery = `
                         INSERT INTO orderdetails (
                             orderId, productId, qty, freeQty, offerPrice, total, 
@@ -366,13 +396,13 @@ class OrderController {
                     await dbQuery(detailQuery, [
                         id,
                         detail.productID || detail.productId,
-                        detail.quantity || detail.qty || 1,
-                        detail.freeQty || 0,
-                        detail.rate || detail.offerPrice || 0,
-                        detail.totalAmount || detail.amount || 0,
-                        detail.cgst || 0,
-                        detail.sgst || 0,
-                        detail.discount || 0
+                        safeQty,
+                        safeFreeQty,
+                        safeRate,
+                        safeTotalAmount,
+                        safeCgst,
+                        safeSgst,
+                        safeDiscount
                     ]);
                 }
             }

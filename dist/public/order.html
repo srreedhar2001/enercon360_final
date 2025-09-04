@@ -36,6 +36,43 @@
         .product-row:last-child {
             border-bottom: none;
         }
+    /* Product line UI tweak: widen inputs and labels by +10px */
+    .order-items-table thead th { padding-left: 21px !important; padding-right: 21px !important; }
+    .order-items-table .quantity-input,
+    .order-items-table .free-qty-input,
+    .order-items-table .price-input,
+    .order-items-table .offer-price-input,
+    .order-items-table .discount-input { padding-left: 13px; padding-right: 13px; }
+    /* Column widths: keep Product Description wide; set others to 60px */
+    .order-items-table th:nth-child(2),
+    .order-items-table td:nth-child(2) { min-width: 250px; width: 250px; }
+    .order-items-table th:nth-child(1),
+    .order-items-table td:nth-child(1),
+    .order-items-table th:nth-child(3),
+    .order-items-table td:nth-child(3),
+    .order-items-table th:nth-child(4),
+    .order-items-table td:nth-child(4),
+    .order-items-table th:nth-child(5),
+    .order-items-table td:nth-child(5),
+    .order-items-table th:nth-child(6),
+    .order-items-table td:nth-child(6),
+    .order-items-table th:nth-child(7),
+    .order-items-table td:nth-child(7),
+    .order-items-table th:nth-child(8),
+    .order-items-table td:nth-child(8),
+    .order-items-table th:nth-child(9),
+    .order-items-table td:nth-child(9),
+    .order-items-table th:nth-child(10),
+    .order-items-table td:nth-child(10),
+    .order-items-table th:nth-child(11),
+    .order-items-table td:nth-child(11) { min-width: 90px; width: 90px; }
+    /* Inputs: keep product select wide; set others to 60px min */
+    .order-items-table .product-select { min-width: 230px; }
+    .order-items-table .price-input,
+    .order-items-table .offer-price-input,
+    .order-items-table .quantity-input,
+    .order-items-table .free-qty-input,
+    .order-items-table .discount-input { min-width: 90px; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -207,7 +244,7 @@
 
                                 <!-- Invoice Table Header -->
                                 <div class="overflow-x-auto">
-                                    <table class="w-full border-collapse border border-gray-300">
+                                    <table class="w-full border-collapse border border-gray-300 order-items-table">
                                         <thead>
                                             <tr class="bg-gray-100">
                                                 <th class="border border-gray-300 px-4 py-3 text-left font-semibold">#</th>
@@ -217,6 +254,8 @@
                                                 <th class="border border-gray-300 px-4 py-3 text-right font-semibold">MRP</th>
                                                 <th class="border border-gray-300 px-4 py-3 text-right font-semibold">Offer Price</th>
                                                 <th class="border border-gray-300 px-4 py-3 text-center font-semibold">Disc%</th>
+                                                <th class="border border-gray-300 px-4 py-3 text-right font-semibold">CGST</th>
+                                                <th class="border border-gray-300 px-4 py-3 text-right font-semibold">SGST</th>
                                                 <th class="border border-gray-300 px-4 py-3 text-right font-semibold">Line Total</th>
                                                 <th class="border border-gray-300 px-4 py-3 text-center font-semibold">Action</th>
                                             </tr>
@@ -267,11 +306,11 @@
                                     </div>
                                     <hr class="border-gray-300">
                                     <div class="flex justify-between text-sm">
-                                        <span class="text-gray-600">CGST (6%):</span>
+                                        <span class="text-gray-600">CGST:</span>
                                         <span id="cgstDisplay" class="font-medium">₹0.00</span>
                                     </div>
                                     <div class="flex justify-between text-sm">
-                                        <span class="text-gray-600">SGST (6%):</span>
+                                        <span class="text-gray-600">SGST:</span>
                                         <span id="sgstDisplay" class="font-medium">₹0.00</span>
                                     </div>
                                     <hr class="border-gray-400">
@@ -378,11 +417,11 @@
                                     <span id="viewSubtotal" class="font-semibold text-gray-900"></span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-gray-600">CGST (6%):</span>
+                                    <span class="text-gray-600">CGST:</span>
                                     <span id="viewCGST" class="font-semibold text-gray-900"></span>
                                 </div>
                                 <div class="flex justify-between">
-                                    <span class="text-gray-600">SGST (6%):</span>
+                                    <span class="text-gray-600">SGST:</span>
                                     <span id="viewSGST" class="font-semibold text-gray-900"></span>
                                 </div>
                             </div>
@@ -440,7 +479,8 @@
         let orders = [];
         let counters = [];
         let products = [];
-        let orderItemCount = 0;
+    let orderItemCount = 0;
+    let gstRatesMap = {}; // { gstId: total_gst_percent }
     let isEditing = false;
     let editingOrderId = null;
 
@@ -564,6 +604,35 @@
                 console.error('Error fetching products:', error);
                 showError('Failed to load products: ' + error.message);
                 return [];
+            }
+        }
+
+        async function fetchGSTList() {
+            try {
+                const response = await fetch('/api/products/gst', {
+                    method: 'GET',
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                // Backend returns { success: true, gsts: [...] }
+                const list = (result.gsts || result.data || result.gst || []).map(g => ({
+                    id: g.id ?? g.gst_id ?? g.GST_ID,
+                    total_gst: g.total_gst ?? g.rate ?? g.Rate ?? g.TotalGST ?? 12
+                })).filter(x => x.id != null);
+                const map = {};
+                list.forEach(x => {
+                    const n = Number(x.total_gst);
+                    if (!isNaN(n)) map[String(x.id)] = n;
+                });
+                return map;
+            } catch (error) {
+                console.error('Error fetching GST list:', error);
+                return {};
             }
         }
 
@@ -734,15 +803,17 @@
         async function loadInitialData() {
             try {
                 // Load data in parallel
-                const [ordersData, countersData, productsData] = await Promise.all([
+                const [ordersData, countersData, productsData, gstMap] = await Promise.all([
                     fetchOrders(),
                     fetchCounters(),
-                    fetchProducts()
+                    fetchProducts(),
+                    fetchGSTList()
                 ]);
                 
                 orders = ordersData;
                 counters = countersData;
                 products = productsData;
+                gstRatesMap = gstMap || {};
                 
                 populateDropdowns();
                 renderOrders(orders);
@@ -852,7 +923,6 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -878,15 +948,6 @@
                                             <div class="text-xs text-gray-500">
                                                 Subtotal: ${formatCurrency(order.subTotal)} + Tax: ${formatCurrency(order.totalCGST + order.totalSGST)}
                                             </div>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                                order.status === 'completed' ? 'bg-green-100 text-green-800' : 
-                                                order.status === 'cancelled' ? 'bg-red-100 text-red-800' : 
-                                                'bg-blue-100 text-blue-800'
-                                            }">
-                                                ${order.status ? order.status.charAt(0).toUpperCase() + order.status.slice(1) : 'Open'}
-                                            </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${order.paymentReceived ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
@@ -1002,9 +1063,13 @@
 
         function addProductRow(prefill) {
             orderItemCount++;
-            const productOptions = products.map(product => 
-                `<option value="${product.id}" data-price="${product.mrp}">${product.name} - ${formatCurrency(product.mrp)}</option>`
-            ).join('');
+            const productOptions = products.map(product => {
+                const gstId = product.gst_id ?? product.gstId;
+                const key = String(gstId);
+                const hasRate = key in gstRatesMap;
+                const totalGst = hasRate ? Number(gstRatesMap[key]) : 0;
+                return `<option value="${product.id}" data-price="${product.mrp}" data-gst="${totalGst}">${product.name} - ${formatCurrency(product.mrp)}</option>`;
+            }).join('');
 
             const rowHtml = `
                 <tr class="product-row" id="productRow${orderItemCount}">
@@ -1017,7 +1082,7 @@
                     </td>
                     <td class="border border-gray-300 px-4 py-3">
                         <input type="number" class="quantity-input w-full px-2 py-1 border border-gray-200 rounded text-center focus:ring-2 focus:ring-blue-500" 
-                               min="1" value="1" required>
+                               min="0" value="0">
                     </td>
                     <td class="border border-gray-300 px-4 py-3">
                         <input type="number" class="free-qty-input w-full px-2 py-1 border border-gray-200 rounded text-center focus:ring-2 focus:ring-blue-500" 
@@ -1034,6 +1099,12 @@
                     <td class="border border-gray-300 px-4 py-3">
                         <input type="number" class="discount-input w-full px-2 py-1 border border-gray-200 rounded text-center focus:ring-2 focus:ring-blue-500" 
                                step="0.01" min="0" max="100" value="0">
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3 text-right">
+                        <span class="cgst-amount font-medium">₹0.00</span>
+                    </td>
+                    <td class="border border-gray-300 px-4 py-3 text-right">
+                        <span class="sgst-amount font-medium">₹0.00</span>
                     </td>
                     <td class="border border-gray-300 px-4 py-3 text-right">
                         <span class="line-total font-semibold">₹0.00</span>
@@ -1057,13 +1128,16 @@
             const offerPriceInput = row.querySelector('.offer-price-input');
             const discountInput = row.querySelector('.discount-input');
 
-            productSelect.addEventListener('change', function() {
+        productSelect.addEventListener('change', function() {
                 const selectedOption = this.options[this.selectedIndex];
                 if (selectedOption.value) {
                     const mrpPrice = selectedOption.dataset.price;
                     priceInput.value = mrpPrice;
                     // Set offer price to MRP by default, user can modify it
                     offerPriceInput.value = mrpPrice;
+            let totalGst = parseFloat(selectedOption.dataset.gst);
+            if (isNaN(totalGst)) totalGst = 0;
+            row.dataset.gstRate = String(totalGst);
                     updateLineTotal(row);
                 }
             });
@@ -1073,12 +1147,15 @@
             discountInput.addEventListener('input', () => updateLineTotal(row));
 
             // Apply prefill if provided
-            if (prefill) {
+                if (prefill) {
                 if (prefill.productId) {
                     productSelect.value = String(prefill.productId);
                     const selectedOption = productSelect.options[productSelect.selectedIndex];
                     if (selectedOption && selectedOption.dataset.price) {
                         priceInput.value = selectedOption.dataset.price;
+                            let totalGst = parseFloat(selectedOption.dataset.gst);
+                            if (isNaN(totalGst)) totalGst = 0;
+                            row.dataset.gstRate = String(totalGst);
                     }
                 }
                 if (prefill.quantity !== undefined && !isNaN(Number(prefill.quantity))) {
@@ -1116,8 +1193,25 @@
             // Use offer price for calculations instead of MRP
             const subtotal = roundRupee(quantity * offerPrice);
             const discountAmount = roundRupee((subtotal * discount) / 100);
-            const lineTotal = roundRupee(subtotal - discountAmount);
+            const lineAmount = roundRupee(subtotal - discountAmount);
 
+            // Determine GST rate for this row
+            const productSelect = row.querySelector('.product-select');
+            const selectedOption = productSelect ? productSelect.options[productSelect.selectedIndex] : null;
+            let totalGst = parseFloat(selectedOption?.dataset?.gst);
+            if (isNaN(totalGst)) totalGst = parseFloat(row.dataset.gstRate);
+            if (isNaN(totalGst)) totalGst = 0;
+            const halfGstPct = Number(totalGst) / 2;
+            const cgstLine = roundRupee(lineAmount * (halfGstPct / 100));
+            const sgstLine = roundRupee(lineAmount * (halfGstPct / 100));
+
+            // Line total displayed as net amount (pre-tax); CGST/SGST shown in separate columns
+            const lineTotal = roundRupee(lineAmount);
+
+            const cgstEl = row.querySelector('.cgst-amount');
+            const sgstEl = row.querySelector('.sgst-amount');
+            if (cgstEl) cgstEl.textContent = formatCurrency(cgstLine);
+            if (sgstEl) sgstEl.textContent = formatCurrency(sgstLine);
             row.querySelector('.line-total').textContent = formatCurrency(lineTotal);
             updateOrderSummary();
         }
@@ -1125,6 +1219,8 @@
         function updateOrderSummary() {
             let subtotal = 0;
             let totalDiscount = 0;
+            let totalCGSTRaw = 0;
+            let totalSGSTRaw = 0;
 
             document.querySelectorAll('.product-row').forEach(row => {
                 const quantity = parseFloat(row.querySelector('.quantity-input').value) || 0;
@@ -1134,14 +1230,24 @@
                 // Use offer price for calculations instead of MRP
                 const lineSubtotal = roundRupee(quantity * offerPrice);
                 const lineDiscount = roundRupee((lineSubtotal * discount) / 100);
+                const lineAmount = roundRupee(lineSubtotal - lineDiscount);
 
                 subtotal = roundRupee(subtotal + lineSubtotal);
                 totalDiscount = roundRupee(totalDiscount + lineDiscount);
+                const selectedOption = row.querySelector('.product-select').options[row.querySelector('.product-select').selectedIndex];
+                let totalGst = parseFloat(selectedOption?.dataset?.gst);
+                if (isNaN(totalGst)) totalGst = parseFloat(row.dataset.gstRate);
+                if (isNaN(totalGst)) totalGst = 0;
+                const halfGstPct = Number(totalGst) / 2;
+                const cgstLineRaw = lineAmount * (halfGstPct / 100);
+                const sgstLineRaw = lineAmount * (halfGstPct / 100);
+                totalCGSTRaw += cgstLineRaw;
+                totalSGSTRaw += sgstLineRaw;
             });
 
             const taxableAmount = roundRupee(subtotal - totalDiscount);
-            const cgst = roundRupee(taxableAmount * 0.06); // 6% CGST
-            const sgst = roundRupee(taxableAmount * 0.06); // 6% SGST
+            const cgst = roundRupee(totalCGSTRaw);
+            const sgst = roundRupee(totalSGSTRaw);
             const grandTotal = roundRupee(taxableAmount + cgst + sgst);
 
             document.getElementById('subtotalDisplay').textContent = formatCurrency(subtotal);
@@ -1229,25 +1335,32 @@
             const orderDetails = [];
             let hasValidItems = false;
             let subTotal = 0;
-            let totalCGST = 0;
-            let totalSGST = 0;
+            let totalCGSTRaw = 0;
+            let totalSGSTRaw = 0;
 
             productRows.forEach(row => {
                 const productId = row.querySelector('.product-select').value;
-                const quantity = parseInt(row.querySelector('.quantity-input').value);
+                const quantity = parseInt(row.querySelector('.quantity-input').value) || 0;
                 const freeQty = parseInt(row.querySelector('.free-qty-input').value) || 0;
-                const offerPrice = parseFloat(row.querySelector('.offer-price-input').value);
+                const offerPrice = parseFloat(row.querySelector('.offer-price-input').value) || 0;
                 const discount = parseFloat(row.querySelector('.discount-input').value) || 0;
 
-                if (productId && quantity > 0 && offerPrice > 0) {
+                if (productId) {
                     hasValidItems = true;
                     
                     // Use offer price for calculations
                     const lineSubtotal = roundRupee(quantity * offerPrice);
                     const discountAmount = roundRupee((lineSubtotal * discount) / 100);
                     const amount = roundRupee(lineSubtotal - discountAmount);
-                    const cgst = roundRupee(amount * 0.06); // 6% CGST
-                    const sgst = roundRupee(amount * 0.06); // 6% SGST
+                    const selectedOption = row.querySelector('.product-select').options[row.querySelector('.product-select').selectedIndex];
+                    let totalGst = parseFloat(selectedOption?.dataset?.gst);
+                    if (isNaN(totalGst)) totalGst = parseFloat(row.dataset.gstRate);
+                    if (isNaN(totalGst)) totalGst = 0;
+                    const halfGstPct = Number(totalGst) / 2;
+                    const cgstRaw = amount * (halfGstPct / 100);
+                    const sgstRaw = amount * (halfGstPct / 100);
+                    const cgst = roundRupee(cgstRaw);
+                    const sgst = roundRupee(sgstRaw);
                     const totalAmount = roundRupee(amount + cgst + sgst);
                     
                     orderDetails.push({
@@ -1263,16 +1376,18 @@
                     });
                     
                     subTotal = roundRupee(subTotal + lineSubtotal);
-                    totalCGST = roundRupee(totalCGST + cgst);
-                    totalSGST = roundRupee(totalSGST + sgst);
+                    totalCGSTRaw += cgstRaw;
+                    totalSGSTRaw += sgstRaw;
                 }
             });
 
             if (!hasValidItems) {
-                showError('Please add at least one valid product with quantity and offer price');
+                showError('Please add at least one product');
                 return;
             }
 
+            const totalCGST = roundRupee(totalCGSTRaw);
+            const totalSGST = roundRupee(totalSGSTRaw);
             const grandTotal = roundRupee(subTotal + totalCGST + totalSGST);
 
             // Prepare order data
@@ -1280,8 +1395,8 @@
                 counterID: parseInt(counterID),
                 orderDate: orderDate,
                 subTotal: roundRupee(subTotal),
-                totalCGST: roundRupee(totalCGST),
-                totalSGST: roundRupee(totalSGST),
+                totalCGST: totalCGST,
+                totalSGST: totalSGST,
                 grandTotal: roundRupee(grandTotal),
                 paymentReceived: isEditing ? (orders.find(o => o.id === editingOrderId)?.paymentReceived ? 1 : 0) : 0,
                 orderDetails: orderDetails
