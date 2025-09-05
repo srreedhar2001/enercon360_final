@@ -2,6 +2,49 @@ const { query: dbQuery } = require('../config/database');
 const invoiceService = require('../services/invoiceService');
 
 class OrderController {
+    // Get last 6 months order totals (including current month)
+    async getLastSixMonthsTotals(req, res) {
+        try {
+            const rows = await dbQuery(
+                `
+                SELECT 
+                    DATE_FORMAT(o.orderDate, '%Y-%m') AS ym,
+                    DATE_FORMAT(o.orderDate, '%b %Y') AS label,
+                    COALESCE(SUM(o.grandTotal), 0) AS total
+                FROM orders o
+                WHERE o.orderDate >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+                GROUP BY ym, label
+                ORDER BY ym ASC
+                `
+            );
+
+            const now = new Date();
+            const series = [];
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+                d.setUTCMonth(d.getUTCMonth() - i);
+                const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+                const label = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+                series.push({ ym, label, total: 0 });
+            }
+
+            const map = Object.fromEntries(rows.map(r => [r.ym, Number(r.total) || 0]));
+            const data = series.map(m => ({ ...m, total: Math.round(map[m.ym] || 0) }));
+
+            return res.status(200).json({
+                success: true,
+                message: 'Last 6 months totals fetched',
+                data
+            });
+        } catch (error) {
+            console.error('Error fetching last 6 months totals:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to fetch last 6 months totals',
+                error: error.message
+            });
+        }
+    }
     // Get all orders with order details
     async getAllOrders(req, res) {
         try {

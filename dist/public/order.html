@@ -93,6 +93,11 @@
                 </button>
             </div>
 
+            <!-- Monthly Totals (Last 6 Months) -->
+            <div id="monthlyTotals" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+                <!-- Cards will be injected here -->
+            </div>
+
             <!-- Filter and Search Section -->
             <div class="bg-white rounded-lg shadow p-4 mb-6">
                 <div class="flex flex-col md:flex-row gap-4">
@@ -816,10 +821,39 @@
                 gstRatesMap = gstMap || {};
                 
                 populateDropdowns();
+                try { await loadMonthlyTotals(); } catch (e) { console.warn('Monthly totals failed:', e); }
                 renderOrders(orders);
             } catch (error) {
                 console.error('Error loading initial data:', error);
                 showError('Failed to load initial data');
+            }
+        }
+
+        async function loadMonthlyTotals() {
+            const container = document.getElementById('monthlyTotals');
+            container.innerHTML = `<div class=\"col-span-full text-gray-500\">Loading monthly totals...</div>`;
+            try {
+                const resp = await fetch('/api/orders/stats/last-6-months', { headers: getAuthHeaders() });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const json = await resp.json();
+                const data = Array.isArray(json.data) ? json.data : [];
+                if (data.length === 0) {
+                    container.innerHTML = `<div class=\"col-span-full text-gray-500\">No data</div>`;
+                    return;
+                }
+                container.innerHTML = data.map((m, idx) => `
+                    <div class=\"bg-white rounded-lg shadow p-4 border ${'${idx === data.length - 1 ? '}' }border-blue-300${'${' } : '}${'border-gray-200' }\">`
+                + `
+                        <div class=\"flex items-center justify-between mb-2\">`
+                + `            <dt class=\"text-xs uppercase tracking-wide text-gray-500\">${'${escapeHtml(m.label)}'}</dt>`
+                + `            <span class=\"text-[10px] px-2 py-0.5 rounded-full ${'${idx === data.length - 1 ? '}' }bg-blue-100 text-blue-700${'${' } : '}${'bg-gray-100 text-gray-600' }\">${'${idx === data.length - 1 ? '}' }Current${'${' } : '}${'Past' }</span>`
+                + `        </div>`
+                + `        <dd class=\"text-lg font-semibold text-gray-900\">${'${formatCurrency(m.total || 0)}'}</dd>`
+                + `    </div>`
+                ).join('');
+            } catch (err) {
+                console.error('Monthly totals error:', err);
+                container.innerHTML = `<div class=\"col-span-full text-red-500\">Failed to load monthly totals</div>`;
             }
         }
 
