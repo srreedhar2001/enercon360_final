@@ -253,11 +253,15 @@ class OrderController {
                 const safeSgst = Number.isFinite(sgstParsed) ? sgstParsed : 0;
                 const discountParsed = Number(detail.discount);
                 const safeDiscount = Number.isFinite(discountParsed) ? discountParsed : 0;
+                // Compute discount amount from qty * rate and percentage, using whole-rupee rounding policy
+                const lineSubtotal = Math.round(safeQty * safeRate);
+                const discountAmountRaw = lineSubtotal * (safeDiscount / 100);
+                const safeDiscountAmount = Math.round(discountAmountRaw);
                 const detailQuery = `
                     INSERT INTO orderdetails (
                         orderId, productId, qty, freeQty, offerPrice, total, 
-                        cgst, sgst, discount, createdAt, updatedAt
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                        cgst, sgst, discount, DiscountAmount, createdAt, updatedAt
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                 `;
                 
                 await dbQuery(detailQuery, [
@@ -269,7 +273,8 @@ class OrderController {
                     safeTotalAmount,
                     safeCgst,
                     safeSgst,
-                    safeDiscount // Use discount from frontend
+                    safeDiscount, // percentage
+                    safeDiscountAmount
                 ]);
             }
 
@@ -432,11 +437,14 @@ class OrderController {
                     const safeSgst = Number.isFinite(sgstParsed) ? sgstParsed : 0;
                     const discountParsed = Number(detail.discount);
                     const safeDiscount = Number.isFinite(discountParsed) ? discountParsed : 0;
+                    const lineSubtotal = Math.round(safeQty * safeRate);
+                    const discountAmountRaw = lineSubtotal * (safeDiscount / 100);
+                    const safeDiscountAmount = Math.round(discountAmountRaw);
                     const detailQuery = `
                         INSERT INTO orderdetails (
                             orderId, productId, qty, freeQty, offerPrice, total, 
-                            cgst, sgst, discount, createdAt, updatedAt
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                            cgst, sgst, discount, DiscountAmount, createdAt, updatedAt
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                     `;
                     await dbQuery(detailQuery, [
                         id,
@@ -447,7 +455,8 @@ class OrderController {
                         safeTotalAmount,
                         safeCgst,
                         safeSgst,
-                        safeDiscount
+                        safeDiscount,
+                        safeDiscountAmount
                     ]);
                 }
             }
