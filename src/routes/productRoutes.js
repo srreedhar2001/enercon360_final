@@ -10,7 +10,8 @@ const {
     getProductsByCategory,
     getCategories,
     getProductImage,
-    updateProductImage
+    updateProductImage,
+    getGSTList
 } = require('../controllers/productController');
 
 // Import auth middleware
@@ -30,6 +31,7 @@ router.get('/image/:id', getProductImage);
 
 // Protected routes - require authentication (use devBypass in development)
 router.get('/categories', devBypass, getCategories);
+router.get('/gst', devBypass, getGSTList);
 router.get('/', devBypass, getAllProducts);
 router.get('/search', devBypass, searchProducts);
 router.get('/category/:category', devBypass, getProductsByCategory);

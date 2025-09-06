@@ -1,5 +1,6 @@
 const Product = require('../models/Product');
 const Category = require('../models/Category');
+const GST = require('../models/Gst');
 
 // Get all products
 const getAllProducts = async (req, res) => {
@@ -52,7 +53,7 @@ const getProductById = async (req, res) => {
 // Create new product
 const createProduct = async (req, res) => {
     try {
-    const { name, sku, category, categoryId, description, brand, weight, dimensions, price, stock, status, manufacturingPrice, expDate } = req.body;
+    const { name, sku, category, categoryId, description, brand, weight, dimensions, price, stock, status, manufacturingPrice, expDate, gstId, gst_id } = req.body;
 
         // Basic validation
         if (!name) {
@@ -87,7 +88,10 @@ const createProduct = async (req, res) => {
             manufacturingPrice,
             stock,
             expDate,
-            status
+            status,
+            // accept either gstId or gst_id
+            ...(gstId !== undefined ? { gstId } : {}),
+            ...(gst_id !== undefined ? { gst_id } : {})
         });
 
         // Create product
@@ -113,8 +117,14 @@ const createProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
-    const { categoryId, ...rest } = req.body;
-    const updateData = categoryId ? { ...rest, category: categoryId } : rest;
+    const { categoryId, gstId, gst_id, ...rest } = req.body;
+    // Normalize categoryId and gstId into canonical keys the model expects
+    const updateData = {
+        ...rest,
+        ...(categoryId ? { category: categoryId } : {}),
+        ...(gstId !== undefined ? { gstId } : {}),
+        ...(gst_id !== undefined ? { gst_id } : {})
+    };
 
         // Check if product exists
         const existingProduct = await Product.findById(id);
@@ -263,6 +273,32 @@ const getCategories = async (req, res) => {
     }
 };
 
+// Get GST list from gst table
+const getGSTList = async (req, res) => {
+    try {
+        const rows = await GST.findAll();
+        // Map into a friendly shape but keep flexible for unknown schemas
+        const gsts = (rows || []).map(r => {
+            const cg = r.cgst ?? r.cGst ?? r.cg ?? null;
+            const sg = r.sgst ?? r.sGst ?? r.sg ?? null;
+            const rate = r.rate ?? r.percentage ?? r.percent ?? null;
+            const total_gst = r.total_gst ?? r.totalGST ?? r.total ?? (
+                (cg != null && sg != null) ? (Number(cg) + Number(sg)) : rate
+            );
+            return {
+                id: r.id,
+                name: r.name || r.gst_name || r.label || r.code || (rate != null ? `${rate}%` : `GST ${r.id}`),
+                rate: rate ?? null,
+                total_gst: total_gst ?? null
+            };
+        });
+        return res.json({ success: true, gsts });
+    } catch (error) {
+        console.error('Error fetching GST list:', error);
+        return res.status(500).json({ success: false, message: 'Failed to fetch GST list' });
+    }
+};
+
 // Get product image
 const getProductImage = async (req, res) => {
     try {
@@ -324,5 +360,6 @@ module.exports = {
     getProductsByCategory,
     getCategories,
     getProductImage,
-    updateProductImage
+    updateProductImage,
+    getGSTList
 };

@@ -396,6 +396,7 @@ class InvoiceService {
                     <th class="text-center">Free Qty</th>
                     <th class="text-right">Unit Price</th>
                     <th class="text-center">Disc%</th>
+                    <th class="text-right">Disc Amt</th>
                     <th class="text-right">CGST</th>
                     <th class="text-right">SGST</th>
                     <th class="text-right">Line Total</th>
@@ -419,6 +420,17 @@ class InvoiceService {
                     </td>
                     <td class="text-right">₹${parseFloat(item.offerPrice || 0).toFixed(2)}</td>
                     <td class="text-center">${item.discount || 0}%</td>
+                    <td class="text-right">₹${(() => {
+                        const qty = parseInt(item.qty || 0);
+                        const rate = parseFloat(item.offerPrice || 0);
+                        const pct = parseFloat(item.discount || 0);
+                        // Prefer stored DiscountAmount if present; fallback to computed
+                        const stored = parseFloat(item.DiscountAmount);
+                        if (!isNaN(stored)) return stored.toFixed(2);
+                        const lineSub = Math.round((isNaN(qty) ? 0 : qty) * (isNaN(rate) ? 0 : rate));
+                        const discAmt = Math.round(lineSub * ((isNaN(pct) ? 0 : pct) / 100));
+                        return discAmt.toFixed(2);
+                    })()}</td>
                     <td class="text-right">₹${parseFloat(item.cgst || 0).toFixed(2)}</td>
                     <td class="text-right">₹${parseFloat(item.sgst || 0).toFixed(2)}</td>
                     <td class="text-right font-bold">₹${parseFloat(item.total || 0).toFixed(2)}</td>
@@ -451,10 +463,19 @@ class InvoiceService {
                 </div>
                 <div class="summary-row">
                     <span>Total Discount:</span>
-                    <span>-₹${orderDetails.reduce((sum, item) => {
-                        const itemDiscount = (parseFloat(item.offerPrice || 0) * parseInt(item.qty || 0) * parseFloat(item.discount || 0)) / 100;
-                        return sum + itemDiscount;
-                    }, 0).toFixed(2)}</span>
+                    <span>-₹${(() => {
+                        const totalDisc = orderDetails.reduce((sum, item) => {
+                            const stored = parseFloat(item.DiscountAmount);
+                            if (!isNaN(stored)) return sum + stored;
+                            const qty = parseInt(item.qty || 0);
+                            const rate = parseFloat(item.offerPrice || 0);
+                            const pct = parseFloat(item.discount || 0);
+                            const lineSub = Math.round((isNaN(qty) ? 0 : qty) * (isNaN(rate) ? 0 : rate));
+                            const discAmt = Math.round(lineSub * ((isNaN(pct) ? 0 : pct) / 100));
+                            return sum + discAmt;
+                        }, 0);
+                        return parseFloat(totalDisc || 0).toFixed(2);
+                    })()}</span>
                 </div>
                 <div class="summary-row">
                     <span>CGST (6%):</span>

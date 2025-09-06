@@ -8,6 +8,8 @@ class Category {
             const [rows] = await pool.execute(
                 `SELECT id, category_name AS name FROM productcategory ORDER BY category_name`
             );
+
+            console.log
             return rows.map(r => ({ id: r.id, name: r.name }));
         } catch (error) {
             console.error('Error fetching categories from productcategory:', error.message || error);
