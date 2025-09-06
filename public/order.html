@@ -1401,7 +1401,7 @@
                         productID: parseInt(productId),
                         quantity: quantity,
                         freeQty: freeQty, // Add freeQty to the order details
-                        rate: roundRupee(offerPrice), // Use offer price as the rate
+                        rate: offerPrice, // Preserve entered offer price without rounding
                         discount: discount, // Include discount percentage
                         amount: amount,
                         cgst: cgst,
