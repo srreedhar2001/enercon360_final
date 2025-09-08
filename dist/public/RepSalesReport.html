@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rep Sales Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/navigation.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="icon" href="/favicon.ico">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Rep Sales Report">
+    <style>
+        /* Page-specific minimal spacing helpers if needed */
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation Container -->
+    <div id="navigation-container"></div>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8 pt-24">
+        <div class="max-w-6xl mx-auto space-y-6">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Rep Sales Report</h1>
+                        <p class="text-gray-600 mt-2">Select a representative to view reports.</p>
+                    </div>
+                    <span id="repCountBadge" class="hidden text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">0 reps</span>
+                </div>
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="col-span-1">
+                        <label for="repSelect" class="block text-sm font-medium text-gray-700 mb-1">Representative</label>
+                        <select id="repSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Loading representatives…</option>
+                        </select>
+                        <p id="repHelper" class="text-xs text-gray-500 mt-1">Start by choosing a representative.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="reportContainer" class="bg-white rounded-lg shadow p-6 hidden">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-gray-800">Last 12 Months Sales</h2>
+                    <div class="text-sm text-gray-600">Rep: <span id="selectedRepName" class="font-medium text-gray-900"></span></div>
+                </div>
+                <div id="repMonths" class="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+                <div id="chartSection" class="mt-8 hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-3">
+                            <h3 id="chartTitle" class="text-md font-semibold text-gray-800">Counter-wise for Month</h3>
+                            <button id="clearSelectionBtn" class="hidden text-xs text-blue-600 hover:underline" type="button">Clear selection</button>
+                        </div>
+                        <div id="chartMeta" class="text-xs text-gray-500"></div>
+                    </div>
+                    <div class="bg-white border border-gray-200 rounded-lg p-4">
+                        <canvas id="repCountersChart" height="360"></canvas>
+                    </div>
+                    <div id="tableSection" class="mt-6 hidden">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="text-md font-semibold text-gray-800">Counters and values</h3>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Order Date</th>
+                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Order Value (₹)</th>
+                                    </tr>
+                                </thead>
+                <tbody id="repCountersTbody" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Ensure navbar loads and populate representatives dropdown
+        document.addEventListener('DOMContentLoaded', async function() {
+            try { await NavigationLoader.loadNavigation(); } catch (_) {}
+
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            if (!token) { window.location.href = '/login.html'; return; }
+
+            const repSelect = document.getElementById('repSelect');
+            const repCountBadge = document.getElementById('repCountBadge');
+            const reportContainer = document.getElementById('reportContainer');
+            const selectedRepName = document.getElementById('selectedRepName');
+            const repMonths = document.getElementById('repMonths');
+
+            function getParam(name) {
+                const url = new URL(window.location.href);
+                return url.searchParams.get(name);
+            }
+
+        function setOptions(reps) {
+                if (!Array.isArray(reps) || reps.length === 0) {
+                    repSelect.innerHTML = '<option value="">No representatives found</option>';
+                    repCountBadge.classList.add('hidden');
+                    return;
+                }
+                repSelect.innerHTML = '<option value="">-- Select Representative --</option>' + reps.map(r => {
+            const id = r.id ?? r.user_id ?? r.userId;
+            const name = r.name || r.fullName || r.username || r.phone || `Rep ${id}`;
+                    const phone = r.phone || r.mobile || '';
+                    return `<option value="${id}" data-name="${name}">${name}${phone ? ' — ' + phone : ''}</option>`;
+                }).join('');
+                repCountBadge.textContent = `${reps.length} reps`;
+                repCountBadge.classList.remove('hidden');
+
+                const pre = getParam('repId');
+                if (pre) {
+                    repSelect.value = String(pre);
+                    const opt = repSelect.selectedOptions[0];
+                    if (opt) {
+                        selectedRepName.textContent = opt.dataset.name || opt.textContent;
+                        reportContainer.classList.remove('hidden');
+                        loadRepMonths(pre);
+                    }
+                }
+            }
+
+        async function loadRepresentatives() {
+                try {
+                    const res = await fetch('/api/users/designation/2', { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (!res.ok) throw new Error('Failed to load');
+            const json = await res.json();
+            const reps = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (json.users || json.results || []));
+                    setOptions(reps);
+                } catch (e) {
+                    repSelect.innerHTML = '<option value="">Failed to load representatives</option>';
+                    repCountBadge.classList.add('hidden');
+                }
+            }
+
+            repSelect.addEventListener('change', () => {
+                const opt = repSelect.selectedOptions[0];
+                if (opt && opt.value) {
+                    selectedRepName.textContent = opt.dataset.name || opt.textContent;
+                    reportContainer.classList.remove('hidden');
+                    loadRepMonths(opt.value);
+                } else {
+                    reportContainer.classList.add('hidden');
+                }
+            });
+
+            loadRepresentatives();
+
+            let lastMonthsCache = { repId: null, data: [] };
+            const selectedMonths = new Set();
+            const monthRowsCache = new Map();
+            function selectionKey(repId, ym) { return `${repId}|${ym}`; }
+            function isSelected(ym) { return selectedMonths.has(ym); }
+            async function loadRepMonths(repId) {
+                if (!repId) return;
+                repMonths.innerHTML = '<div class="col-span-full text-gray-500">Loading...</div>';
+                try {
+                    const res = await fetch(`/api/orders/stats/last-6-months?repId=${encodeURIComponent(repId)}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const json = await res.json();
+                    const data = Array.isArray(json.data) ? json.data : [];
+                    lastMonthsCache = { repId, data };
+                    if (data.length === 0) {
+                        repMonths.innerHTML = '<div class="col-span-full text-gray-500">No data</div>';
+                        return;
+                    }
+                    repMonths.innerHTML = data.map((m, idx) => `
+                        <button class="month-card text-left bg-white rounded-lg shadow p-3 border ${idx === data.length - 1 ? 'border-blue-300' : 'border-gray-200'} hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300" data-ym="${m.ym}" data-label="${m.label}">
+                            <div class="flex items-center justify-between mb-1">
+                                <dt class="text-[11px] uppercase tracking-wide text-gray-500">${m.label}</dt>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === data.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === data.length - 1 ? 'Current' : 'Past'}</span>
+                            </div>
+                            <dd class="text-base font-semibold text-gray-900">₹${Number(m.total || 0).toLocaleString('en-IN')}</dd>
+                        </button>
+                    `).join('');
+                    selectedMonths.clear();
+                    updateSelectionStyles();
+                    updateCombinedView(repId);
+                } catch (e) {
+                    console.error('Rep months error:', e);
+                    repMonths.innerHTML = '<div class="col-span-full text-red-500">Failed to load</div>';
+                }
+            }
+
+            // Event delegation as a fallback to catch any dynamically added month cards
+            document.getElementById('repMonths').addEventListener('click', (e) => {
+                const btn = e.target.closest('button[data-ym]');
+                if (!btn) return;
+                const repId = (document.getElementById('repSelect').value || '').trim();
+                if (!repId) return;
+                toggleMonthSelection(repId, btn);
+            });
+
+            document.getElementById('clearSelectionBtn').addEventListener('click', () => {
+                selectedMonths.clear();
+                updateSelectionStyles();
+                const repId = (document.getElementById('repSelect').value || '').trim();
+                updateCombinedView(repId);
+            });
+
+            let chartInstance = null;
+            function escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text == null ? '' : String(text);
+                return div.innerHTML;
+            }
+            function renderBarChart(labels, values) {
+                const ctx = document.getElementById('repCountersChart').getContext('2d');
+                if (typeof Chart === 'undefined') {
+                    console.warn('Chart.js not available, skipping chart render');
+                    return;
+                }
+                if (chartInstance) {
+                    chartInstance.destroy();
+                }
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'Order Value (₹)',
+                            data: values,
+                            backgroundColor: 'rgba(37, 99, 235, 0.6)',
+                            borderColor: 'rgba(37, 99, 235, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        layout: { padding: { bottom: 20 } },
+                        scales: {
+                            x: { ticks: { color: '#4b5563', autoSkip: false, maxRotation: 90, minRotation: 90 } },
+                            y: { ticks: { color: '#4b5563', callback: v => '₹' + Number(v).toLocaleString('en-IN') }, beginAtZero: true }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { callbacks: { label: ctx => '₹' + Number(ctx.parsed.y).toLocaleString('en-IN') } }
+                        }
+                    }
+                });
+            }
+
+            function updateSelectionStyles() {
+                repMonths.querySelectorAll('button[data-ym]').forEach(btn => {
+                    const ym = btn.dataset.ym;
+                    btn.classList.toggle('ring-2', isSelected(ym));
+                    btn.classList.toggle('ring-blue-500', isSelected(ym));
+                    btn.classList.toggle('border-blue-400', isSelected(ym));
+                });
+            }
+
+            async function toggleMonthSelection(repId, btn) {
+                const ym = btn.dataset.ym;
+                if (isSelected(ym)) {
+                    selectedMonths.delete(ym);
+                } else {
+                    selectedMonths.add(ym);
+                }
+                updateSelectionStyles();
+                await ensureMonthDataLoaded(repId, ym);
+                updateCombinedView(repId);
+            }
+
+            async function ensureMonthDataLoaded(repId, ym) {
+                const key = selectionKey(repId, ym);
+                if (monthRowsCache.has(key)) return;
+                try {
+                    const res = await fetch(`/api/orders/stats/rep-month-counters?repId=${encodeURIComponent(repId)}&ym=${encodeURIComponent(ym)}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const json = await res.json();
+                    const rows = Array.isArray(json.data) ? json.data : [];
+                    monthRowsCache.set(key, rows);
+                } catch (e) {
+                    console.error('rep-month-counters error:', e);
+                    monthRowsCache.set(key, []);
+                }
+            }
+
+            async function updateCombinedView(repId) {
+                const chartSection = document.getElementById('chartSection');
+                const chartTitle = document.getElementById('chartTitle');
+                const chartMeta = document.getElementById('chartMeta');
+                const clearBtn = document.getElementById('clearSelectionBtn');
+
+                if (selectedMonths.size === 0) {
+                    chartSection.classList.add('hidden');
+                    clearBtn.classList.add('hidden');
+                    return;
+                }
+
+                const promises = [];
+                for (const ym of selectedMonths) {
+                    const key = selectionKey(repId, ym);
+                    if (!monthRowsCache.has(key)) {
+                        promises.push(ensureMonthDataLoaded(repId, ym));
+                    }
+                }
+                if (promises.length) await Promise.all(promises);
+
+                const aggregateMap = new Map();
+                for (const ym of selectedMonths) {
+                    const rows = monthRowsCache.get(selectionKey(repId, ym)) || [];
+                    for (const r of rows) {
+                        const id = r.counterId || r.counterID;
+                        if (!aggregateMap.has(id)) {
+                            aggregateMap.set(id, { counterId: id, counterName: r.counterName, orderCount: 0, paidCount: 0, unpaidCount: 0, latestOrderDate: null, total: 0 });
+                        }
+                        const agg = aggregateMap.get(id);
+                        agg.orderCount += Number(r.orderCount || 0);
+                        agg.paidCount += Number(r.paidCount || 0);
+                        agg.unpaidCount += Number(r.unpaidCount || 0);
+                        agg.total += Number(r.total || 0);
+                        if (r.latestOrderDate) {
+                            if (!agg.latestOrderDate || r.latestOrderDate > agg.latestOrderDate) {
+                                agg.latestOrderDate = r.latestOrderDate;
+                            }
+                        }
+                    }
+                }
+
+                const aggRows = Array.from(aggregateMap.values()).sort((a,b) => {
+                    const t = b.total - a.total;
+                    if (t !== 0) return t;
+                    return String(a.counterName).localeCompare(String(b.counterName));
+                });
+
+                const labels = aggRows.map(r => r.counterName);
+                const values = aggRows.map(r => Number(r.total || 0));
+
+                chartSection.classList.remove('hidden');
+                clearBtn.classList.remove('hidden');
+                const monthsArray = Array.from(selectedMonths);
+                chartTitle.textContent = `Counter-wise totals for ${monthsArray.length} month${monthsArray.length>1?'s':''} (combined)`;
+                chartMeta.textContent = `Months: ${monthsArray.join(', ')}`;
+
+                renderBarChart(labels, values);
+                renderCountersTable(aggRows);
+            }
+
+        function renderCountersTable(rows) {
+                const tbody = document.getElementById('repCountersTbody');
+                const tableSection = document.getElementById('tableSection');
+                if (!Array.isArray(rows) || rows.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-6 text-center text-gray-500">No counters found</td></tr>`;
+                    tableSection.classList.remove('hidden');
+                    return;
+                }
+                const html = rows.map((r, idx) => {
+                    const val = Number(r.total || 0);
+                    const paid = Number(r.paidCount || 0);
+                    const unpaid = Number(r.unpaidCount || 0);
+                    const statusBadge = unpaid > 0
+                        ? `<span class=\"inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800\">${paid} paid / ${unpaid} unpaid</span>`
+                        : `<span class=\"inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800\">${paid} paid</span>`;
+                    return `
+                        <tr>
+                            <td class="px-4 py-2 text-sm text-gray-700">${idx + 1}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(r.counterName)}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 text-right">${Number(r.orderCount || 0).toLocaleString('en-IN')}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 text-right">${statusBadge}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 text-right">${r.latestOrderDate ? escapeHtml(r.latestOrderDate) : '-'}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${val.toLocaleString('en-IN')}</td>
+                        </tr>
+                    `;
+                }).join('');
+                tbody.innerHTML = html;
+                tableSection.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>

@@ -2,25 +2,35 @@ const { query: dbQuery } = require('../config/database');
 const invoiceService = require('../services/invoiceService');
 
 class OrderController {
-    // Get last 6 months order totals (including current month)
+    // Get last 12 months order totals (including current month)
     async getLastSixMonthsTotals(req, res) {
         try {
-            const rows = await dbQuery(
-                `
+            const { repId } = req.query;
+            // Fetch summed totals by year-month from DB for the last 12 months
+            let sql = `
                 SELECT 
                     DATE_FORMAT(o.orderDate, '%Y-%m') AS ym,
                     DATE_FORMAT(o.orderDate, '%b %Y') AS label,
-                    COALESCE(SUM(o.grandTotal), 0) AS total
+                    COALESCE(SUM((COALESCE(o.subTotal,0) - COALESCE(o.TotalDiscountAmount,0)) + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0)), 0) AS total
                 FROM orders o
-                WHERE o.orderDate >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
-                GROUP BY ym, label
-                ORDER BY ym ASC
-                `
-            );
+            `;
+            const params = [];
+            if (repId) {
+                sql += ` INNER JOIN counters c ON o.counterID = c.id `;
+            }
+            sql += ` WHERE o.orderDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH) `;
+            if (repId) {
+                sql += ` AND c.RepID = ? `;
+                params.push(repId);
+            }
+            sql += ` GROUP BY ym, label ORDER BY ym ASC `;
 
+            const rows = await dbQuery(sql, params);
+
+            // Build a complete 12-month series including months with 0 total
             const now = new Date();
             const series = [];
-            for (let i = 5; i >= 0; i--) {
+            for (let i = 11; i >= 0; i--) {
                 const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
                 d.setUTCMonth(d.getUTCMonth() - i);
                 const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -45,6 +55,58 @@ class OrderController {
             });
         }
     }
+
+    // Get per-counter totals for a representative for a given month (ym = YYYY-MM)
+    async getRepMonthCounterTotals(req, res) {
+        try {
+            const { repId, ym } = req.query;
+            if (!repId || !ym) {
+                return res.status(400).json({ success: false, message: 'repId and ym (YYYY-MM) are required' });
+            }
+
+            // Validate ym format
+            const ymMatch = String(ym).match(/^(\d{4})-(\d{2})$/);
+            if (!ymMatch) {
+                return res.status(400).json({ success: false, message: 'Invalid ym format. Use YYYY-MM' });
+            }
+
+            // Query: all counters of rep with LEFT JOIN orders for that month
+            const sql = `
+                SELECT 
+                    c.id AS counterId,
+                    c.CounterName AS counterName,
+                    COALESCE(COUNT(o.id), 0) AS orderCount,
+                    COALESCE(SUM(CASE WHEN o.paymentReceived = 1 THEN 1 ELSE 0 END), 0) AS paidCount,
+                    COALESCE(SUM(CASE WHEN o.paymentReceived = 0 THEN 1 ELSE 0 END), 0) AS unpaidCount,
+                    DATE_FORMAT(MAX(o.orderDate), '%Y-%m-%d') AS latestOrderDate,
+                    COALESCE(ROUND(SUM((COALESCE(o.subTotal,0) - COALESCE(o.TotalDiscountAmount,0)) 
+                        + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0))), 0) AS total
+                FROM counters c
+                LEFT JOIN orders o 
+                    ON o.counterID = c.id 
+                    AND DATE_FORMAT(o.orderDate, '%Y-%m') = ?
+                WHERE c.RepID = ?
+                GROUP BY c.id, c.CounterName
+                ORDER BY total DESC, c.CounterName ASC
+            `;
+
+            const rows = await dbQuery(sql, [ym, repId]);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Counter totals for representative and month fetched',
+                data: rows,
+                meta: { repId: Number(repId), ym }
+            });
+        } catch (error) {
+            console.error('Error fetching rep-month counter totals:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to fetch rep-month counter totals',
+                error: error.message
+            });
+        }
+    }
     // Get all orders with order details
     async getAllOrders(req, res) {
         try {
@@ -54,6 +116,7 @@ class OrderController {
             let query = `
                 SELECT 
                     o.*,
+                    DATE_FORMAT(o.orderDate, '%Y-%m-%d') AS orderDate,
                     c.CounterName as counterName,
                     c.phone as counterPhone,
                     c.address as counterAddress,
@@ -124,6 +187,7 @@ class OrderController {
             const orderQuery = `
                 SELECT 
                     o.*,
+                    DATE_FORMAT(o.orderDate, '%Y-%m-%d') AS orderDate,
                     c.CounterName as counterName,
                     c.phone as counterPhone,
                     c.address as counterAddress,
@@ -214,12 +278,12 @@ class OrderController {
                 });
             }
 
-            // Create order
+            // Create order (initialize TotalDiscountAmount as 0; will update after inserting details)
             const orderQuery = `
                 INSERT INTO orders (
-                    counterID, orderDate, subTotal, totalCGST, totalSGST, 
+                    counterID, orderDate, subTotal, totalCGST, totalSGST, TotalDiscountAmount,
                     grandTotal, paymentReceived, createdAt, updatedAt
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
             `;
             
             const orderResult = await dbQuery(orderQuery, [
@@ -228,13 +292,15 @@ class OrderController {
                 subTotal || 0,
                 totalCGST || 0,
                 totalSGST || 0,
+                0, // TotalDiscountAmount initial
                 grandTotal || 0,
                 paymentReceived || 0
             ]);
 
             const orderId = orderResult.insertId;
 
-            // Create order details
+            // Create order details and accumulate total discount
+            let totalDiscountAmountSum = 0;
             for (const detail of orderDetails) {
                 // Normalize numeric fields so that 0 is preserved and undefined/NaN become 0
                 const qtyParsed = parseInt(detail.quantity ?? detail.qty, 10);
@@ -251,6 +317,7 @@ class OrderController {
                 const safeSgst = Number.isFinite(sgstParsed) ? sgstParsed : 0;
                 const discountParsed = Number(detail.discount);
                 const safeDiscount = Number.isFinite(discountParsed) ? discountParsed : 0;
+                // Compute discount amount from qty * rate and percentage, using whole-rupee rounding policy
                 const lineSubtotal = Math.round(safeQty * safeRate);
                 const discountAmountRaw = lineSubtotal * (safeDiscount / 100);
                 const safeDiscountAmount = Math.round(discountAmountRaw);
@@ -273,12 +340,22 @@ class OrderController {
                     safeDiscount, // percentage
                     safeDiscountAmount
                 ]);
+                totalDiscountAmountSum += safeDiscountAmount;
             }
+
+            // Update order header with total discount amount and corrected grand total
+            const totalDiscountRounded = Math.round(totalDiscountAmountSum) || 0;
+            await dbQuery('UPDATE orders SET TotalDiscountAmount = ?, grandTotal = ROUND((COALESCE(subTotal,0) - ?) + COALESCE(totalCGST,0) + COALESCE(totalSGST,0)) WHERE id = ?', [
+                totalDiscountRounded,
+                totalDiscountRounded,
+                orderId
+            ]);
 
             // Fetch the created order with all details - simplified approach
             const fetchOrderQuery = `
                 SELECT 
                     o.*,
+                    DATE_FORMAT(o.orderDate, '%Y-%m-%d') AS orderDate,
                     c.CounterName as counterName,
                     c.phone as counterPhone,
                     c.address as counterAddress,
@@ -393,7 +470,7 @@ class OrderController {
                 });
             }
 
-            // Basic header update first
+            // Basic header update first (TotalDiscountAmount will be recomputed below if details are provided)
             const updateQuery = `
                 UPDATE orders SET 
                     counterID = ?, orderDate = ?, subTotal = ?, totalCGST = ?, 
@@ -418,6 +495,7 @@ class OrderController {
                 await dbQuery('DELETE FROM orderdetails WHERE orderId = ?', [id]);
 
                 // Insert new details
+                let totalDiscountAmountSumUpd = 0;
                 for (const detail of orderDetails) {
                     // Normalize numeric fields so that 0 is preserved and undefined/NaN become 0
                     const qtyParsed = parseInt(detail.quantity ?? detail.qty, 10);
@@ -455,13 +533,33 @@ class OrderController {
                         safeDiscount,
                         safeDiscountAmount
                     ]);
+                    totalDiscountAmountSumUpd += safeDiscountAmount;
                 }
+
+                // Update header with recomputed total discount and corrected grand total
+                const updDisc = Math.round(totalDiscountAmountSumUpd) || 0;
+                await dbQuery('UPDATE orders SET TotalDiscountAmount = ?, grandTotal = ROUND((COALESCE(subTotal,0) - ?) + COALESCE(totalCGST,0) + COALESCE(totalSGST,0)), updatedAt = NOW() WHERE id = ?', [
+                    updDisc,
+                    updDisc,
+                    id
+                ]);
+            } else {
+                // No line changes: derive discount from header fields if possible
+                const sub = Number(subTotal || 0);
+                const tax = Number(totalCGST || 0) + Number(totalSGST || 0);
+                const grand = Number(grandTotal || 0);
+                const derivedDisc = Math.max(0, Math.round((sub + tax) - grand));
+                await dbQuery('UPDATE orders SET TotalDiscountAmount = ?, updatedAt = NOW() WHERE id = ?', [
+                    derivedDisc,
+                    id
+                ]);
             }
 
             // Fetch updated order - simplified approach
             const fetchUpdatedOrderQuery = `
                 SELECT 
                     o.*,
+                    DATE_FORMAT(o.orderDate, '%Y-%m-%d') AS orderDate,
                     c.CounterName as counterName,
                     c.phone as counterPhone,
                     c.address as counterAddress,
@@ -588,6 +686,7 @@ class OrderController {
         const orderQuery = `
             SELECT 
                 o.*,
+                DATE_FORMAT(o.orderDate, '%Y-%m-%d') AS orderDate,
                 c.CounterName as counterName,
                 c.phone as counterPhone,
                 c.address as counterAddress,
@@ -635,6 +734,7 @@ class OrderController {
             const query = `
                 SELECT 
                     o.*,
+                    DATE_FORMAT(o.orderDate, '%Y-%m-%d') AS orderDate,
                     c.CounterName as counterName,
                     u.name as userName
                 FROM orders o
