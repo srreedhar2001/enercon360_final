@@ -109,8 +109,20 @@ async function applyNavPermissions() {
 
   const perms = bundle.permissions || {};
   const allowedModules = new Set(bundle.modules || []);
+  // Determine parent visibility states first
+  const parentVisibility = new Map();
   links.forEach(link => {
     const mod = link.getAttribute('data-page');
+    const p = perms[mod];
+    const ok = p && typeof p.view === 'boolean' ? p.view : allowedModules.has(mod);
+    parentVisibility.set(mod, !!ok);
+  });
+
+  links.forEach(link => {
+    const mod = link.getAttribute('data-page');
+    const parentWrapper = link.closest('.group');
+    // If inside a Reports group and Reports is visible, keep submenu links visible
+    if (parentWrapper && parentVisibility.get('reports')) return;
     const p = perms[mod];
     const ok = p && typeof p.view === 'boolean' ? p.view : allowedModules.has(mod);
     if (!ok) link.style.display = 'none';

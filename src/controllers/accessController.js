@@ -43,10 +43,23 @@ const listDesignations = async (req, res) => {
   }
 };
 
-// New: list known modules (static list to drive UI)
+// New: list modules from DB (fallback to static if needed)
 const listModules = async (req, res) => {
-  const modules = ['dashboard','orders','collections','payments','users','products','counters','reports','page-access'];
-  res.json({ success: true, data: modules });
+  try {
+    const rows = await dbQuery(
+      `SELECT module_key AS moduleKey
+       FROM access_modules
+       WHERE is_active = 1
+       ORDER BY sort_order ASC, module_name ASC`
+    );
+    const modules = (rows || []).map(r => r.moduleKey);
+    return res.json({ success: true, data: modules });
+  } catch (e) {
+    console.error('Error fetching modules from DB', e);
+    // Fallback to the previous static list so UI still works
+    const fallback = ['dashboard','orders','collections','payments','users','products','counters','reports','page-access'];
+    return res.status(200).json({ success: true, data: fallback });
+  }
 };
 
 // New: get permissions for a designation (view/edit/delete per module)

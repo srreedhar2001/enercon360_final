@@ -14,11 +14,26 @@
                 <div class="ml-10 flex items-baseline space-x-4">
                     <!-- <a href="/home.html" class="nav-link" data-page="home">Home</a>
                     <a href="#" class="nav-link" data-page="features">Features</a> -->
-                    <a href="/dashboard.html" class="nav-link" data-page="dashboard">Dashboard</a>
                     <a href="/product.html" class="nav-link" data-page="products">Products</a>
                     <a href="/counter.html" class="nav-link" data-page="counters">Counters</a>
                     <a href="/order.html" class="nav-link" data-page="orders">Orders</a>
                     <a href="/collections.html" class="nav-link" data-page="collections">Collections</a>
+                    <!-- Reports Menu -->
+                    <div class="relative group">
+                        <button class="nav-link inline-flex items-center" data-page="reports" aria-haspopup="true" aria-expanded="false">
+                            Reports
+                            <svg class="ml-1 h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div class="absolute left-0 mt-0 z-50 w-64 max-h-96 overflow-y-auto rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 hidden group-hover:block">
+                            <div class="py-1" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                <a href="/dashboard.html" class="nav-link block w-full text-left" data-page="dashboard" role="menuitem" tabindex="-1">Dashboard</a>
+                                <a href="/RepSalesReport.html" class="nav-link block w-full text-left" data-page="reports" role="menuitem" tabindex="-1">Rep Sales Report</a>
+                                <a href="/SalesVsExpReport.html" class="nav-link block w-full text-left" data-page="reports" role="menuitem" tabindex="-1">Sales vs Expenses Report</a>
+                            </div>
+                        </div>
+                    </div>
                     <a href="/payments.html" class="nav-link" data-page="payments">Payments</a>
                     <a href="/user.html" class="nav-link" data-page="users">Users</a>
                     <a href="/page-access.html" class="nav-link" data-page="page-access">Page Access</a>
@@ -64,6 +79,8 @@
         color: rgb(17 24 39);
         font-weight: 600;
     }
+    /* Dropdown hover/focus for Reports */
+    .group:hover .group-hover\:block, .group:focus-within .group-hover\:block { display: block; }
 </style>
 
 <script>
@@ -122,6 +139,7 @@
         if (path.includes('collections.html')) return 'collections';
         if (path.includes('payments.html')) return 'payments';
     if (path.includes('page-access.html')) return 'page-access';
+    if (path.includes('RepSalesReport.html')) return 'reports';
         if (path.includes('features')) return 'features';
         if (path.includes('about')) return 'about';
         if (path.includes('contact')) return 'contact';

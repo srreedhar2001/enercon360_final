@@ -531,6 +531,81 @@ module.exports = {
     getPayments,
     getPaymentStatistics,
     getMonthlyExpenses,
+    // Detailed monthly expenses (mirror from src)
+    getMonthlyExpensesDetails: async (req, res) => {
+        try {
+            const { ym, repId } = req.query;
+            if (!ym || !/^\d{4}-\d{2}$/.test(String(ym))) {
+                return res.status(400).json({ success: false, message: 'ym (YYYY-MM) is required' });
+            }
+            const params = [ym];
+            let where = ` WHERE LOWER(pt.serviceTypeName) IN ('expenses','salary') AND DATE_FORMAT(p.paymentDate, '%Y-%m') = ? `;
+            if (repId) { where += ' AND p.userId = ? '; params.push(repId); }
+            const sql = `
+                SELECT p.id, p.paymentDate, DATE_FORMAT(p.paymentDate, '%Y-%m-%d') AS date,
+                       p.amount, p.comments, pt.serviceTypeName AS paymentType,
+                       u.name AS userName, u.phone AS userMobile
+                FROM payments p
+                INNER JOIN paymenttype pt ON p.serviceTypeId = pt.id
+                LEFT JOIN users u ON p.userId = u.id
+                ${where}
+                ORDER BY p.paymentDate DESC, p.id DESC
+            `;
+            const rows = await dbQuery(sql, params);
+            return res.status(200).json({ success: true, message: 'Monthly expenses details fetched', data: rows });
+        } catch (error) {
+            console.error('Error fetching monthly expenses details:', error);
+            return res.status(500).json({ success: false, message: 'Failed to fetch monthly expenses details', error: error.message });
+        }
+    },
+    getMonthlyPaymentsTotals: async (req, res) => {
+        try {
+            const now = new Date();
+            const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+            const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 11, 1));
+
+            const paymentsRows = await dbQuery(`
+                SELECT DATE_FORMAT(p.paymentDate, '%Y-%m') AS ym,
+                       DATE_FORMAT(p.paymentDate, '%b %Y') AS label,
+                       COALESCE(SUM(p.amount), 0) AS total
+                FROM payments p
+                WHERE p.paymentDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
+                GROUP BY ym, label
+                ORDER BY ym ASC
+            `);
+            const collectionsRows = await dbQuery(`
+                SELECT DATE_FORMAT(c.transactionDate, '%Y-%m') AS ym,
+                       COALESCE(SUM(c.amount), 0) AS total
+                FROM collections c
+                WHERE c.transactionDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
+                GROUP BY ym
+                ORDER BY ym ASC
+            `);
+
+            const payMap = Object.fromEntries(paymentsRows.map(r => [r.ym, { label: r.label, total: Number(r.total) || 0 }]));
+            const colMap = Object.fromEntries(collectionsRows.map(r => [r.ym, Number(r.total) || 0]));
+
+            const data = [];
+            const cur = new Date(start);
+            while (cur <= end) {
+                const ym = `${cur.getUTCFullYear()}-${String(cur.getUTCMonth() + 1).padStart(2, '0')}`;
+                const label = cur.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+                const p = payMap[ym];
+                data.push({
+                    ym,
+                    label: (p && p.label) || label,
+                    paymentsTotal: p ? p.total : 0,
+                    collectionsTotal: colMap[ym] || 0
+                });
+                cur.setUTCMonth(cur.getUTCMonth() + 1);
+            }
+
+            return res.status(200).json({ success: true, message: 'Monthly payments totals fetched', data });
+        } catch (error) {
+            console.error('Error fetching monthly payments totals:', error);
+            return res.status(500).json({ success: false, message: 'Failed to fetch monthly payments totals', error: error.message });
+        }
+    },
     getPaymentTypes,
     addPayment,
     getPaymentById,

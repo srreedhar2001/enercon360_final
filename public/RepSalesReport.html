@@ -66,6 +66,7 @@
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name of the Representative</th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales for the month of</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sales</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Product Cost</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Received</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Pending Collection</th>
                                     </tr>
@@ -192,13 +193,14 @@
                         repMonths.innerHTML = '<div class="col-span-full text-gray-500">No data</div>';
                         return;
                     }
-                    repMonths.innerHTML = data.map((m, idx) => `
+            repMonths.innerHTML = data.map((m, idx) => `
                         <button class="month-card text-left bg-white rounded-lg shadow p-3 border ${idx === data.length - 1 ? 'border-blue-300' : 'border-gray-200'} hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300" data-ym="${m.ym}" data-label="${m.label}">
                             <div class="flex items-center justify-between mb-1">
                                 <dt class="text-[11px] uppercase tracking-wide text-gray-500">${m.label}</dt>
                                 <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === data.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === data.length - 1 ? 'Current' : 'Past'}</span>
                             </div>
-                            <dd class="text-base font-semibold text-gray-900">₹${Number(m.total || 0).toLocaleString('en-IN')}</dd>
+                <dd class="text-base font-semibold text-gray-900">₹${Number(m.total || 0).toLocaleString('en-IN')}</dd>
+                <div class="mt-1 text-[11px] text-gray-600">Cost: ₹${Number(m.productCost || 0).toLocaleString('en-IN')}</div>
                         </button>
                     `).join('');
                     // Reset selection on reload
@@ -233,7 +235,7 @@
                 div.textContent = text == null ? '' : String(text);
                 return div.innerHTML;
             }
-            function renderBarChart(labels, values) {
+            function renderBarChart(labels, salesValues, costValues) {
                 const ctx = document.getElementById('repCountersChart').getContext('2d');
                 if (typeof Chart === 'undefined') {
                     console.warn('Chart.js not available, skipping chart render');
@@ -246,13 +248,22 @@
                     type: 'bar',
                     data: {
                         labels,
-                        datasets: [{
-                            label: 'Order Value (₹)',
-                            data: values,
-                            backgroundColor: 'rgba(37, 99, 235, 0.6)',
-                            borderColor: 'rgba(37, 99, 235, 1)',
-                            borderWidth: 1
-                        }]
+                        datasets: [
+                            {
+                                label: 'Order Value (₹)',
+                                data: salesValues,
+                                backgroundColor: 'rgba(37, 99, 235, 0.6)',
+                                borderColor: 'rgba(37, 99, 235, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Product Cost (₹)',
+                                data: costValues,
+                                backgroundColor: 'rgba(234, 179, 8, 0.6)',
+                                borderColor: 'rgba(234, 179, 8, 1)',
+                                borderWidth: 1
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
@@ -263,8 +274,8 @@
                             y: { ticks: { color: '#4b5563', callback: v => '₹' + Number(v).toLocaleString('en-IN') }, beginAtZero: true }
                         },
                         plugins: {
-                            legend: { display: false },
-                            tooltip: { callbacks: { label: ctx => '₹' + Number(ctx.parsed.y).toLocaleString('en-IN') } }
+                            legend: { display: true, position: 'top' },
+                            tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ₹${Number(ctx.parsed.y).toLocaleString('en-IN')}` } }
                         }
                     }
                 });
@@ -333,7 +344,7 @@
                 if (promises.length) await Promise.all(promises);
 
                 // Aggregate rows across selected months
-        const aggregateMap = new Map(); // counterId -> agg
+                const aggregateMap = new Map(); // counterId -> agg
                 for (const ym of selectedMonths) {
                     const rows = monthRowsCache.get(selectionKey(repId, ym)) || [];
                     for (const r of rows) {
@@ -374,6 +385,7 @@
 
                 const labels = aggRows.map(r => r.counterName);
                 const values = aggRows.map(r => Number(r.total || 0));
+                const costs = aggRows.map(r => Number(r.productCost || 0));
 
                 chartSection.classList.remove('hidden');
                 clearBtn.classList.remove('hidden');
@@ -381,19 +393,21 @@
                 chartTitle.textContent = `Counter-wise totals for ${monthsArray.length} month${monthsArray.length>1?'s':''} (combined)`;
                 chartMeta.textContent = `Months: ${monthsArray.join(', ')}`;
 
-                renderBarChart(labels, values);
+                renderBarChart(labels, values, costs);
                 renderCountersTable(aggRows);
 
                 // Build summary values
-                const repName = (document.getElementById('selectedRepName').textContent || '').trim();
+        const repName = (document.getElementById('selectedRepName').textContent || '').trim();
         const totalSales = aggRows.reduce((s, r) => s + Number(r.total || 0), 0);
         const totalPending = aggRows.reduce((s, r) => s + Number(r.pendingTotal || 0), 0);
         const totalReceived = Math.max(0, Number(totalSales) - Number(totalPending));
+        const totalProductCost = aggRows.reduce((s, r) => s + Number(r.productCost || 0), 0);
                 repSummaryTbody.innerHTML = `
                     <tr>
                         <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(repName)}</td>
                         <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(monthsArray.join(', '))}</td>
                         <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${Number(totalSales).toLocaleString('en-IN')}</td>
+            <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${Number(totalProductCost).toLocaleString('en-IN')}</td>
             <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${Number(totalReceived).toLocaleString('en-IN')}</td>
                         <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${Number(totalPending).toLocaleString('en-IN')}</td>
                     </tr>
@@ -405,7 +419,7 @@
                 const tbody = document.getElementById('repCountersTbody');
                 const tableSection = document.getElementById('tableSection');
                 if (!Array.isArray(rows) || rows.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-6 text-center text-gray-500">No counters found</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">No counters found</td></tr>`;
                     tableSection.classList.remove('hidden');
                     return;
                 }

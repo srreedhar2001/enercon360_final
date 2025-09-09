@@ -90,7 +90,8 @@ class CounterController {
                 latitude,
                 phone,
                 gst,
-                address
+                address,
+                createdDate
             } = req.body;
 
             // Validation
@@ -127,12 +128,25 @@ class CounterController {
                 });
             }
 
-            const query = `
+            const query = createdDate ? `
+                INSERT INTO counters (CounterName, CityID, RepID, longitude, latitude, phone, gst, address, createdDate)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ` : `
                 INSERT INTO counters (CounterName, CityID, RepID, longitude, latitude, phone, gst, address)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
             
-            const result = await dbQuery(query, [
+            const result = await dbQuery(query, createdDate ? [
+                CounterName,
+                CityID,
+                RepID,
+                longitude,
+                latitude,
+                phone || null,
+                gst || null,
+                address || null,
+                createdDate
+            ] : [
                 CounterName,
                 CityID,
                 RepID,
@@ -185,7 +199,8 @@ class CounterController {
                 latitude,
                 phone,
                 gst,
-                address
+                address,
+                createdDate
             } = req.body;
 
             // Check if counter exists
@@ -225,14 +240,30 @@ class CounterController {
                 return res.status(400).json({ success: false, message: 'Invalid representative ID' });
             }
 
-            const query = `
+            const query = createdDate ? `
+                UPDATE counters 
+                SET CounterName = ?, CityID = ?, RepID = ?, longitude = ?, latitude = ?, 
+                    phone = ?, gst = ?, address = ?, createdDate = ?
+                WHERE id = ?
+            ` : `
                 UPDATE counters 
                 SET CounterName = ?, CityID = ?, RepID = ?, longitude = ?, latitude = ?, 
                     phone = ?, gst = ?, address = ?
                 WHERE id = ?
             `;
             
-            await dbQuery(query, [
+            await dbQuery(query, createdDate ? [
+                CounterName,
+                CityID,
+                RepID,
+                lng,
+                lat,
+                phone || null,
+                gst || null,
+                address || null,
+                createdDate,
+                id
+            ] : [
                 CounterName,
                 CityID,
                 RepID,

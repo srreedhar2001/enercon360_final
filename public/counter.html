@@ -155,6 +155,12 @@
                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                             </div>
 
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Created Date</label>
+                                <input type="date" id="counterCreatedDate"
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+
                             <div class="md:col-span-2">
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
                                 <textarea id="counterAddress" rows="3"
@@ -517,6 +523,19 @@
             setTimeout(() => {
                 document.body.removeChild(successDiv);
             }, 3000);
+        }
+
+        function toYMD(dateLike) {
+            try {
+                const d = new Date(dateLike);
+                if (isNaN(d)) return '';
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            } catch {
+                return '';
+            }
         }
 
         function showAuthenticationError() {
@@ -910,6 +929,12 @@
             modalTitle.textContent = 'Add New Counter';
             submitBtn.textContent = 'Add Counter';
             counterForm.reset();
+            // Default created date to today
+            const cd = document.getElementById('counterCreatedDate');
+            if (cd) {
+                const today = new Date();
+                cd.value = toYMD(today);
+            }
             counterModal.classList.remove('hidden');
         }
 
@@ -930,6 +955,13 @@
             document.getElementById('counterPhone').value = counter.phone || '';
             document.getElementById('counterGst').value = counter.gst || '';
             document.getElementById('counterAddress').value = counter.address || '';
+
+            // Populate created date if available
+            const cd = document.getElementById('counterCreatedDate');
+            if (cd) {
+                const raw = counter.createdDate || counter.CreatedDate || counter.created_at || counter.createdAt;
+                cd.value = raw ? toYMD(raw) : '';
+            }
 
             counterModal.classList.remove('hidden');
         }
@@ -1002,6 +1034,12 @@
                 gst: document.getElementById('counterGst').value.trim(),
                 address: document.getElementById('counterAddress').value.trim()
             };
+
+            // Include createdDate if provided
+            const createdDateVal = document.getElementById('counterCreatedDate')?.value;
+            if (createdDateVal) {
+                counterData.createdDate = createdDateVal;
+            }
 
             // Basic validation
             if (!counterData.CounterName || !counterData.CityID || !counterData.RepID) {

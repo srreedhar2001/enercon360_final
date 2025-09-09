@@ -4,6 +4,9 @@ const { verifyToken } = require('../middleware/auth');
 const {
     getPayments,
     getPaymentStatistics,
+    getMonthlyExpenses,
+    getMonthlyExpensesDetails,
+    getMonthlyPaymentsTotals,
     getPaymentTypes,
     addPayment,
     getPaymentById,
@@ -21,6 +24,11 @@ router.get('/', getPayments);
 
 // GET /api/payments/statistics - Get payment statistics
 router.get('/statistics', getPaymentStatistics);
+router.get('/monthly-expenses', getMonthlyExpenses);
+// GET /api/payments/expenses-details?ym=YYYY-MM[&repId=]
+router.get('/expenses-details', getMonthlyExpensesDetails);
+// GET /api/payments/monthly - Get last-12-months payments and collections totals
+router.get('/monthly', getMonthlyPaymentsTotals);
 
 // GET /api/payments/types - Get payment types for dropdown
 router.get('/types', getPaymentTypes);

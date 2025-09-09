@@ -112,6 +112,16 @@
                 </div>
             </div>
 
+            <!-- Last 12 Months Cards -->
+            <div class="bg-white overflow-hidden shadow rounded-lg mb-6">
+                <div class="p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-gray-800">Last 12 Months Payments</h2>
+                    </div>
+                    <div id="monthlyPaymentsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+                </div>
+            </div>
+
             <!-- Filters -->
             <div class="bg-white rounded-lg shadow p-4 mb-6">
                 <div class="flex flex-col md:flex-row gap-4">
@@ -289,6 +299,7 @@
                 this.users = [];
                 this.counters = [];
                 this.filteredPayments = [];
+                this.editingPaymentId = null;
                 this.init();
             }
 
@@ -315,7 +326,7 @@
 
                 // Add payment button
                 document.getElementById('addPaymentBtn').addEventListener('click', () => {
-                    this.openPaymentModal();
+                    this.openPaymentModal('add');
                 });
 
                 // Modal close buttons
@@ -351,6 +362,7 @@
                 try {
                     await Promise.all([
                         this.loadStatistics(),
+                        this.loadMonthlyCards(),
                         this.loadPayments(),
                         this.loadPaymentTypes(),
                         this.loadUsers(),
@@ -359,6 +371,35 @@
                 } catch (error) {
                     console.error('Error loading data:', error);
                     this.showError('Failed to load payment data');
+                }
+            }
+
+            async loadMonthlyCards() {
+                try {
+                    const response = await fetch('/api/payments/monthly', { headers: getAuthHeaders() });
+                    if (response.status === 401) { window.location.href = '/login.html'; return; }
+                    if (!response.ok) throw new Error('Failed to load monthly payments');
+                    const result = await response.json();
+                    const data = Array.isArray(result.data) ? result.data : [];
+                    const grid = document.getElementById('monthlyPaymentsGrid');
+                    if (!data.length) {
+                        grid.innerHTML = '<div class="col-span-full text-gray-500">No data</div>';
+                        return;
+                    }
+                    grid.innerHTML = data.map(m => `
+                        <div class="border border-gray-200 rounded-lg p-3 bg-white">
+                            <div class="flex items-center justify-between mb-1">
+                                <div class="text-[12px] uppercase tracking-wide text-gray-600">${m.label}</div>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Monthly</span>
+                            </div>
+                            <div class="space-y-1">
+                                <div class="flex justify-between text-sm"><span class="text-gray-600">Payments</span><span class="font-semibold text-gray-900">₹${Number(m.paymentsTotal||0).toLocaleString('en-IN')}</span></div>
+                                <div class="flex justify-between text-sm"><span class="text-gray-600">Collections</span><span class="font-semibold text-gray-900">₹${Number(m.collectionsTotal||0).toLocaleString('en-IN')}</span></div>
+                            </div>
+                        </div>
+                    `).join('');
+                } catch (error) {
+                    console.error('Error loading monthly payments:', error);
                 }
             }
 
@@ -615,6 +656,7 @@
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <button onclick="paymentManager.viewPayment(${payment.id})" class="text-indigo-600 hover:text-indigo-900 mr-2">View</button>
+                        <button onclick="paymentManager.editPayment(${payment.id})" class="text-blue-600 hover:text-blue-900 mr-2">Edit</button>
                         <button onclick="paymentManager.deletePayment(${payment.id})" class="text-red-600 hover:text-red-900">Delete</button>
                     </td>
                 `;
@@ -646,7 +688,7 @@
                 this.renderPayments();
             }
 
-            openPaymentModal() {
+            openPaymentModal(mode = 'add', payment = null) {
                 document.getElementById('paymentModal').classList.remove('hidden');
                 this.setTodayDate();
                 // Ensure a clean state each time
@@ -662,6 +704,34 @@
                 counterSelect.removeAttribute('required');
                 userSelect.value = '';
                 counterSelect.value = '';
+
+                const titleEl = document.querySelector('#paymentModal h3');
+                const submitBtn = document.querySelector('#paymentForm button[type="submit"]');
+                if (mode === 'edit' && payment) {
+                    this.editingPaymentId = payment.id;
+                    if (titleEl) titleEl.textContent = 'Edit Payment Record';
+                    if (submitBtn) submitBtn.textContent = 'Update Payment';
+                    if (payment.serviceTypeId) {
+                        paymentType.value = String(payment.serviceTypeId);
+                        this.handlePaymentTypeChange(payment.serviceTypeId);
+                    }
+                    if (payment.userId) userSelect.value = String(payment.userId);
+                    if (payment.counterId) counterSelect.value = String(payment.counterId);
+                    const amt = Number(payment.amount || 0);
+                    document.getElementById('paymentAmount').value = isNaN(amt) ? '' : amt;
+                    const d = new Date(payment.paymentDate);
+                    if (!isNaN(d.getTime())) {
+                        const y = d.getFullYear();
+                        const m = String(d.getMonth() + 1).padStart(2, '0');
+                        const day = String(d.getDate()).padStart(2, '0');
+                        document.getElementById('paymentDate').value = `${y}-${m}-${day}`;
+                    }
+                    document.getElementById('paymentNotes').value = payment.comments || '';
+                } else {
+                    this.editingPaymentId = null;
+                    if (titleEl) titleEl.textContent = 'Add Payment Record';
+                    if (submitBtn) submitBtn.textContent = 'Save Payment';
+                }
             }
 
             closePaymentModal() {
@@ -675,6 +745,12 @@
                 document.getElementById('counterSelect').removeAttribute('required');
                 
                 this.setTodayDate();
+                // Reset edit state and labels
+                this.editingPaymentId = null;
+                const titleEl = document.querySelector('#paymentModal h3');
+                const submitBtn = document.querySelector('#paymentForm button[type="submit"]');
+                if (titleEl) titleEl.textContent = 'Add Payment Record';
+                if (submitBtn) submitBtn.textContent = 'Save Payment';
             }
 
             async handlePaymentSubmit(e) {
@@ -724,8 +800,11 @@
                 };
 
                 try {
-                    const response = await fetch('/api/payments', {
-                        method: 'POST',
+                    const isEdit = !!this.editingPaymentId;
+                    const url = isEdit ? `/api/payments/${this.editingPaymentId}` : '/api/payments';
+                    const method = isEdit ? 'PUT' : 'POST';
+                    const response = await fetch(url, {
+                        method,
                         headers: getAuthHeaders(),
                         body: JSON.stringify(formData)
                     });
@@ -739,17 +818,17 @@
                     if (response.ok) {
                         this.closePaymentModal();
                         this.loadData(); // Refresh data
-                        alert('Payment record saved successfully!');
+                        alert(this.editingPaymentId ? 'Payment record updated successfully!' : 'Payment record saved successfully!');
                     } else {
-                        alert(result.message || 'Failed to save payment record');
+                        alert(result.message || (this.editingPaymentId ? 'Failed to update payment record' : 'Failed to save payment record'));
                     }
                 } catch (error) {
-                    console.error('Error saving payment:', error);
-                    alert('Failed to save payment record');
+                    console.error('Error saving/updating payment:', error);
+                    alert(this.editingPaymentId ? 'Failed to update payment record' : 'Failed to save payment record');
                 } finally {
                     if (saveBtn) {
                         saveBtn.disabled = false;
-                        saveBtn.textContent = 'Save Payment';
+                        saveBtn.textContent = this.editingPaymentId ? 'Update Payment' : 'Save Payment';
                     }
                 }
             }
@@ -785,6 +864,31 @@
                 } catch (error) {
                     console.error('Error viewing payment:', error);
                     alert('Failed to load payment details');
+                }
+            }
+
+            async editPayment(id) {
+                try {
+                    const response = await fetch(`/api/payments/${id}`, {
+                        headers: getAuthHeaders()
+                    });
+                    if (response.status === 401) {
+                        window.location.href = '/login.html';
+                        return;
+                    }
+                    if (!response.ok) {
+                        alert('Failed to load payment details for edit');
+                        return;
+                    }
+                    const result = await response.json();
+                    const payment = result.data;
+                    if (!this.paymentTypes.length || !this.users.length || !this.counters.length) {
+                        await Promise.all([this.loadPaymentTypes(), this.loadUsers(), this.loadCounters()]);
+                    }
+                    this.openPaymentModal('edit', payment);
+                } catch (error) {
+                    console.error('Error loading payment for edit:', error);
+                    alert('Failed to load payment for edit');
                 }
             }
 

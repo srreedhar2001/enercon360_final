@@ -157,6 +157,7 @@ class NavigationLoader {
                         if (p.includes('collections.html')) return 'collections';
                         if (p.includes('payments.html')) return 'payments';
                         if (p.includes('page-access.html')) return 'page-access';
+                        if (p.includes('RepSalesReport.html')) return 'reports';
                         return null;
                     })(path);
                     if (pageKey) {
@@ -166,6 +167,8 @@ class NavigationLoader {
                         }
                     }
                 })();
+
+                // Representatives submenu removed per request
                 
                 return true;
             }

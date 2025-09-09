@@ -11,7 +11,16 @@ class OrderController {
                 SELECT 
                     DATE_FORMAT(o.orderDate, '%Y-%m') AS ym,
                     DATE_FORMAT(o.orderDate, '%b %Y') AS label,
-                    COALESCE(SUM((COALESCE(o.subTotal,0) - COALESCE(o.TotalDiscountAmount,0)) + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0)), 0) AS total
+                    COALESCE(SUM((COALESCE(o.subTotal,0) - COALESCE(o.TotalDiscountAmount,0)) + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0)), 0) AS total,
+                    (
+                        SELECT COALESCE(ROUND(SUM((COALESCE(od.qty,0) + COALESCE(od.freeQty,0)) * COALESCE(p.manufacturingPrice,0))), 0)
+                        FROM orders o2
+                        LEFT JOIN orderdetails od ON od.orderId = o2.id
+                        LEFT JOIN product p ON p.id = od.productId
+                        ${repId ? 'INNER JOIN counters c2 ON o2.counterID = c2.id' : ''}
+                        WHERE DATE_FORMAT(o2.orderDate, '%Y-%m') = DATE_FORMAT(o.orderDate, '%Y-%m')
+                        ${repId ? 'AND c2.RepID = ?' : ''}
+                    ) AS productCost
                 FROM orders o
             `;
             const params = [];
@@ -21,7 +30,8 @@ class OrderController {
             sql += ` WHERE o.orderDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH) `;
             if (repId) {
                 sql += ` AND c.RepID = ? `;
-                params.push(repId);
+                // First for subquery (c2.RepID), second for main filter (c.RepID)
+                params.push(repId, repId);
             }
             sql += ` GROUP BY ym, label ORDER BY ym ASC `;
 
@@ -38,8 +48,9 @@ class OrderController {
                 series.push({ ym, label, total: 0 });
             }
 
-            const map = Object.fromEntries(rows.map(r => [r.ym, Number(r.total) || 0]));
-            const data = series.map(m => ({ ...m, total: Math.round(map[m.ym] || 0) }));
+            const totalsMap = Object.fromEntries(rows.map(r => [r.ym, Number(r.total) || 0]));
+            const costMap = Object.fromEntries(rows.map(r => [r.ym, Number(r.productCost) || 0]));
+            const data = series.map(m => ({ ...m, total: Math.round(totalsMap[m.ym] || 0), productCost: Math.round(costMap[m.ym] || 0) }));
 
             return res.status(200).json({
                 success: true,

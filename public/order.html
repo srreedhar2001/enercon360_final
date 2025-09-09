@@ -412,6 +412,14 @@
                         </div>
                     </div>
 
+                    <!-- Order Line Items -->
+                    <div id="viewItemsSection" class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
+                        <h4 class="text-lg font-semibold text-gray-900 mb-4">🧾 Line Items</h4>
+                        <div id="viewItemsContainer" class="overflow-x-auto">
+                            <div class="text-sm text-gray-500">No items</div>
+                        </div>
+                    </div>
+
                     <!-- Order Summary -->
                     <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
                         <h4 class="text-lg font-semibold text-gray-900 mb-4">💰 Order Summary</h4>
@@ -420,6 +428,14 @@
                                 <div class="flex justify-between">
                                     <span class="text-gray-600">Subtotal:</span>
                                     <span id="viewSubtotal" class="font-semibold text-gray-900"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Total Discount:</span>
+                                    <span id="viewTotalDiscount" class="font-semibold text-gray-900"></span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Taxable Amount:</span>
+                                    <span id="viewTaxable" class="font-semibold text-gray-900"></span>
                                 </div>
                                 <div class="flex justify-between">
                                     <span class="text-gray-600">CGST:</span>
@@ -488,6 +504,9 @@
     let gstRatesMap = {}; // { gstId: total_gst_percent }
     let isEditing = false;
     let editingOrderId = null;
+    // Month card selection state
+    let selectedMonths = new Set(); // stores 'YYYY-MM'
+    let monthlyTotalsData = []; // cache last-6-months API response
 
         // DOM elements
         const ordersContainer = document.getElementById('ordersContainer');
@@ -722,22 +741,44 @@
         }
 
         function formatDate(dateStr) {
-            return new Date(dateStr).toLocaleDateString('en-IN', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
+            if (!dateStr) return '';
+            const opts = { year: 'numeric', month: 'short', day: 'numeric' };
+            try {
+                const s = String(dateStr);
+                const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (m) {
+                    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+                    return d.toLocaleDateString('en-IN', opts);
+                }
+                const d = new Date(s);
+                if (!isNaN(d.getTime())) return d.toLocaleDateString('en-IN', opts);
+            } catch (_) {}
+            return '';
         }
 
+        function pad2(n) { return String(n).padStart(2, '0'); }
+        function formatLocalYMD(date) {
+            const d = date instanceof Date ? date : new Date(date);
+            return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+        }
         function dateToInput(value) {
-            if (!value) return new Date().toISOString().split('T')[0];
+            if (!value) return formatLocalYMD(new Date());
             try {
-                // If already in YYYY-MM-DD
-                if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-                const d = new Date(value);
-                if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+                const s = String(value);
+                // If already starts with YYYY-MM-DD, take the first 10 chars to avoid TZ shifts
+                const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+                if (m) return m[1];
+                const d = new Date(s);
+                if (!isNaN(d.getTime())) return formatLocalYMD(d);
             } catch (_) {}
-            return new Date().toISOString().split('T')[0];
+            return formatLocalYMD(new Date());
+        }
+        function addDaysYMD(ymd, days) {
+            // ymd: YYYY-MM-DD
+            const [y, m, d] = ymd.split('-').map(Number);
+            const dt = new Date(y, (m - 1), d);
+            dt.setDate(dt.getDate() + (Number(days) || 0));
+            return formatLocalYMD(dt);
         }
 
         function showAuthenticationError() {
@@ -788,8 +829,8 @@
                 return;
             }
 
-            // Set default date to today
-            document.getElementById('orderDate').value = new Date().toISOString().split('T')[0];
+            // Set default date to today (local, no TZ shift)
+            document.getElementById('orderDate').value = formatLocalYMD(new Date());
 
             // Try to load data
             try {
@@ -823,7 +864,8 @@
                 populateDropdowns();
                 // Load monthly totals
                 try { await loadMonthlyTotals(); } catch (e) { console.warn('Monthly totals failed:', e); }
-                renderOrders(orders);
+                // Do not show orders by default; prompt user to select months
+                renderOrdersPrompt();
             } catch (error) {
                 console.error('Error loading initial data:', error);
                 showError('Failed to load initial data');
@@ -837,24 +879,79 @@
                 const resp = await fetch('/api/orders/stats/last-6-months', { headers: getAuthHeaders() });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const json = await resp.json();
-                const data = Array.isArray(json.data) ? json.data : [];
-                if (data.length === 0) {
+                monthlyTotalsData = Array.isArray(json.data) ? json.data : [];
+                if (monthlyTotalsData.length === 0) {
                     container.innerHTML = `<div class="col-span-full text-gray-500">No data</div>`;
                     return;
                 }
-                container.innerHTML = data.map((m, idx) => `
-                    <div class="bg-white rounded-lg shadow p-4 border ${idx === data.length - 1 ? 'border-blue-300' : 'border-gray-200'}">
-                        <div class="flex items-center justify-between mb-2">
-                            <dt class="text-xs uppercase tracking-wide text-gray-500">${escapeHtml(m.label)}</dt>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === data.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === data.length - 1 ? 'Current' : 'Past'}</span>
-                        </div>
-                        <dd class="text-lg font-semibold text-gray-900">${formatCurrency(m.total || 0)}</dd>
-                    </div>
-                `).join('');
+                renderMonthlyCards();
+                // Attach click handler once
+                if (!container.dataset.clickBound) {
+                    container.addEventListener('click', onMonthCardClick);
+                    container.dataset.clickBound = '1';
+                }
             } catch (err) {
                 console.error('Monthly totals error:', err);
                 container.innerHTML = `<div class="col-span-full text-red-500">Failed to load monthly totals</div>`;
             }
+        }
+
+        function renderMonthlyCards() {
+            const container = document.getElementById('monthlyTotals');
+            container.innerHTML = monthlyTotalsData.map((m, idx) => {
+                const ym = String(m.ym || '').slice(0, 7);
+                const selected = selectedMonths.has(ym);
+                const borderCls = selected ? 'border-2 border-blue-500 ring-2 ring-blue-100' : (idx === monthlyTotalsData.length - 1 ? 'border border-blue-300' : 'border border-gray-200');
+                return `
+                    <div class="bg-white rounded-lg shadow p-4 cursor-pointer ${borderCls}" data-ym="${ym}">
+                        <div class="flex items-center justify-between mb-2">
+                            <dt class="text-xs uppercase tracking-wide ${selected ? 'text-blue-700' : 'text-gray-500'}">${escapeHtml(m.label)}</dt>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === monthlyTotalsData.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === monthlyTotalsData.length - 1 ? 'Current' : 'Past'}</span>
+                        </div>
+                        <dd class="text-lg font-semibold ${selected ? 'text-blue-700' : 'text-gray-900'}">${formatCurrency(m.total || 0)}</dd>
+                        <div class="mt-1 text-[11px] ${selected ? 'text-blue-600' : 'text-gray-400'}">${selected ? 'Selected' : 'Click to select'}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function onMonthCardClick(e) {
+            const card = e.target.closest('[data-ym]');
+            if (!card) return;
+            const ym = card.getAttribute('data-ym');
+            if (!ym) return;
+            if (selectedMonths.has(ym)) selectedMonths.delete(ym); else selectedMonths.add(ym);
+            renderMonthlyCards();
+            if (selectedMonths.size > 0) {
+                renderSelectedOrders();
+            } else {
+                renderOrdersPrompt();
+            }
+        }
+
+        function renderOrdersPrompt() {
+            ordersContainer.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="text-gray-500">Select one or more month cards above to view orders.</div>
+                </div>
+            `;
+        }
+
+        function getOrderYM(order) {
+            const s = String(order.orderDate || '');
+            const m = s.match(/^(\d{4}-\d{2})/);
+            if (m) return m[1];
+            try {
+                const d = new Date(s);
+                if (!isNaN(d.getTime())) return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            } catch(_) {}
+            return '';
+        }
+
+        function renderSelectedOrders() {
+            const base = orders.filter(o => selectedMonths.has(getOrderYM(o)));
+            // Apply current filters/search on top of base
+            renderOrders(applyActiveFilters(base));
         }
 
         function populateDropdowns() {
@@ -978,10 +1075,19 @@
                                             ${order.itemCount} items (${order.totalQuantity} qty)
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-gray-900">${formatCurrency(order.grandTotal)}</div>
-                                            <div class="text-xs text-gray-500">
-                                                Subtotal: ${formatCurrency(order.subTotal)} + Tax: ${formatCurrency(order.totalCGST + order.totalSGST)}
-                                            </div>
+                                            ${(() => {
+                                                const sub = Number(order.subTotal || 0);
+                                                const tax = Number(order.totalCGST || 0) + Number(order.totalSGST || 0);
+                                                const discRaw = (order.TotalDiscountAmount ?? order.totalDiscountAmount ?? 0);
+                                                const disc = Math.max(0, Number(discRaw) || 0);
+                                                const net = Math.round((sub + tax) - disc);
+                                                return `
+                                                    <div class=\"text-sm font-medium text-gray-900\">${formatCurrency(net)}</div>
+                                                    <div class=\"text-xs text-gray-500\">
+                                                        Subtotal: ${formatCurrency(sub)} - Disc: ${formatCurrency(disc)} + Tax: ${formatCurrency(tax)}
+                                                    </div>
+                                                `;
+                                            })()}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${order.paymentReceived ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
@@ -1022,15 +1128,13 @@
             return div.innerHTML;
         }
 
-        function filterOrders() {
+        function applyActiveFilters(list) {
             const search = searchOrders.value.toLowerCase();
             const status = statusFilter.value;
             const payment = paymentFilter.value;
             const counter = counterFilter.value;
             const date = dateFilter.value;
-
-            let filtered = [...orders];
-
+            let filtered = [...list];
             if (search) {
                 filtered = filtered.filter(order => 
                     order.id.toString().includes(search) ||
@@ -1054,8 +1158,21 @@
             if (date) {
                 filtered = filtered.filter(order => order.orderDate === date);
             }
+            return filtered;
+        }
 
-            renderOrders(filtered);
+        function filterOrders() {
+            const base = (selectedMonths.size > 0) ? orders.filter(o => selectedMonths.has(getOrderYM(o))) : orders;
+            const filtered = applyActiveFilters(base);
+            if (filtered.length === 0 && selectedMonths.size === 0) {
+                // No selection and no results (likely due to search term) -> show table with "No orders found"
+                renderOrders(filtered);
+            } else if (selectedMonths.size === 0 && !searchOrders.value && statusFilter.value==='all' && !paymentFilter.value && !counterFilter.value && !dateFilter.value) {
+                // No selection and no active filters -> keep prompt
+                renderOrdersPrompt();
+            } else {
+                renderOrders(filtered);
+            }
         }
 
         function openAddModal() {
@@ -1075,9 +1192,8 @@
             document.getElementById('orderNumber').textContent = orderNum;
             
             // Set delivery date to 3 days from order date
-            const deliveryDate = new Date();
-            deliveryDate.setDate(deliveryDate.getDate() + 3);
-            document.getElementById('deliveryDate').value = deliveryDate.toISOString().split('T')[0];
+            const deliveryDate = addDaysYMD(formatLocalYMD(new Date()), 3);
+            document.getElementById('deliveryDate').value = deliveryDate;
             
             addProductRow(); // Add first product row
             updateOrderSummary();
@@ -1508,6 +1624,78 @@
                 document.getElementById('viewSGST').textContent = formatCurrency(order.totalSGST || 0);
                 document.getElementById('viewTotalTax').textContent = formatCurrency((order.totalCGST || 0) + (order.totalSGST || 0));
                 document.getElementById('viewGrandTotal').textContent = formatCurrency(order.grandTotal);
+
+                // Render line items with discount columns
+                const items = Array.isArray(order.orderDetails) ? order.orderDetails : [];
+                const itemsContainer = document.getElementById('viewItemsContainer');
+                if (items.length === 0) {
+                    itemsContainer.innerHTML = '<div class="text-sm text-gray-500">No items</div>';
+                } else {
+                    const rows = items.map((it, idx) => {
+                        const qty = Number(it.qty || it.quantity || 0) || 0;
+                        const rate = Number(it.offerPrice || it.rate || 0) || 0;
+                        const pct = Number(it.discount || 0) || 0;
+                        const storedDisc = Number(it.DiscountAmount);
+                        const lineSub = Math.round(qty * rate);
+                        const discAmt = Number.isFinite(storedDisc) ? storedDisc : Math.round(lineSub * (pct / 100));
+                        return `
+                            <tr>
+                                <td class="px-3 py-2 text-center">${idx + 1}</td>
+                                <td class="px-3 py-2">
+                                    <div class="font-medium">${it.productName || 'Product'}</div>
+                                    <div class="text-xs text-gray-500">${it.productSku ? `SKU: ${it.productSku}` : ''}</div>
+                                </td>
+                                <td class="px-3 py-2 text-center">${qty}</td>
+                                <td class="px-3 py-2 text-center">${Number(it.freeQty || 0)}${(Number(it.freeQty || 0) > 0) ? ' 🎁' : ''}</td>
+                                <td class="px-3 py-2 text-right">${formatCurrency(rate)}</td>
+                                <td class="px-3 py-2 text-center">${pct}%</td>
+                                <td class="px-3 py-2 text-right">${formatCurrency(discAmt)}</td>
+                                <td class="px-3 py-2 text-right">${formatCurrency(Number(it.cgst || 0))}</td>
+                                <td class="px-3 py-2 text-right">${formatCurrency(Number(it.sgst || 0))}</td>
+                                <td class="px-3 py-2 text-right font-semibold">${formatCurrency(Number(it.total || 0))}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                    itemsContainer.innerHTML = `
+                        <table class="min-w-full border border-gray-200 rounded overflow-hidden">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="px-3 py-2 text-center text-xs font-semibold text-gray-600">#</th>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold text-gray-600">Product</th>
+                                    <th class="px-3 py-2 text-center text-xs font-semibold text-gray-600">Qty</th>
+                                    <th class="px-3 py-2 text-center text-xs font-semibold text-gray-600">Free</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600">Unit Price</th>
+                                    <th class="px-3 py-2 text-center text-xs font-semibold text-gray-600">Disc%</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600">Disc Amt</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600">CGST</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600">SGST</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold text-gray-600">Line Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    `;
+                }
+
+                // Compute and show total discount and taxable
+                const totalDisc = items.reduce((sum, it) => {
+                    const qty = Number(it.qty || it.quantity || 0) || 0;
+                    const rate = Number(it.offerPrice || it.rate || 0) || 0;
+                    const pct = Number(it.discount || 0) || 0;
+                    const storedDisc = Number(it.DiscountAmount);
+                    const lineSub = Math.round(qty * rate);
+                    const discAmt = Number.isFinite(storedDisc) ? storedDisc : Math.round(lineSub * (pct / 100));
+                    return sum + (discAmt || 0);
+                }, 0);
+                const taxable = Math.round((Number(order.subTotal || 0) || 0) - (totalDisc || 0));
+                const totalTax = (Number(order.totalCGST || 0) || 0) + (Number(order.totalSGST || 0) || 0);
+                const viewTotalDiscountEl = document.getElementById('viewTotalDiscount');
+                const viewTaxableEl = document.getElementById('viewTaxable');
+                if (viewTotalDiscountEl) viewTotalDiscountEl.textContent = formatCurrency(totalDisc);
+                if (viewTaxableEl) viewTaxableEl.textContent = formatCurrency(taxable);
+                document.getElementById('viewTotalTax').textContent = formatCurrency(totalTax);
+                // Show grand total as (taxable + total tax)
+                document.getElementById('viewGrandTotal').textContent = formatCurrency(Math.round(taxable + totalTax));
                 
                 // Handle invoice section
                 const invoiceSection = document.getElementById('viewInvoiceSection');
@@ -1671,11 +1859,7 @@
                     // Prefill dates with safe formatting
                     const inputOrderDate = dateToInput(order.orderDate);
                     document.getElementById('orderDate').value = inputOrderDate;
-                    const delivery = order.deliveryDate ? dateToInput(order.deliveryDate) : (() => {
-                        const base = new Date(inputOrderDate);
-                        base.setDate(base.getDate() + 3);
-                        return base.toISOString().split('T')[0];
-                    })();
+                    const delivery = order.deliveryDate ? dateToInput(order.deliveryDate) : addDaysYMD(inputOrderDate, 3);
                     document.getElementById('deliveryDate').value = delivery;
 
                     // Populate items
