@@ -75,13 +75,20 @@ class OrderController {
                 SELECT 
                     c.id AS counterId,
                     c.CounterName AS counterName,
-                    COALESCE(COUNT(o.id), 0) AS orderCount,
-                    COALESCE(SUM(CASE WHEN o.paymentReceived = 1 THEN 1 ELSE 0 END), 0) AS paidCount,
-                    COALESCE(SUM(CASE WHEN o.paymentReceived = 0 THEN 1 ELSE 0 END), 0) AS unpaidCount,
+                    COALESCE(COUNT(DISTINCT o.id), 0) AS orderCount,
+                    COALESCE(COUNT(DISTINCT CASE WHEN o.paymentReceived = 1 THEN o.id END), 0) AS paidCount,
+                    COALESCE(COUNT(DISTINCT CASE WHEN o.paymentReceived = 0 THEN o.id END), 0) AS unpaidCount,
                     DATE_FORMAT(MAX(o.orderDate), '%Y-%m-%d') AS latestOrderDate,
                     COALESCE(ROUND(SUM((COALESCE(o.subTotal,0) - COALESCE(o.TotalDiscountAmount,0)) 
                         + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0))), 0) AS total,
-                    COALESCE(ROUND(SUM(CASE WHEN o.paymentReceived = 0 THEN ((COALESCE(o.subTotal,0) - COALESCE(o.TotalDiscountAmount,0)) + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0)) ELSE 0 END)), 0) AS pendingTotal
+                    COALESCE(ROUND(SUM(CASE WHEN o.paymentReceived = 0 THEN ((COALESCE(o.subTotal,0) - COALESCE(o.TotalDiscountAmount,0)) + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0)) ELSE 0 END)), 0) AS pendingTotal,
+                    (
+                        SELECT COALESCE(ROUND(SUM((COALESCE(od.qty,0) + COALESCE(od.freeQty,0)) * COALESCE(p.manufacturingPrice,0))), 0)
+                        FROM orders o2
+                        LEFT JOIN orderdetails od ON od.orderId = o2.id
+                        LEFT JOIN product p ON p.id = od.productId
+                        WHERE o2.counterID = c.id AND DATE_FORMAT(o2.orderDate, '%Y-%m') = ?
+                    ) AS productCost
                 FROM counters c
                 LEFT JOIN orders o 
                     ON o.counterID = c.id 
@@ -91,7 +98,7 @@ class OrderController {
                 ORDER BY total DESC, c.CounterName ASC
             `;
 
-            const rows = await dbQuery(sql, [ym, repId]);
+            const rows = await dbQuery(sql, [ym, ym, repId]);
 
             return res.status(200).json({
                 success: true,

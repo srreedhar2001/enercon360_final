@@ -4,6 +4,7 @@ const { verifyToken } = require('../middleware/auth');
 const {
     getPayments,
     getPaymentStatistics,
+    getMonthlyExpenses,
     getPaymentTypes,
     addPayment,
     getPaymentById,
@@ -21,6 +22,9 @@ router.get('/', getPayments);
 
 // GET /api/payments/statistics - Get payment statistics
 router.get('/statistics', getPaymentStatistics);
+
+// GET /api/payments/monthly-expenses - Get monthly expenses (grouped by month)
+router.get('/monthly-expenses', getMonthlyExpenses);
 
 // GET /api/payments/types - Get payment types for dropdown
 router.get('/types', getPaymentTypes);

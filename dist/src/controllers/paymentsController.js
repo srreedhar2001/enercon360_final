@@ -121,6 +121,69 @@ const getPaymentStatistics = async (req, res) => {
     }
 };
 
+// Get monthly expenses (grouped by YYYY-MM), optional filters: repId (userId), from/to month (YYYY-MM)
+const getMonthlyExpenses = async (req, res) => {
+    try {
+        const { repId, from, to } = req.query;
+
+        const params = [];
+        let where = ` WHERE 1=1 `;
+        where += ` AND LOWER(pt.serviceTypeName) IN ('expenses','salary') `;
+        if (repId) {
+            where += ` AND p.userId = ? `;
+            params.push(repId);
+        }
+        if (from && to) {
+            where += ` AND DATE_FORMAT(p.paymentDate, '%Y-%m') BETWEEN ? AND ? `;
+            params.push(from, to);
+        } else {
+            where += ` AND p.paymentDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH) `;
+        }
+
+        const sql = `
+            SELECT 
+                DATE_FORMAT(p.paymentDate, '%Y-%m') AS ym,
+                DATE_FORMAT(p.paymentDate, '%b %Y') AS label,
+                COALESCE(SUM(p.amount), 0) AS total
+            FROM payments p
+            INNER JOIN paymenttype pt ON p.serviceTypeId = pt.id
+            ${where}
+            GROUP BY ym, label
+            ORDER BY ym ASC
+        `;
+
+        const rows = await dbQuery(sql, params);
+
+        let startDate;
+        let endDate;
+        if (from && to) {
+            const [fy, fm] = String(from).split('-').map(n => parseInt(n, 10));
+            const [ty, tm] = String(to).split('-').map(n => parseInt(n, 10));
+            startDate = new Date(Date.UTC(fy, (fm - 1), 1));
+            endDate = new Date(Date.UTC(ty, (tm - 1), 1));
+        } else {
+            const now = new Date();
+            endDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+            startDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth() - 11, 1));
+        }
+
+        const map = Object.fromEntries(rows.map(r => [r.ym, Number(r.total) || 0]));
+        const data = [];
+        const cur = new Date(startDate);
+        while (cur <= endDate) {
+            const ym = `${cur.getUTCFullYear()}-${String(cur.getUTCMonth() + 1).padStart(2, '0')}`;
+            const label = cur.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+            data.push({ ym, label, total: Math.round(map[ym] || 0) });
+            cur.setUTCMonth(cur.getUTCMonth() + 1);
+        }
+
+        return res.status(200).json({ success: true, message: 'Monthly expenses fetched', data });
+    } catch (error) {
+        console.error('Error fetching monthly expenses:', error);
+        return res.status(500).json({ success: false, message: 'Failed to fetch monthly expenses', error: error.message });
+    }
+};
+
 // Get payment types for dropdown
 const getPaymentTypes = async (req, res) => {
     try {
@@ -467,6 +530,7 @@ const getCounters = async (req, res) => {
 module.exports = {
     getPayments,
     getPaymentStatistics,
+    getMonthlyExpenses,
     getPaymentTypes,
     addPayment,
     getPaymentById,

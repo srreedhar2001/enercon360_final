@@ -66,6 +66,7 @@
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name of the Representative</th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales for the month of</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Sales</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Received</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Pending Collection</th>
                                     </tr>
                                 </thead>
@@ -86,7 +87,8 @@
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Order Date</th>
-                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Order Value (₹)</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Order Value (₹)</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Product Cost (₹)</th>
                                     </tr>
                                 </thead>
                 <tbody id="repCountersTbody" class="bg-white divide-y divide-gray-200"></tbody>
@@ -331,7 +333,7 @@
                 if (promises.length) await Promise.all(promises);
 
                 // Aggregate rows across selected months
-                const aggregateMap = new Map(); // counterId -> agg
+        const aggregateMap = new Map(); // counterId -> agg
                 for (const ym of selectedMonths) {
                     const rows = monthRowsCache.get(selectionKey(repId, ym)) || [];
                     for (const r of rows) {
@@ -344,7 +346,8 @@
                                 paidCount: 0,
                                 unpaidCount: 0,
                                 latestOrderDate: null,
-                                total: 0
+                total: 0,
+                pendingTotal: 0
                             });
                         }
                         const agg = aggregateMap.get(id);
@@ -352,6 +355,8 @@
                         agg.paidCount += Number(r.paidCount || 0);
                         agg.unpaidCount += Number(r.unpaidCount || 0);
                         agg.total += Number(r.total || 0);
+                            agg.pendingTotal += Number(r.pendingTotal || 0);
+                            agg.productCost = (agg.productCost || 0) + Number(r.productCost || 0);
                         if (r.latestOrderDate) {
                             if (!agg.latestOrderDate || r.latestOrderDate > agg.latestOrderDate) {
                                 agg.latestOrderDate = r.latestOrderDate;
@@ -381,13 +386,15 @@
 
                 // Build summary values
                 const repName = (document.getElementById('selectedRepName').textContent || '').trim();
-                const totalSales = aggRows.reduce((s, r) => s + Number(r.total || 0), 0);
-                const totalPending = aggRows.reduce((s, r) => s + Number(r.pendingTotal || 0), 0);
+        const totalSales = aggRows.reduce((s, r) => s + Number(r.total || 0), 0);
+        const totalPending = aggRows.reduce((s, r) => s + Number(r.pendingTotal || 0), 0);
+        const totalReceived = Math.max(0, Number(totalSales) - Number(totalPending));
                 repSummaryTbody.innerHTML = `
                     <tr>
                         <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(repName)}</td>
                         <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(monthsArray.join(', '))}</td>
                         <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${Number(totalSales).toLocaleString('en-IN')}</td>
+            <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${Number(totalReceived).toLocaleString('en-IN')}</td>
                         <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${Number(totalPending).toLocaleString('en-IN')}</td>
                     </tr>
                 `;
@@ -404,6 +411,7 @@
                 }
                 const html = rows.map((r, idx) => {
                     const val = Number(r.total || 0);
+                    const cost = Number(r.productCost || 0);
                     const paid = Number(r.paidCount || 0);
                     const unpaid = Number(r.unpaidCount || 0);
                     const statusBadge = unpaid > 0
@@ -417,6 +425,7 @@
                             <td class="px-4 py-2 text-sm text-gray-900 text-right">${statusBadge}</td>
                             <td class="px-4 py-2 text-sm text-gray-900 text-right">${r.latestOrderDate ? escapeHtml(r.latestOrderDate) : '-'}</td>
                             <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${val.toLocaleString('en-IN')}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${cost.toLocaleString('en-IN')}</td>
                         </tr>
                     `;
                 }).join('');
