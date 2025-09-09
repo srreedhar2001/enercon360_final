@@ -126,9 +126,10 @@ const getMonthlyExpenses = async (req, res) => {
     try {
         const { repId, from, to } = req.query;
 
-        const params = [];
-        let where = ` WHERE 1=1 `;
-        where += ` AND LOWER(pt.serviceTypeName) IN ('expenses','salary') `;
+    // Build dynamic conditions
+    const params = [];
+    let where = ` WHERE 1=1 `;
+    // Include ALL payment types by default (no filter on paymenttype)
         if (repId) {
             where += ` AND p.userId = ? `;
             params.push(repId);
@@ -137,6 +138,7 @@ const getMonthlyExpenses = async (req, res) => {
             where += ` AND DATE_FORMAT(p.paymentDate, '%Y-%m') BETWEEN ? AND ? `;
             params.push(from, to);
         } else {
+            // default: last 12 months including current
             where += ` AND p.paymentDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH) `;
         }
 
@@ -154,6 +156,7 @@ const getMonthlyExpenses = async (req, res) => {
 
         const rows = await dbQuery(sql, params);
 
+        // Build complete month series
         let startDate;
         let endDate;
         if (from && to) {
@@ -177,7 +180,11 @@ const getMonthlyExpenses = async (req, res) => {
             cur.setUTCMonth(cur.getUTCMonth() + 1);
         }
 
-        return res.status(200).json({ success: true, message: 'Monthly expenses fetched', data });
+        return res.status(200).json({
+            success: true,
+            message: 'Monthly expenses fetched',
+            data
+        });
     } catch (error) {
         console.error('Error fetching monthly expenses:', error);
         return res.status(500).json({ success: false, message: 'Failed to fetch monthly expenses', error: error.message });
@@ -531,39 +538,53 @@ module.exports = {
     getPayments,
     getPaymentStatistics,
     getMonthlyExpenses,
-    // Detailed monthly expenses (mirror from src)
+    // Get detailed payments for a specific month (YYYY-MM) and optional repId
     getMonthlyExpensesDetails: async (req, res) => {
         try {
             const { ym, repId } = req.query;
             if (!ym || !/^\d{4}-\d{2}$/.test(String(ym))) {
                 return res.status(400).json({ success: false, message: 'ym (YYYY-MM) is required' });
             }
+
             const params = [ym];
-            let where = ` WHERE LOWER(pt.serviceTypeName) IN ('expenses','salary') AND DATE_FORMAT(p.paymentDate, '%Y-%m') = ? `;
-            if (repId) { where += ' AND p.userId = ? '; params.push(repId); }
+            let where = ` WHERE DATE_FORMAT(p.paymentDate, '%Y-%m') = ? `;
+            if (repId) {
+                where += ' AND p.userId = ? ';
+                params.push(repId);
+            }
+
             const sql = `
-                SELECT p.id, p.paymentDate, DATE_FORMAT(p.paymentDate, '%Y-%m-%d') AS date,
-                       p.amount, p.comments, pt.serviceTypeName AS paymentType,
-                       u.name AS userName, u.phone AS userMobile
+                SELECT 
+                    p.id,
+                    p.paymentDate,
+                    DATE_FORMAT(p.paymentDate, '%Y-%m-%d') AS date,
+                    p.amount,
+                    p.comments,
+                    pt.serviceTypeName AS paymentType,
+                    u.name AS userName,
+                    u.phone AS userMobile
                 FROM payments p
                 INNER JOIN paymenttype pt ON p.serviceTypeId = pt.id
                 LEFT JOIN users u ON p.userId = u.id
                 ${where}
                 ORDER BY p.paymentDate DESC, p.id DESC
             `;
+
             const rows = await dbQuery(sql, params);
-            return res.status(200).json({ success: true, message: 'Monthly expenses details fetched', data: rows });
+            return res.status(200).json({ success: true, message: 'Monthly payments details fetched', data: rows });
         } catch (error) {
-            console.error('Error fetching monthly expenses details:', error);
-            return res.status(500).json({ success: false, message: 'Failed to fetch monthly expenses details', error: error.message });
+            console.error('Error fetching monthly payments details:', error);
+            return res.status(500).json({ success: false, message: 'Failed to fetch monthly payments details', error: error.message });
         }
     },
     getMonthlyPaymentsTotals: async (req, res) => {
         try {
+            // Build last 12-month timeline (including current month)
             const now = new Date();
             const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
             const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 11, 1));
 
+            // Query payments and collections grouped by month
             const paymentsRows = await dbQuery(`
                 SELECT DATE_FORMAT(p.paymentDate, '%Y-%m') AS ym,
                        DATE_FORMAT(p.paymentDate, '%b %Y') AS label,

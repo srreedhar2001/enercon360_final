@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Status Toggle Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="max-w-4xl mx-auto px-4">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">🎯 Registration Status Toggle Demo</h1>
+            <p class="text-gray-600">Active/Inactive user registration status management</p>
+        </div>
+
+        <!-- Feature Overview -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-blue-600">✨ New Feature: Registration Status Control</h2>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <h3 class="font-medium text-gray-800">🎮 User Interface Features:</h3>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li class="flex items-center"><span class="text-green-500 mr-2">✅</span> Active/Inactive radio buttons in Add User form</li>
+                        <li class="flex items-center"><span class="text-green-500 mr-2">✅</span> Active/Inactive radio buttons in Edit User modal</li>
+                        <li class="flex items-center"><span class="text-green-500 mr-2">✅</span> Visual status indicators (Green ✓ / Red ✗)</li>
+                        <li class="flex items-center"><span class="text-green-500 mr-2">✅</span> Default setting: New users are Active</li>
+                        <li class="flex items-center"><span class="text-green-500 mr-2">✅</span> Status explanation text for clarity</li>
+                    </ul>
+                </div>
+                
+                <div class="space-y-4">
+                    <h3 class="font-medium text-gray-800">⚙️ Backend Implementation:</h3>
+                    <ul class="space-y-2 text-sm text-gray-600">
+                        <li class="flex items-center"><span class="text-blue-500 mr-2">🔧</span> Database field: <code class="bg-gray-100 px-1 rounded">users.registered</code></li>
+                        <li class="flex items-center"><span class="text-blue-500 mr-2">🔧</span> Value mapping: 1 = Active, 0 = Inactive</li>
+                        <li class="flex items-center"><span class="text-blue-500 mr-2">🔧</span> Controller validation and processing</li>
+                        <li class="flex items-center"><span class="text-blue-500 mr-2">🔧</span> Model support for create and update</li>
+                        <li class="flex items-center"><span class="text-blue-500 mr-2">🔧</span> API response includes status</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Visual Demo -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-purple-600">👁️ Visual Demo: Registration Status Toggle</h2>
+            
+            <!-- Add User Form Demo -->
+            <div class="mb-6 p-4 border rounded-lg bg-gray-50">
+                <h3 class="font-medium mb-3 text-gray-800">📝 Add User Form</h3>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" placeholder="Full Name" class="px-3 py-2 border rounded" value="John Doe">
+                        <input type="text" placeholder="Mobile" class="px-3 py-2 border rounded" value="9876543210">
+                    </div>
+                    
+                    <!-- Registration Status Toggle -->
+                    <div class="p-3 bg-white border rounded">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Registration Status</label>
+                        <div class="flex space-x-6">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="demo_status" value="1" checked class="sr-only">
+                                <div class="flex items-center space-x-2 px-3 py-2 bg-green-50 border-2 border-green-300 rounded-lg">
+                                    <span class="text-green-600 text-lg">✓</span>
+                                    <span class="text-green-700 font-medium">Active</span>
+                                </div>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="demo_status" value="0" class="sr-only">
+                                <div class="flex items-center space-x-2 px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-red-300">
+                                    <span class="text-red-500 text-lg">✗</span>
+                                    <span class="text-gray-600">Inactive</span>
+                                </div>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">Active users can log in, Inactive users cannot</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit User Modal Demo -->
+            <div class="mb-6 p-4 border rounded-lg bg-blue-50">
+                <h3 class="font-medium mb-3 text-gray-800">✏️ Edit User Modal</h3>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" placeholder="Full Name" class="px-3 py-2 border rounded" value="Jane Smith">
+                        <input type="text" placeholder="Mobile" class="px-3 py-2 border rounded" value="9123456789">
+                    </div>
+                    
+                    <!-- Registration Status Toggle -->
+                    <div class="p-3 bg-white border rounded">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Registration Status</label>
+                        <div class="flex space-x-6">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="demo_edit_status" value="1" class="sr-only">
+                                <div class="flex items-center space-x-2 px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-green-300">
+                                    <span class="text-green-500 text-lg">✓</span>
+                                    <span class="text-gray-600">Active</span>
+                                </div>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="demo_edit_status" value="0" checked class="sr-only">
+                                <div class="flex items-center space-x-2 px-3 py-2 bg-red-50 border-2 border-red-300 rounded-lg">
+                                    <span class="text-red-600 text-lg">✗</span>
+                                    <span class="text-red-700 font-medium">Inactive</span>
+                                </div>
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">This user is currently Inactive and cannot log in</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Usage Instructions -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-green-600">📋 How to Use Registration Status Toggle</h2>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-medium mb-3 text-gray-800">📱 For Creating New Users:</h3>
+                    <ol class="space-y-2 text-sm text-gray-600">
+                        <li class="flex items-start"><span class="text-blue-500 mr-2 font-bold">1.</span> Navigate to User Management page</li>
+                        <li class="flex items-start"><span class="text-blue-500 mr-2 font-bold">2.</span> Click "Add User" button</li>
+                        <li class="flex items-start"><span class="text-blue-500 mr-2 font-bold">3.</span> Fill in user details</li>
+                        <li class="flex items-start"><span class="text-blue-500 mr-2 font-bold">4.</span> Choose Registration Status:</li>
+                        <li class="ml-4 flex items-start"><span class="text-green-500 mr-2">•</span> <strong>Active</strong>: User can log in immediately</li>
+                        <li class="ml-4 flex items-start"><span class="text-red-500 mr-2">•</span> <strong>Inactive</strong>: User account disabled</li>
+                        <li class="flex items-start"><span class="text-blue-500 mr-2 font-bold">5.</span> Click "Add User" to save</li>
+                    </ol>
+                </div>
+                
+                <div>
+                    <h3 class="font-medium mb-3 text-gray-800">✏️ For Editing Existing Users:</h3>
+                    <ol class="space-y-2 text-sm text-gray-600">
+                        <li class="flex items-start"><span class="text-purple-500 mr-2 font-bold">1.</span> Find user in the list</li>
+                        <li class="flex items-start"><span class="text-purple-500 mr-2 font-bold">2.</span> Click "Edit" button on user card</li>
+                        <li class="flex items-start"><span class="text-purple-500 mr-2 font-bold">3.</span> Modal opens with current details</li>
+                        <li class="flex items-start"><span class="text-purple-500 mr-2 font-bold">4.</span> Current status is pre-selected</li>
+                        <li class="flex items-start"><span class="text-purple-500 mr-2 font-bold">5.</span> Change status if needed</li>
+                        <li class="flex items-start"><span class="text-purple-500 mr-2 font-bold">6.</span> Click "Update User" to save changes</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technical Details -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4 text-indigo-600">🔧 Technical Implementation Details</h2>
+            
+            <div class="grid md:grid-cols-3 gap-6">
+                <div>
+                    <h3 class="font-medium mb-3 text-gray-800">Frontend (user.html)</h3>
+                    <ul class="space-y-1 text-xs text-gray-600 font-mono">
+                        <li>• Radio button inputs</li>
+                        <li>• Visual status indicators</li>
+                        <li>• Form validation</li>
+                        <li>• Modal integration</li>
+                        <li>• Status pre-population</li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-medium mb-3 text-gray-800">Backend Controller</h3>
+                    <ul class="space-y-1 text-xs text-gray-600 font-mono">
+                        <li>• userController.js</li>
+                        <li>• createUser() method</li>
+                        <li>• updateUser() method</li>
+                        <li>• Field extraction</li>
+                        <li>• Default value handling</li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-medium mb-3 text-gray-800">Database Model</h3>
+                    <ul class="space-y-1 text-xs text-gray-600 font-mono">
+                        <li>• User.js model</li>
+                        <li>• createComplete() method</li>
+                        <li>• update() method</li>
+                        <li>• users.registered field</li>
+                        <li>• Dynamic field mapping</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call to Action -->
+        <div class="text-center mt-8">
+            <a href="/user.html" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium inline-flex items-center space-x-2">
+                <span>🚀</span>
+                <span>Try Registration Status Toggle Now!</span>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Demo interactivity for radio buttons
+        document.querySelectorAll('input[name="demo_status"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const labels = document.querySelectorAll('label[for^="demo_status"], label');
+                labels.forEach(label => {
+                    const input = label.querySelector('input[name="demo_status"]');
+                    const div = label.querySelector('div');
+                    if (input && div) {
+                        if (input.checked) {
+                            if (input.value === '1') {
+                                div.className = 'flex items-center space-x-2 px-3 py-2 bg-green-50 border-2 border-green-300 rounded-lg';
+                                div.querySelector('span:last-child').className = 'text-green-700 font-medium';
+                            } else {
+                                div.className = 'flex items-center space-x-2 px-3 py-2 bg-red-50 border-2 border-red-300 rounded-lg';
+                                div.querySelector('span:last-child').className = 'text-red-700 font-medium';
+                            }
+                        } else {
+                            div.className = 'flex items-center space-x-2 px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-' + (input.value === '1' ? 'green' : 'red') + '-300';
+                            div.querySelector('span:last-child').className = 'text-gray-600';
+                        }
+                    }
+                });
+            });
+        });
+
+        // Demo interactivity for edit radio buttons
+        document.querySelectorAll('input[name="demo_edit_status"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const labels = document.querySelectorAll('label[for^="demo_edit_status"], label');
+                labels.forEach(label => {
+                    const input = label.querySelector('input[name="demo_edit_status"]');
+                    const div = label.querySelector('div');
+                    if (input && div) {
+                        if (input.checked) {
+                            if (input.value === '1') {
+                                div.className = 'flex items-center space-x-2 px-3 py-2 bg-green-50 border-2 border-green-300 rounded-lg';
+                                div.querySelector('span:last-child').className = 'text-green-700 font-medium';
+                            } else {
+                                div.className = 'flex items-center space-x-2 px-3 py-2 bg-red-50 border-2 border-red-300 rounded-lg';
+                                div.querySelector('span:last-child').className = 'text-red-700 font-medium';
+                            }
+                        } else {
+                            div.className = 'flex items-center space-x-2 px-3 py-2 border-2 border-gray-200 rounded-lg hover:border-' + (input.value === '1' ? 'green' : 'red') + '-300';
+                            div.querySelector('span:last-child').className = 'text-gray-600';
+                        }
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

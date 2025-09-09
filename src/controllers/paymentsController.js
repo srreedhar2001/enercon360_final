@@ -126,11 +126,10 @@ const getMonthlyExpenses = async (req, res) => {
     try {
         const { repId, from, to } = req.query;
 
-        // Build dynamic conditions
-        const params = [];
-        let where = ` WHERE 1=1 `;
-        // Consider payment types that are expenses/outflows
-        where += ` AND LOWER(pt.serviceTypeName) IN ('expenses','salary') `;
+    // Build dynamic conditions
+    const params = [];
+    let where = ` WHERE 1=1 `;
+    // Include ALL payment types by default (no filter on paymenttype)
         if (repId) {
             where += ` AND p.userId = ? `;
             params.push(repId);
@@ -539,7 +538,7 @@ module.exports = {
     getPayments,
     getPaymentStatistics,
     getMonthlyExpenses,
-    // Get detailed expenses (salary + expenses) for a specific month (YYYY-MM) and optional repId
+    // Get detailed payments for a specific month (YYYY-MM) and optional repId
     getMonthlyExpensesDetails: async (req, res) => {
         try {
             const { ym, repId } = req.query;
@@ -548,7 +547,7 @@ module.exports = {
             }
 
             const params = [ym];
-            let where = ` WHERE LOWER(pt.serviceTypeName) IN ('expenses','salary') AND DATE_FORMAT(p.paymentDate, '%Y-%m') = ? `;
+            let where = ` WHERE DATE_FORMAT(p.paymentDate, '%Y-%m') = ? `;
             if (repId) {
                 where += ' AND p.userId = ? ';
                 params.push(repId);
@@ -572,10 +571,10 @@ module.exports = {
             `;
 
             const rows = await dbQuery(sql, params);
-            return res.status(200).json({ success: true, message: 'Monthly expenses details fetched', data: rows });
+            return res.status(200).json({ success: true, message: 'Monthly payments details fetched', data: rows });
         } catch (error) {
-            console.error('Error fetching monthly expenses details:', error);
-            return res.status(500).json({ success: false, message: 'Failed to fetch monthly expenses details', error: error.message });
+            console.error('Error fetching monthly payments details:', error);
+            return res.status(500).json({ success: false, message: 'Failed to fetch monthly payments details', error: error.message });
         }
     },
     getMonthlyPaymentsTotals: async (req, res) => {

@@ -48,9 +48,9 @@
         <div id="monthCards" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"></div>
       </div>
 
-      <div id="expensesDetails" class="bg-white rounded-lg shadow p-6 hidden">
+    <div id="expensesDetails" class="bg-white rounded-lg shadow p-6 hidden">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="text-lg font-semibold text-gray-800">Expenses Details - <span id="detailsMonth"></span></h2>
+      <h2 class="text-lg font-semibold text-gray-800">Payments Details - <span id="detailsMonth"></span></h2>
           <button id="closeDetails" class="text-sm text-gray-600 hover:text-gray-800">Close</button>
         </div>
         <div class="overflow-x-auto">
@@ -90,7 +90,7 @@
         }
       } catch (_) {}
 
-      function render(data) {
+  function render(data) {
         const cards = document.getElementById('monthCards');
         if (!data.length) {
           cards.innerHTML = '<div class="col-span-full text-gray-500">No data for the selected range</div>';
@@ -103,7 +103,7 @@
               </div>
               <div class="space-y-1">
                 <div class="flex justify-between text-sm"><span class="text-gray-600">Total Sales</span><span class="font-semibold text-gray-900">₹${Number(d.sales||0).toLocaleString('en-IN')}</span></div>
-                <div class="flex justify-between text-sm cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded" data-action="show-exp" data-ym="${d.ym}" data-label="${d.label}"><span class="text-gray-600 underline decoration-dotted">Total Expenses</span><span class="font-semibold text-gray-900">₹${Number(d.expenses||0).toLocaleString('en-IN')}</span></div>
+                <div class="flex justify-between text-sm cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded" data-action="show-exp" data-ym="${d.ym}" data-label="${d.label}"><span class="text-gray-600 underline decoration-dotted">Total Payments</span><span class="font-semibold text-gray-900">₹${Number(d.expenses||0).toLocaleString('en-IN')}</span></div>
                 <div class="flex justify-between text-sm"><span class="text-gray-600">Product Cost</span><span class="font-semibold text-gray-900">₹${Number(d.productCost||0).toLocaleString('en-IN')}</span></div>
                 <div class="border-t border-gray-300 my-1"></div>
                 <div class="flex justify-between text-sm"><span class="text-gray-700 font-medium">Gross Profit</span><span class="font-semibold text-gray-900">₹${(Number(d.sales||0) - (Number(d.expenses||0) + Number(d.productCost||0))).toLocaleString('en-IN')}</span></div>
@@ -113,46 +113,23 @@
             </div>
           `).join('');
         }
-
-        // Event delegation to show details
-        const container = document.getElementById('monthCards');
-        container.addEventListener('click', async (e) => {
-          const target = e.target.closest('[data-action="show-exp"]');
-          if (!target) return;
-          const ym = target.getAttribute('data-ym');
-          const label = target.getAttribute('data-label') || ym;
-          const repId = document.getElementById('repSelect').value || '';
-          const detailsBox = document.getElementById('expensesDetails');
-          const detailsMonth = document.getElementById('detailsMonth');
-          const tbody = document.getElementById('expensesTbody');
-          detailsMonth.textContent = label;
-          detailsBox.classList.remove('hidden');
-          tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Loading...</td></tr>`;
-          try {
-            const usp = new URLSearchParams({ ym });
-            if (repId) usp.set('repId', repId);
-            const res = await fetch(`/api/payments/expenses-details?${usp.toString()}`, { headers: { 'Authorization': `Bearer ${token}` } });
-            const js = await res.json();
-            const rows = Array.isArray(js.data) ? js.data : [];
-            if (!rows.length) {
-              tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">No expenses for this month</td></tr>`;
-            } else {
-              tbody.innerHTML = rows.map(r => `
-                <tr>
-                  <td class="px-4 py-2 text-sm text-gray-900">${r.date || ''}</td>
-                  <td class="px-4 py-2 text-sm text-gray-900">${r.paymentType || ''}</td>
-                  <td class="px-4 py-2 text-sm text-gray-900">${r.userName || ''}</td>
-                  <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${Number(r.amount||0).toLocaleString('en-IN')}</td>
-                  <td class="px-4 py-2 text-sm text-gray-700">${r.comments || ''}</td>
-                </tr>
-              `).join('');
-            }
-          } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-red-600">Failed to load details</td></tr>`;
-          }
-        }, { once: true });
-
   // Details table removed
+      }
+
+      function buildTimeline(from, to) {
+        if (!from || !to) return [];
+        const out = [];
+        const [fy, fm] = from.split('-').map(n => parseInt(n, 10));
+        const [ty, tm] = to.split('-').map(n => parseInt(n, 10));
+        const cur = new Date(Date.UTC(fy, fm - 1, 1));
+        const end = new Date(Date.UTC(ty, tm - 1, 1));
+        while (cur <= end) {
+          const ym = `${cur.getUTCFullYear()}-${String(cur.getUTCMonth()+1).padStart(2,'0')}`;
+          const label = cur.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+          out.push({ ym, label });
+          cur.setUTCMonth(cur.getUTCMonth() + 1);
+        }
+        return out;
       }
 
       async function load() {
@@ -165,8 +142,9 @@
           const rs = await fetch(urlSales, { headers: { 'Authorization': `Bearer ${token}` } });
           const js = await rs.json();
           salesData = Array.isArray(js.data) ? js.data : [];
-        } catch (_) {}
-        // Align expenses to sales 12-month series
+        } catch (e) { console.error('Failed to fetch sales totals', e); }
+
+        // Build an expenses request aligned to the 12-month sales series
         const months = salesData.map(s => s.ym);
         const from = months[0];
         const to = months[months.length - 1];
@@ -180,23 +158,73 @@
           const re = await fetch(urlExp, { headers: { 'Authorization': `Bearer ${token}` } });
           const je = await re.json();
           expData = Array.isArray(je.data) ? je.data : [];
-        } catch (_) {}
-        // Fetch monthly collections and map by ym
+        } catch (e) { console.error('Failed to fetch expenses', e); }
+
+        // Fetch monthly collections (company-wide last 12 months) and map to ym
         let colMap = {};
         try {
           const rc = await fetch('/api/payments/monthly', { headers: { 'Authorization': `Bearer ${token}` } });
           const jc = await rc.json();
           const cols = Array.isArray(jc.data) ? jc.data : [];
           colMap = Object.fromEntries(cols.map(c => [c.ym, Number(c.collectionsTotal||0)]));
-        } catch (_) {}
-        const expMap = Object.fromEntries(expData.map(e => [e.ym, Number(e.total||0)]));
-        const data = salesData.map(m => ({ label: m.label, ym: m.ym, sales: Number(m.total||0), expenses: Number(expMap[m.ym]||0), productCost: Number(m.productCost||0), collection: Number(colMap[m.ym]||0) }));
+        } catch (e) { console.error('Failed to fetch monthly collections', e); }
+
+        const expMap = Object.fromEntries(expData.map(e => [e.ym, Number(e.total || 0)]));
+        const data = salesData.map(m => ({
+          label: m.label,
+          ym: m.ym,
+          sales: Number(m.total || 0),
+          expenses: Number(expMap[m.ym] || 0),
+          productCost: Number(m.productCost || 0),
+          collection: Number(colMap[m.ym] || 0)
+        }));
         render(data);
       }
 
       document.getElementById('loadBtn').addEventListener('click', load);
+      // Auto-refresh when representative selection changes to avoid showing all-users totals
+      document.getElementById('repSelect').addEventListener('change', load);
+  // Default: load last 12 months series from API
       load();
 
+      // Persistent click handler for expenses details (event delegation)
+      document.getElementById('monthCards').addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-action="show-exp"]');
+        if (!btn) return;
+        const ym = btn.getAttribute('data-ym');
+        const label = btn.getAttribute('data-label') || ym;
+        const repId = document.getElementById('repSelect').value || '';
+        const detailsBox = document.getElementById('expensesDetails');
+        const detailsMonth = document.getElementById('detailsMonth');
+        const tbody = document.getElementById('expensesTbody');
+        detailsMonth.textContent = label;
+        detailsBox.classList.remove('hidden');
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Loading...</td></tr>`;
+        try {
+          const usp = new URLSearchParams({ ym });
+          if (repId) usp.set('repId', repId);
+          const res = await fetch(`/api/payments/expenses-details?${usp.toString()}`, { headers: { 'Authorization': `Bearer ${token}` } });
+          const js = await res.json();
+          const rows = Array.isArray(js.data) ? js.data : [];
+          if (!rows.length) {
+            tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">No payments for this month</td></tr>`;
+          } else {
+            tbody.innerHTML = rows.map(r => `
+              <tr>
+                <td class="px-4 py-2 text-sm text-gray-900">${r.date || ''}</td>
+                <td class="px-4 py-2 text-sm text-gray-900">${r.paymentType || ''}</td>
+                <td class="px-4 py-2 text-sm text-gray-900">${r.userName || ''}</td>
+                <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${Number(r.amount||0).toLocaleString('en-IN')}</td>
+                <td class="px-4 py-2 text-sm text-gray-700">${r.comments || ''}</td>
+              </tr>
+            `).join('');
+          }
+        } catch (err) {
+          tbody.innerHTML = `<tr><td colspan=\"5\" class=\"px-4 py-6 text-center text-red-600\">Failed to load details</td></tr>`;
+        }
+      });
+
+      // Close handler for details
       document.getElementById('closeDetails').addEventListener('click', () => {
         document.getElementById('expensesDetails').classList.add('hidden');
       });

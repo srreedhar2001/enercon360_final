@@ -24,9 +24,13 @@ router.get('/', getPayments);
 
 // GET /api/payments/statistics - Get payment statistics
 router.get('/statistics', getPaymentStatistics);
+
+// GET /api/payments/monthly-expenses - Get monthly expenses (grouped by month)
 router.get('/monthly-expenses', getMonthlyExpenses);
-// GET /api/payments/expenses-details?ym=YYYY-MM[&repId=]
+
+// GET /api/payments/expenses-details?ym=YYYY-MM[&repId=] - Detailed monthly expenses
 router.get('/expenses-details', getMonthlyExpensesDetails);
+
 // GET /api/payments/monthly - Get last-12-months payments and collections totals
 router.get('/monthly', getMonthlyPaymentsTotals);
 
