@@ -80,7 +80,8 @@ class OrderController {
                     COALESCE(SUM(CASE WHEN o.paymentReceived = 0 THEN 1 ELSE 0 END), 0) AS unpaidCount,
                     DATE_FORMAT(MAX(o.orderDate), '%Y-%m-%d') AS latestOrderDate,
                     COALESCE(ROUND(SUM((COALESCE(o.subTotal,0) - COALESCE(o.TotalDiscountAmount,0)) 
-                        + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0))), 0) AS total
+                        + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0))), 0) AS total,
+                    COALESCE(ROUND(SUM(CASE WHEN o.paymentReceived = 0 THEN ((COALESCE(o.subTotal,0) - COALESCE(o.TotalDiscountAmount,0)) + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0)) ELSE 0 END)), 0) AS pendingTotal
                 FROM counters c
                 LEFT JOIN orders o 
                     ON o.counterID = c.id 
