@@ -11,7 +11,7 @@ class OrderController {
                 SELECT 
                     DATE_FORMAT(o.orderDate, '%Y-%m') AS ym,
                     DATE_FORMAT(o.orderDate, '%b %Y') AS label,
-                    COALESCE(SUM((COALESCE(o.subTotal,0) - COALESCE(o.TotalDiscountAmount,0)) + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0)), 0) AS total,
+                    COALESCE(SUM(COALESCE(o.grandTotal,0) - COALESCE(o.TotalDiscountAmount,0)), 0) AS total,
                     (
                         SELECT COALESCE(ROUND(SUM((COALESCE(od.qty,0) + COALESCE(od.freeQty,0)) * COALESCE(p.manufacturingPrice,0))), 0)
                         FROM orders o2

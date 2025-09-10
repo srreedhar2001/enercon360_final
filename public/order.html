@@ -864,6 +864,8 @@
                 populateDropdowns();
                 // Load monthly totals
                 try { await loadMonthlyTotals(); } catch (e) { console.warn('Monthly totals failed:', e); }
+                // Adjust monthly totals to ensure discount subtraction is applied uniformly
+                try { recomputeMonthlyTotalsFromOrders(); } catch (e) { console.warn('Recompute monthly totals failed:', e); }
                 // Do not show orders by default; prompt user to select months
                 renderOrdersPrompt();
             } catch (error) {
@@ -908,11 +910,45 @@
                             <dt class="text-xs uppercase tracking-wide ${selected ? 'text-blue-700' : 'text-gray-500'}">${escapeHtml(m.label)}</dt>
                             <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === monthlyTotalsData.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === monthlyTotalsData.length - 1 ? 'Current' : 'Past'}</span>
                         </div>
-                        <dd class="text-lg font-semibold ${selected ? 'text-blue-700' : 'text-gray-900'}">${formatCurrency(m.total || 0)}</dd>
+                        <dd class="text-lg font-semibold ${selected ? 'text-blue-700' : 'text-gray-900'}">${formatCurrency(m.totalNet ?? m.total ?? 0)}</dd>
                         <div class="mt-1 text-[11px] ${selected ? 'text-blue-600' : 'text-gray-400'}">${selected ? 'Selected' : 'Click to select'}</div>
                     </div>
                 `;
             }).join('');
+        }
+
+        // Recompute monthly totals net of discount using current orders list as authoritative.
+        // For each month: sum (subTotal - discount + tax). If header discount missing (0) but line items have discount amounts, derive from lines.
+        function recomputeMonthlyTotalsFromOrders() {
+            if (!Array.isArray(monthlyTotalsData) || monthlyTotalsData.length === 0) return;
+            // Build map from ym -> aggregated net
+            const monthAgg = {};
+            orders.forEach(o => {
+                const ym = getOrderYM(o);
+                if (!ym) return;
+                const grand = Number(o.grandTotal || 0) || 0;
+                let disc = Number(o.TotalDiscountAmount ?? o.totalDiscountAmount ?? 0) || 0;
+                if (disc === 0) {
+                    // Fallback: derive discount from line items if available
+                    const lines = Array.isArray(o.orderDetails) ? o.orderDetails : [];
+                    const derived = lines.reduce((sum, it) => {
+                        const qty = Number(it.qty || it.quantity || 0) || 0;
+                        const rate = Number(it.offerPrice || it.rate || 0) || 0;
+                        const pct = Number(it.discount || 0) || 0;
+                        const stored = Number(it.DiscountAmount);
+                        if (Number.isFinite(stored) && stored > 0) return sum + stored;
+                        const lineSub = Math.round(qty * rate);
+                        const calc = Math.round(lineSub * (pct / 100));
+                        return sum + (calc || 0);
+                    }, 0);
+                    if (derived > 0) disc = derived; // use derived only if positive
+                }
+                const net = Math.round(grand - disc);
+                monthAgg[ym] = (monthAgg[ym] || 0) + net;
+            });
+            // Update monthlyTotalsData with totalNet field
+            monthlyTotalsData = monthlyTotalsData.map(m => ({ ...m, totalNet: monthAgg[m.ym] != null ? monthAgg[m.ym] : (m.totalNet ?? m.total) }));
+            renderMonthlyCards();
         }
 
         function onMonthCardClick(e) {
