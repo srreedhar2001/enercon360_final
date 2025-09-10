@@ -126,6 +126,87 @@ class OrderController {
             });
         }
     }
+    // Lightweight fetch: orders for specific months (summary only, no line items)
+    async getOrdersByMonths(req, res) {
+        try {
+            const { months, payment, counterId, search, repId } = req.query; // removed status (column absent)
+            if (!months) {
+                return res.status(400).json({ success: false, message: 'months query param required (comma separated YYYY-MM values)' });
+            }
+            // Parse and validate months
+            let monthList = String(months).split(',').map(m => m.trim()).filter(Boolean);
+            monthList = Array.from(new Set(monthList)); // dedupe
+            if (monthList.length === 0) {
+                return res.status(400).json({ success: false, message: 'No valid months supplied' });
+            }
+            const ymRegex = /^(\d{4})-(0[1-9]|1[0-2])$/;
+            for (const ym of monthList) {
+                if (!ymRegex.test(ym)) {
+                    return res.status(400).json({ success: false, message: `Invalid month format: ${ym}` });
+                }
+            }
+
+            // Build SQL
+            const params = [];
+            const placeholders = monthList.map(_ => '?').join(',');
+            let sql = `
+                SELECT 
+                    o.id,
+                    DATE_FORMAT(o.orderDate, '%Y-%m-%d') AS orderDate,
+                    o.counterID,
+                    c.CounterName AS counterName,
+                    o.subTotal,
+                    o.totalCGST,
+                    o.totalSGST,
+                    o.TotalDiscountAmount,
+                    o.grandTotal,
+                    o.paymentReceived,
+                    o.invoiceFileName,
+                    (SELECT COUNT(*) FROM orderdetails od WHERE od.orderId = o.id) AS itemCount,
+                    (SELECT COALESCE(SUM(od.qty),0) FROM orderdetails od WHERE od.orderId = o.id) AS totalQuantity
+                FROM orders o
+                LEFT JOIN counters c ON o.counterID = c.id
+            `;
+            if (repId) {
+                sql += ' LEFT JOIN counters cr ON o.counterID = cr.id ';
+            }
+            sql += ` WHERE DATE_FORMAT(o.orderDate, '%Y-%m') IN (${placeholders})`;
+            params.push(...monthList);
+            // status filtering skipped (orders.status column not present in current schema)
+            if (payment === '0' || payment === '1') {
+                sql += ' AND o.paymentReceived = ?';
+                params.push(payment);
+            }
+            if (counterId) {
+                sql += ' AND o.counterID = ?';
+                params.push(counterId);
+            }
+            if (repId) {
+                sql += ' AND cr.RepID = ?';
+                params.push(repId);
+            }
+            if (search) {
+                sql += ' AND (o.id LIKE ? OR c.CounterName LIKE ? OR o.invoiceFileName LIKE ?)';
+                const like = `%${search}%`;
+                params.push(like, like, like);
+            }
+            sql += ' ORDER BY o.orderDate DESC, o.id DESC';
+
+            const rows = await dbQuery(sql, params);
+            // Add fallback status field for UI compatibility
+            const data = rows.map(r => ({ ...r, status: r.status || 'open' }));
+            return res.status(200).json({
+                success: true,
+                message: 'Monthly orders (summary) fetched',
+                data,
+                count: data.length,
+                meta: { months: monthList }
+            });
+        } catch (error) {
+            console.error('Error fetching orders by months (summary):', error);
+            return res.status(500).json({ success: false, message: 'Failed to fetch monthly orders', error: error.message });
+        }
+    }
     // Get all orders with order details
     async getAllOrders(req, res) {
         try {
