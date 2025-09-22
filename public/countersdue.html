@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Counters Due - Enercon 360</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/navigation.js"></script>
+    <script src="/js/access.js"></script>
+    <!-- PDF export libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+        .number-cell { font-variant-numeric: tabular-nums; }
+    </style>
+    </head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="navigation-container"></div>
+
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-16">
+        <div class="px-4 py-6 sm:px-0">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">Counters Due</h1>
+                    <p id="subtitle" class="text-gray-600 mt-2">Outstanding payments per counter</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label id="repSelectWrap" class="hidden items-center gap-2 text-sm text-gray-700">
+                        <span>Representative:</span>
+                        <select id="repSelect" class="min-w-[220px] border border-gray-300 rounded px-2 py-1 text-sm">
+                            <option value="">All Representatives</option>
+                        </select>
+                    </label>
+                    <button id="exportPdfBtn" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg">Export PDF</button>
+                    <button id="refreshBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">Refresh</button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-4 mb-4">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div class="p-3 rounded border">
+                        <div class="text-xs text-gray-500">Counters</div>
+                        <div id="statCounters" class="text-xl font-semibold number-cell">0</div>
+                    </div>
+                    <div class="p-3 rounded border">
+                        <div class="text-xs text-gray-500">Orders</div>
+                        <div id="statOrders" class="text-xl font-semibold number-cell">0</div>
+                    </div>
+                    <div class="p-3 rounded border">
+                        <div class="text-xs text-gray-500">Collected</div>
+                        <div id="statCollected" class="text-xl font-semibold text-green-700 number-cell">₹0.00</div>
+                    </div>
+                    <div class="p-3 rounded border">
+                        <div class="text-xs text-gray-500">Total Due</div>
+                        <div id="statDue" class="text-xl font-semibold text-amber-700 number-cell">₹0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 id="tableHeading" class="text-lg font-medium text-gray-900">Counters with dues</h3>
+                    <input id="searchBox" type="search" placeholder="Search counter or rep…" class="border rounded px-2 py-1 text-sm w-60" />
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Counter</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Representative</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Orders</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Collected</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Due</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Latest Order</th>
+                            </tr>
+                        </thead>
+                        <tbody id="duesBody" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function getAuthToken(){ return localStorage.getItem('authToken') || null; }
+        function getAuthHeaders(){ const t = getAuthToken(); return { 'Content-Type': 'application/json', 'Authorization': t ? 'Bearer '+t : '' }; }
+
+        // Export current grid to PDF using jsPDF + autoTable
+        window.exportCountersDuePDF = function(){
+            try {
+                const page = window.__countersDuePage;
+                const rows = Array.isArray(page?.filtered) ? page.filtered : [];
+                const isRep = !!page?.isRep;
+                const repName = page?.selectedRepName || '';
+                const { jsPDF } = window.jspdf || {};
+                if (!jsPDF) { alert('PDF library not loaded'); return; }
+                const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+                const margin = 36;
+                const line = (y, txt, size=10, bold=false) => { doc.setFontSize(size); doc.setFont(undefined, bold? 'bold' : 'normal'); doc.text(txt, margin, y); };
+
+                // Header
+                line(40, 'Counters Due', 18, true);
+                const when = new Date().toLocaleString('en-IN');
+                const scope = isRep ? 'Scope: Representative (self)' : (repName ? `Scope: Representative - ${repName}` : 'Scope: All Representatives');
+                line(60, scope, 11);
+                line(76, `Generated: ${when}`, 10);
+
+                // Stats
+                const counters = rows.length;
+                const orders = rows.reduce((s,r)=> s + Number(r.orderCount||0), 0);
+                const collected = rows.reduce((s,r)=> s + Number(r.totalCollected||0), 0);
+                const due = rows.reduce((s,r)=> s + Number(r.totalDue||0), 0);
+                const fmt = n => (Number(n||0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                line(96, `Counters: ${counters}    Orders: ${orders}    Collected: ₹${fmt(collected)}    Total Due: ₹${fmt(due)}`, 10, true);
+
+                // Table
+                const head = [['Counter', 'Representative', 'Orders', 'Total (₹)', 'Collected (₹)', 'Due (₹)', 'Latest Order']];
+                const body = rows.map(r => [
+                    String(r.counterName || ''),
+                    String(r.repName || ''),
+                    String(r.orderCount || 0),
+                    fmt(r.totalGrand),
+                    fmt(r.totalCollected),
+                    fmt(r.totalDue),
+                    r.latestOrderDate ? new Date(r.latestOrderDate).toLocaleDateString('en-IN') : ''
+                ]);
+                const startY = 116;
+                doc.autoTable({
+                    head,
+                    body,
+                    startY,
+                    styles: { fontSize: 9, cellPadding: 6 },
+                    headStyles: { fillColor: [37, 99, 235], textColor: 255, halign: 'center' },
+                    columnStyles: {
+                        2: { halign: 'right' },
+                        3: { halign: 'right' },
+                        4: { halign: 'right' },
+                        5: { halign: 'right' }
+                    },
+                    margin: { left: margin, right: margin }
+                });
+
+                // Footer with pagination
+                const pageCount = doc.internal.getNumberOfPages();
+                for (let i = 1; i <= pageCount; i++) {
+                    doc.setPage(i);
+                    const footer = `Page ${i} of ${pageCount}`;
+                    doc.setFontSize(9);
+                    doc.text(footer, doc.internal.pageSize.getWidth() - margin, doc.internal.pageSize.getHeight() - 16, { align: 'right' });
+                }
+
+                doc.save('counters-due.pdf');
+            } catch (e) {
+                console.error('PDF export failed', e);
+                alert('Failed to export PDF');
+            }
+        };
+
+        class CountersDuePage {
+            constructor(user){
+                this.user = user;
+                this.isRep = Number(user?.designation_id) === 2;
+                this.repId = this.isRep ? user?.id : null;
+                this.selectedRepId = null;
+                this.selectedRepName = '';
+                this.rows = [];
+                this.filtered = [];
+                this.init();
+            }
+
+            init(){
+                this.bind();
+                const subtitle = document.getElementById('subtitle');
+                if (this.isRep) subtitle.textContent = 'Your counters with outstanding dues';
+                else subtitle.textContent = 'Outstanding dues by counter (filterable by representative)';
+                if (!this.isRep) this.setupRepDropdown();
+                this.loadData();
+            }
+
+            bind(){
+                document.getElementById('refreshBtn')?.addEventListener('click', ()=> this.loadData());
+                document.getElementById('searchBox')?.addEventListener('input', (e)=> this.applyFilter(e.target.value));
+                document.getElementById('exportPdfBtn')?.addEventListener('click', ()=> window.exportCountersDuePDF());
+            }
+
+            async setupRepDropdown(){
+                const wrap = document.getElementById('repSelectWrap');
+                const sel = document.getElementById('repSelect');
+                if (!wrap || !sel) return;
+                wrap.classList.remove('hidden');
+                try {
+                    const res = await fetch('/api/users/designation/2', { headers: getAuthHeaders() });
+                    const json = await res.json();
+                    let reps = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+                    // If Manager (designation_id = 1), show only his representatives
+                    const isManager = Number(this.user?.designation_id) === 1;
+                    if (isManager) {
+                        const myId = Number(this.user?.id);
+                        reps = reps.filter(r => Number(r.managerID) === myId);
+                    }
+                    if (!reps.length) {
+                        sel.innerHTML = '<option value="">No representatives found</option>';
+                    } else {
+                        sel.innerHTML = '<option value="">All Representatives</option>' + reps.map(r => `<option value="${r.id}">${r.name || r.phone || ('Rep '+r.id)}</option>`).join('');
+                    }
+                } catch(e){ sel.innerHTML = '<option value="">Failed to load</option>'; }
+                sel.addEventListener('change', ()=>{ 
+                    this.selectedRepId = sel.value || null; 
+                    this.selectedRepName = sel.options[sel.selectedIndex]?.text || ''; 
+                    const sub = document.getElementById('subtitle');
+                    sub.textContent = this.selectedRepId ? `Outstanding dues for ${this.selectedRepName}` : 'Outstanding dues by counter (filterable by representative)';
+                    this.loadData(); 
+                });
+            }
+
+            async loadData(){
+                const base = '/api/orders/stats/dues-by-counter';
+                const effectiveRepId = this.isRep ? this.repId : (this.selectedRepId || '');
+                const url = effectiveRepId ? `${base}?repId=${encodeURIComponent(effectiveRepId)}` : base;
+                const body = document.getElementById('duesBody');
+                body.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Loading…</td></tr>';
+                try {
+                    const res = await fetch(url, { headers: getAuthHeaders() });
+                    if (!res.ok) throw new Error('HTTP '+res.status);
+                    const json = await res.json();
+                    this.rows = Array.isArray(json.data) ? json.data : [];
+                    this.filtered = this.rows;
+                    this.render();
+                } catch(e){
+                    body.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-red-500">Failed to load</td></tr>';
+                }
+            }
+
+            applyFilter(q){
+                const term = String(q || '').toLowerCase();
+                if (!term) { this.filtered = this.rows; this.render(); return; }
+                this.filtered = this.rows.filter(r =>
+                    String(r.counterName || '').toLowerCase().includes(term) ||
+                    String(r.repName || '').toLowerCase().includes(term)
+                );
+                this.render();
+            }
+
+            render(){
+                const body = document.getElementById('duesBody');
+                if (!this.filtered.length){
+                    body.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">No counters with dues</td></tr>';
+                } else {
+                    body.innerHTML = this.filtered.map(r => `
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 text-sm text-gray-900">${r.counterName || 'Unknown'}</td>
+                            <td class="px-6 py-4 text-sm text-gray-700">${r.repName ? `${r.repName}` : '<span class="text-gray-400">N/A</span>'}</td>
+                            <td class="px-6 py-4 text-sm text-right number-cell">${r.orderCount || 0}</td>
+                            <td class="px-6 py-4 text-sm text-right number-cell">₹${this.fmt(r.totalGrand)}</td>
+                            <td class="px-6 py-4 text-sm text-right number-cell text-green-700">₹${this.fmt(r.totalCollected)}</td>
+                            <td class="px-6 py-4 text-sm text-right number-cell text-amber-700">₹${this.fmt(r.totalDue)}</td>
+                            <td class="px-6 py-4 text-sm text-gray-600">${r.latestOrderDate ? new Date(r.latestOrderDate).toLocaleDateString('en-IN') : '—'}</td>
+                        </tr>
+                    `).join('');
+                }
+
+                // Stats
+                const counters = this.filtered.length;
+                const orders = this.filtered.reduce((s, r) => s + Number(r.orderCount || 0), 0);
+                const collected = this.filtered.reduce((s, r) => s + Number(r.totalCollected || 0), 0);
+                const due = this.filtered.reduce((s, r) => s + Number(r.totalDue || 0), 0);
+                document.getElementById('statCounters').textContent = counters;
+                document.getElementById('statOrders').textContent = orders;
+                document.getElementById('statCollected').textContent = '₹' + this.fmt(collected);
+                document.getElementById('statDue').textContent = '₹' + this.fmt(due);
+            }
+
+            fmt(n){ return Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (window.ensurePagePermission) {
+                await window.ensurePagePermission('counters-due', 'view');
+            } else if (window.ensurePageAccess) {
+                await window.ensurePageAccess('counters-due');
+            }
+            NavigationLoader.loadNavigation();
+            // Reuse profile endpoint used elsewhere
+            try {
+                const res = await fetch('/api/auth/profile', { headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('auth');
+                const json = await res.json();
+                const user = json?.data?.user;
+                if (!user) throw new Error('no-user');
+                window.__countersDuePage = new CountersDuePage(user);
+            } catch(e) {
+                window.location.href = '/login.html';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -118,13 +118,47 @@ async function applyNavPermissions() {
     parentVisibility.set(mod, !!ok);
   });
 
+  // Ensure group parents (reports, others, transactions) are visible if any child is allowed
+  const groupParents = ['reports', 'others', 'transactions'];
+  groupParents.forEach(parentKey => {
+    const groupEl = Array.from(document.querySelectorAll('.group'))
+      .find(g => g.querySelector(`.nav-link[data-page="${parentKey}"]`));
+    if (!groupEl) return;
+    const childLinks = groupEl.querySelectorAll('.nav-link[data-page]');
+    let anyChildAllowed = false;
+    childLinks.forEach(cl => {
+      const cmod = cl.getAttribute('data-page');
+      if (cmod === parentKey) return; // skip parent button
+      const cp = perms[cmod];
+      const cok = cp && typeof cp.view === 'boolean' ? cp.view : allowedModules.has(cmod);
+      if (cok) anyChildAllowed = true;
+    });
+    if (anyChildAllowed) parentVisibility.set(parentKey, true);
+  });
+
   links.forEach(link => {
     const mod = link.getAttribute('data-page');
     const parentWrapper = link.closest('.group');
-    // If inside a Reports group and Reports is visible, keep submenu links visible
-    if (parentWrapper && parentVisibility.get('reports')) return;
+    // If inside a group and the parent menu is visible, don't hide merely by child checks
+    if (parentWrapper) {
+      const parentButton = parentWrapper.querySelector('.nav-link[data-page]');
+      const parentKey = parentButton ? parentButton.getAttribute('data-page') : null;
+      if (parentKey && parentVisibility.get(parentKey)) {
+        // Still hide individual child if not allowed
+        if (mod !== parentKey) {
+          const p = perms[mod];
+          const ok = p && typeof p.view === 'boolean' ? p.view : allowedModules.has(mod);
+          if (!ok) link.style.display = 'none';
+          return;
+        }
+      }
+    }
     const p = perms[mod];
-    const ok = p && typeof p.view === 'boolean' ? p.view : allowedModules.has(mod);
+    let ok = p && typeof p.view === 'boolean' ? p.view : allowedModules.has(mod);
+    // For parent menus, use the computed parentVisibility
+    if (['reports','others','transactions'].includes(mod)) {
+      ok = !!parentVisibility.get(mod);
+    }
     if (!ok) link.style.display = 'none';
   });
 }

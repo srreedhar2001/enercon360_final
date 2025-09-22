@@ -13,6 +13,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const collectionsRoutes = require('./routes/collectionsRoutes');
 const paymentsRoutes = require('./routes/paymentsRoutes');
 const accessRoutes = require('./routes/accessRoutes');
+const paymentTrackingRoutes = require('./routes/paymentTrackingRoutes');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware');
@@ -65,6 +66,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/collections', collectionsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/access', accessRoutes);
+app.use('/api/payment-tracking', paymentTrackingRoutes);
 app.use('/api/sample', sampleRoutes);
 
 // Quietly handle Chrome DevTools /.well-known requests to avoid noisy 404s

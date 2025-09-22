@@ -1,6 +1,116 @@
 const { query: dbQuery } = require('../config/database');
 
 class CounterController {
+    // Get last 12 months (including current) counters created count per month
+    async getLastSixMonthsCreatedTotals(req, res) {
+        try {
+            // Determine available timestamp column to fall back on when createdDate is NULL
+            const colCheck = await dbQuery(`
+                SELECT COLUMN_NAME AS name
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'counters' AND COLUMN_NAME IN ('createdAt','created_at')
+            `);
+            let fallbackCol = null;
+            if (Array.isArray(colCheck) && colCheck.length) {
+                // Prefer camelCase createdAt if both exist
+                const names = colCheck.map(r => r.name);
+                fallbackCol = names.includes('createdAt') ? 'createdAt' : (names.includes('created_at') ? 'created_at' : null);
+            }
+
+            const dateExpr = fallbackCol ? `DATE(COALESCE(c.createdDate, c.${fallbackCol}))` : `DATE(c.createdDate)`;
+
+            const sql = `
+                SELECT DATE_FORMAT(${dateExpr}, '%Y-%m') AS ym, COUNT(*) AS cnt
+                FROM counters c
+                WHERE ${dateExpr} IS NOT NULL
+                  AND ${dateExpr} >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
+                GROUP BY ym
+            `;
+            const rows = await dbQuery(sql);
+
+            // Build a complete 12-month series oldest -> newest
+            const now = new Date();
+            const series = [];
+            for (let i = 11; i >= 0; i--) {
+                const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+                d.setUTCMonth(d.getUTCMonth() - i);
+                const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+                const label = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+                const found = rows.find(r => String(r.ym) === ym);
+                series.push({ ym, label, count: Number(found?.cnt || 0) });
+            }
+
+            res.json({
+                success: true,
+                message: 'Last 12 months counters created totals fetched',
+                data: series
+            });
+        } catch (error) {
+            console.error('Error fetching last 6 months created counters totals:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to fetch last 12 months counters created totals',
+                error: error.message
+            });
+        }
+    }
+
+    // Get counters created in a specific month (ym = YYYY-MM)
+    async getCountersByCreatedMonth(req, res) {
+        try {
+            const { ym } = req.query;
+            if (!ym || !/^\d{4}-\d{2}$/.test(ym)) {
+                return res.status(400).json({ success: false, message: 'Invalid ym. Expected YYYY-MM' });
+            }
+
+            // Determine available timestamp column to fall back on when createdDate is NULL
+            const colCheck = await dbQuery(`
+                SELECT COLUMN_NAME AS name
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'counters' AND COLUMN_NAME IN ('createdAt','created_at')
+            `);
+            let fallbackCol = null;
+            if (Array.isArray(colCheck) && colCheck.length) {
+                const names = colCheck.map(r => r.name);
+                fallbackCol = names.includes('createdAt') ? 'createdAt' : (names.includes('created_at') ? 'created_at' : null);
+            }
+            const dateExpr = fallbackCol ? `DATE(COALESCE(c.createdDate, c.${fallbackCol}))` : `DATE(c.createdDate)`;
+
+                        const sql = `
+                                SELECT 
+                                        c.*,
+                                        city.city as cityName,
+                                        city.district,
+                                        city.state,
+                                        u.name as repName,
+                                        u.phone as repMobile,
+                                        (
+                                                SELECT COALESCE(ROUND(SUM(COALESCE(o.grandTotal,0))), 0)
+                                                FROM orders o
+                                                WHERE o.counterID = c.id
+                                                    AND DATE_FORMAT(o.orderDate, '%Y-%m') = ?
+                                        ) AS monthOrderTotal,
+                                        (
+                                                SELECT COUNT(*)
+                                                FROM orders o2
+                                                WHERE o2.counterID = c.id
+                                                    AND DATE_FORMAT(o2.orderDate, '%Y-%m') = ?
+                                        ) AS monthOrderCount
+                                FROM counters c
+                                LEFT JOIN city ON c.CityID = city.id
+                                LEFT JOIN users u ON c.RepID = u.id
+                                WHERE ${dateExpr} IS NOT NULL
+                                    AND DATE_FORMAT(${dateExpr}, '%Y-%m') = ?
+                                ORDER BY c.CounterName
+                        `;
+                        const rows = await dbQuery(sql, [ym, ym, ym]);
+            res.json({ success: true, message: 'Counters created in month fetched', data: rows, count: rows.length });
+        } catch (error) {
+            console.error('Error fetching counters by created month:', error);
+            res.status(500).json({ success: false, message: 'Failed to fetch counters by created month', error: error.message });
+        }
+    }
+
     // Get all counters with city and representative details
     async getAllCounters(req, res) {
         try {
@@ -128,15 +238,14 @@ class CounterController {
                 });
             }
 
-            const query = createdDate ? `
+            // Always set createdDate to provided value or today's date to ensure analytics include it
+            const createdDateValue = createdDate || new Date().toISOString().slice(0, 10);
+            const query = `
                 INSERT INTO counters (CounterName, CityID, RepID, longitude, latitude, phone, gst, address, createdDate)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ` : `
-                INSERT INTO counters (CounterName, CityID, RepID, longitude, latitude, phone, gst, address)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             `;
             
-            const result = await dbQuery(query, createdDate ? [
+            const result = await dbQuery(query, [
                 CounterName,
                 CityID,
                 RepID,
@@ -145,16 +254,7 @@ class CounterController {
                 phone || null,
                 gst || null,
                 address || null,
-                createdDate
-            ] : [
-                CounterName,
-                CityID,
-                RepID,
-                longitude,
-                latitude,
-                phone || null,
-                gst || null,
-                address || null
+                createdDateValue
             ]);
             
             // Fetch the created counter with related data

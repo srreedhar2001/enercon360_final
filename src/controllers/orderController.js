@@ -2,6 +2,180 @@ const { query: dbQuery } = require('../config/database');
 const invoiceService = require('../services/invoiceService');
 
 class OrderController {
+    // Aggregate outstanding dues per counter, optional filter by representative
+    async getDuesByCounter(req, res) {
+        try {
+            const { repId } = req.query;
+
+            const params = [];
+            let where = ' WHERE 1=1 ';
+            if (repId) {
+                where += ' AND c.RepID = ? ';
+                params.push(repId);
+            }
+
+            const sql = `
+                SELECT 
+                    c.id AS counterId,
+                    c.CounterName AS counterName,
+                    c.RepID AS repId,
+                    u.name AS repName,
+                    u.phone AS repMobile,
+                    COALESCE(COUNT(DISTINCT o.id), 0) AS orderCount,
+                    COALESCE(ROUND(SUM(COALESCE(o.grandTotal,0))), 0) AS totalGrand,
+                    COALESCE(ROUND(SUM(LEAST(COALESCE(col.totalCollected,0), COALESCE(o.grandTotal,0)))), 0) AS totalCollected,
+                    COALESCE(ROUND(SUM(GREATEST(COALESCE(o.grandTotal,0) - LEAST(COALESCE(col.totalCollected,0), COALESCE(o.grandTotal,0)), 0))), 0) AS totalDue,
+                    DATE_FORMAT(MAX(o.orderDate), '%Y-%m-%d') AS latestOrderDate
+                FROM counters c
+                LEFT JOIN users u ON c.RepID = u.id
+                LEFT JOIN orders o ON o.counterID = c.id
+                LEFT JOIN (
+                    SELECT orderID, SUM(amount) AS totalCollected
+                    FROM collections
+                    GROUP BY orderID
+                ) col ON col.orderID = o.id
+                ${where}
+                GROUP BY c.id, c.CounterName, c.RepID, u.name, u.phone
+                HAVING totalDue > 0
+                ORDER BY totalDue DESC, c.CounterName ASC
+            `;
+
+            const rows = await dbQuery(sql, params);
+            return res.status(200).json({ success: true, message: 'Dues by counter fetched', data: rows, count: rows.length, meta: { repId: repId ? Number(repId) : null } });
+        } catch (error) {
+            console.error('Error fetching dues by counter:', error);
+            return res.status(500).json({ success: false, message: 'Failed to fetch dues by counter', error: error.message });
+        }
+    }
+    // Get last 12 months totals for orders where the counter was created in that same month (for a representative)
+    async getRepMonthNewCountersTotals(req, res) {
+        try {
+            const { repId } = req.query;
+            if (!repId) {
+                return res.status(400).json({ success: false, message: 'repId is required' });
+            }
+
+            // Determine available timestamp column to fall back on when counters.createdDate is NULL
+            const colCheck = await dbQuery(`
+                SELECT COLUMN_NAME AS name
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'counters' AND COLUMN_NAME IN ('createdAt','created_at')
+            `);
+            let fallbackCol = null;
+            if (Array.isArray(colCheck) && colCheck.length) {
+                const names = colCheck.map(r => r.name);
+                fallbackCol = names.includes('createdAt') ? 'createdAt' : (names.includes('created_at') ? 'created_at' : null);
+            }
+            const dateExpr = fallbackCol ? `COALESCE(c.createdDate, DATE(c.${fallbackCol}))` : `c.createdDate`;
+
+            const sql = `
+                                SELECT 
+                                        DATE_FORMAT(o.orderDate, '%Y-%m') AS ym,
+                                        DATE_FORMAT(o.orderDate, '%b %Y') AS label,
+                                        COALESCE(SUM(COALESCE(o.grandTotal,0)), 0) AS netTotal,
+                                        COUNT(*) AS orderCount
+                                FROM orders o
+                                INNER JOIN counters c ON o.counterID = c.id
+                INNER JOIN users u ON c.RepID = u.id
+                WHERE u.id = ?
+                  AND u.designation_id = 2
+                  AND ${dateExpr} IS NOT NULL
+                  AND DATE_FORMAT(${dateExpr}, '%Y-%m') = DATE_FORMAT(o.orderDate, '%Y-%m')
+                                    AND o.orderDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
+                                GROUP BY ym, label
+                                ORDER BY ym ASC
+                        `;
+                                    const rows = await dbQuery(sql, [repId]);
+
+                                    // Also fetch how many counters were created per month for this rep (independent of orders)
+                                    const countersCountSql = `
+                                            SELECT DATE_FORMAT(${dateExpr}, '%Y-%m') AS ym, COUNT(*) AS cnt
+                                            FROM counters c
+                                            INNER JOIN users u ON c.RepID = u.id
+                                            WHERE u.id = ?
+                                                AND u.designation_id = 2
+                                                AND ${dateExpr} >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
+                                            GROUP BY ym
+                                    `;
+                                    const countersRows = await dbQuery(countersCountSql, [repId]);
+                                    const countersMap = Object.fromEntries(countersRows.map(r => [r.ym, Number(r.cnt) || 0]));
+
+            // Build a complete 12-month series including months with 0
+            const now = new Date();
+            const series = [];
+            for (let i = 11; i >= 0; i--) {
+                const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+                d.setUTCMonth(d.getUTCMonth() - i);
+                const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+                const label = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+                series.push({ ym, label, total: 0, netTotal: 0, orderCount: 0 });
+            }
+            const map = Object.fromEntries(rows.map(r => [r.ym, r]));
+            const data = series.map(m => {
+                const r = map[m.ym];
+                return {
+                    ym: m.ym,
+                    label: m.label,
+                    total: Number(r?.netTotal || 0),
+                    netTotal: Number(r?.netTotal || 0),
+                    orderCount: Number(r?.orderCount || 0),
+                    countersCreatedCount: countersMap[m.ym] || 0
+                };
+            });
+
+            return res.status(200).json({ success: true, message: 'Rep new-counters monthly totals fetched', data, meta: { repId: Number(repId) } });
+        } catch (error) {
+            console.error('Error fetching rep new-counters monthly totals:', error);
+            return res.status(500).json({ success: false, message: 'Failed to fetch rep new-counters monthly totals', error: error.message });
+        }
+    }
+
+    // Get orders for a representative for a specific month where counter was created in that same month
+    async getRepMonthOrdersForNewCounters(req, res) {
+        try {
+            const { repId, ym } = req.query;
+            if (!repId || !ym || !/^\d{4}-\d{2}$/.test(String(ym))) {
+                return res.status(400).json({ success: false, message: 'repId and valid ym (YYYY-MM) are required' });
+            }
+
+            const colCheck = await dbQuery(`
+                SELECT COLUMN_NAME AS name
+                FROM INFORMATION_SCHEMA.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'counters' AND COLUMN_NAME IN ('createdAt','created_at')
+            `);
+            let fallbackCol = null;
+            if (Array.isArray(colCheck) && colCheck.length) {
+                const names = colCheck.map(r => r.name);
+                fallbackCol = names.includes('createdAt') ? 'createdAt' : (names.includes('created_at') ? 'created_at' : null);
+            }
+            const dateExpr = fallbackCol ? `COALESCE(c.createdDate, DATE(c.${fallbackCol}))` : `c.createdDate`;
+
+            const sql = `
+                                SELECT 
+                                        o.id,
+                                        DATE_FORMAT(o.orderDate, '%Y-%m-%d') AS orderDate,
+                                        o.counterID,
+                                        c.CounterName AS counterName,
+                                        o.grandTotal,
+                                        o.paymentReceived,
+                                        o.invoiceFileName
+                                FROM orders o
+                                INNER JOIN counters c ON o.counterID = c.id
+                INNER JOIN users u ON c.RepID = u.id
+                WHERE u.id = ?
+                  AND u.designation_id = 2
+                  AND ${dateExpr} IS NOT NULL
+                  AND DATE_FORMAT(${dateExpr}, '%Y-%m') = ?
+                                    AND DATE_FORMAT(o.orderDate, '%Y-%m') = ?
+                                ORDER BY o.orderDate DESC, o.id DESC
+                        `;
+                        const rows = await dbQuery(sql, [repId, ym, ym]);
+            return res.status(200).json({ success: true, message: 'Orders for month (new counters) fetched', data: rows, count: rows.length, meta: { repId: Number(repId), ym } });
+        } catch (error) {
+            console.error('Error fetching orders for new counters month:', error);
+            return res.status(500).json({ success: false, message: 'Failed to fetch orders for new counters month', error: error.message });
+        }
+    }
     // Get last 12 months order totals (including current month)
     async getLastSixMonthsTotals(req, res) {
         try {
@@ -11,7 +185,8 @@ class OrderController {
                 SELECT 
                     DATE_FORMAT(o.orderDate, '%Y-%m') AS ym,
                     DATE_FORMAT(o.orderDate, '%b %Y') AS label,
-                    COALESCE(SUM(COALESCE(o.grandTotal,0) - COALESCE(o.TotalDiscountAmount,0)), 0) AS total,
+                    COALESCE(SUM(COALESCE(o.subTotal,0) + COALESCE(o.totalCGST,0) + COALESCE(o.totalSGST,0)), 0) AS grossTotal,
+                    COALESCE(SUM(COALESCE(o.grandTotal,0)), 0) AS netTotal,
                     (
                         SELECT COALESCE(ROUND(SUM((COALESCE(od.qty,0) + COALESCE(od.freeQty,0)) * COALESCE(p.manufacturingPrice,0))), 0)
                         FROM orders o2
@@ -48,9 +223,15 @@ class OrderController {
                 series.push({ ym, label, total: 0 });
             }
 
-            const totalsMap = Object.fromEntries(rows.map(r => [r.ym, Number(r.total) || 0]));
+            const grossMap = Object.fromEntries(rows.map(r => [r.ym, Number(r.grossTotal) || 0]));
+            const netMap = Object.fromEntries(rows.map(r => [r.ym, Number(r.netTotal) || 0]));
             const costMap = Object.fromEntries(rows.map(r => [r.ym, Number(r.productCost) || 0]));
-            const data = series.map(m => ({ ...m, total: Math.round(totalsMap[m.ym] || 0), productCost: Math.round(costMap[m.ym] || 0) }));
+            const data = series.map(m => {
+                const gross = Math.round(grossMap[m.ym] || 0);
+                const net = Math.round(netMap[m.ym] || 0);
+                const discount = Math.max(gross - net, 0);
+                return { ...m, grossTotal: gross, netTotal: net, discountTotal: discount, total: gross, productCost: Math.round(costMap[m.ym] || 0) };
+            });
 
             return res.status(200).json({
                 success: true,
@@ -161,6 +342,11 @@ class OrderController {
                     o.TotalDiscountAmount,
                     o.grandTotal,
                     o.paymentReceived,
+                    (
+                        SELECT COALESCE(SUM(c.amount), 0)
+                        FROM collections c
+                        WHERE c.orderID = o.id
+                    ) AS collectedTotal,
                     o.invoiceFileName,
                     (SELECT COUNT(*) FROM orderdetails od WHERE od.orderId = o.id) AS itemCount,
                     (SELECT COALESCE(SUM(od.qty),0) FROM orderdetails od WHERE od.orderId = o.id) AS totalQuantity

@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders - Enercon 360</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/navigation.js"></script>
+    <script src="/js/access.js"></script>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+        .month-card[aria-current="true"] { outline: 2px solid rgb(59,130,246); border-color: rgb(96,165,250); }
+    </style>
+    </head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Navigation -->
+    <div id="navigation-container"></div>
+
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8 mt-16">
+        <div class="px-4 py-6 sm:px-0">
+            <!-- Header -->
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">My Orders</h1>
+                    <p class="text-gray-600 mt-2">Only orders for your counters are shown here</p>
+                </div>
+                <button id="refreshBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">Refresh</button>
+            </div>
+
+            <!-- Monthly Cards -->
+            <div class="bg-white rounded-lg shadow p-4 mb-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-800">Monthly Sales</h2>
+                        <p class="text-xs text-gray-500">Net sales for your counters. Click a month to view its orders.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label id="repSelectWrap" class="hidden items-center gap-2 text-sm text-gray-700">
+                            <span>Representative:</span>
+                            <select id="repSelect" class="min-w-[200px] border border-gray-300 rounded px-2 py-1 text-sm">
+                                <option value="">All Representatives</option>
+                            </select>
+                        </label>
+                        <span id="monthTotalBadge" class="hidden text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">0</span>
+                        <button id="clearMonthBtn" class="hidden text-sm text-blue-600 hover:underline">Clear selection</button>
+                    </div>
+                </div>
+                <div id="monthCards" class="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"></div>
+            </div>
+
+            <!-- Monthly Summary -->
+            <div id="ordersSummaryCard" class="bg-white rounded-lg shadow p-4 mb-6 hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <h2 class="text-lg font-semibold text-gray-800">Summary</h2>
+                    <span id="ordersSummaryMonth" class="text-xs text-gray-500"></span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-gray-600">Metric</th>
+                                <th class="px-4 py-2 text-right text-gray-600">Amount</th>
+                                <th class="px-4 py-2 text-right text-gray-600">Orders</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersSummaryBody" class="divide-y divide-gray-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Orders Table -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 id="ordersHeading" class="text-lg font-medium text-gray-900">Select a month to view orders</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order #</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody" class="bg-white divide-y divide-gray-200">
+                            <tr>
+                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                                    <div class="flex flex-col items-center">
+                                        <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        <p>Pick a month card to load its orders</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auth helpers
+        function getAuthToken() {
+            return localStorage.getItem('authToken') || null;
+        }
+        function getAuthHeaders() {
+            const t = getAuthToken();
+            return { 'Content-Type': 'application/json', 'Authorization': t ? 'Bearer ' + t : '' };
+        }
+        async function requireProfile() {
+            const token = getAuthToken();
+            if (!token) { window.location.href = '/login.html'; return null; }
+            try {
+                const res = await fetch('/api/auth/profile', { headers: getAuthHeaders() });
+                if (!res.ok) throw new Error('Auth failed');
+                const json = await res.json();
+                return (json && json.data && json.data.user) ? json.data.user : null;
+            } catch (e) {
+                console.error('profile error', e);
+                window.location.href = '/login.html';
+                return null;
+            }
+        }
+
+        class MyOrdersManager {
+            constructor(user) {
+                this.user = user; // includes id, designation_id
+                this.isRep = Number(user?.designation_id) === 2;
+                this.repId = this.isRep ? user?.id : null;
+                this.selectedRepId = null; // for Admin/Manager filtering
+                this.selectedRepName = '';
+                this.selectedYMs = new Set();
+                this.orders = [];
+                this.filtered = [];
+                this.init();
+            }
+
+            init() {
+                this.bind();
+                // Adjust header subtitle for non-reps
+                const subtitle = document.querySelector('h1 + p');
+                if (subtitle) {
+                    subtitle.textContent = this.isRep ? 'Only orders for your counters are shown here' : 'Showing all orders by month';
+                }
+                // Show rep dropdown for Admin/Manager
+                if (!this.isRep) this.setupRepDropdown();
+                this.loadMonthCards();
+                this.resetOrdersView();
+            }
+
+            bind() {
+                document.getElementById('refreshBtn').addEventListener('click', () => this.reloadAll());
+                const clearBtn = document.getElementById('clearMonthBtn');
+                if (clearBtn) clearBtn.addEventListener('click', () => this.clearMonthSelection());
+                const monthCards = document.getElementById('monthCards');
+                if (monthCards) monthCards.addEventListener('click', (e) => this.onMonthCardClick(e));
+            }
+
+            async setupRepDropdown() {
+                const wrap = document.getElementById('repSelectWrap');
+                const sel = document.getElementById('repSelect');
+                if (!wrap || !sel) return;
+                wrap.classList.remove('hidden');
+                // Load reps
+                try {
+                    const res = await fetch('/api/users/designation/2', { headers: getAuthHeaders() });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const json = await res.json();
+                    let reps = Array.isArray(json.data) ? json.data : (Array.isArray(json) ? json : []);
+                    // If Manager (designation_id = 1), show only his representatives
+                    const isManager = Number(this.user?.designation_id) === 1;
+                    if (isManager) {
+                        const myId = Number(this.user?.id);
+                        reps = reps.filter(r => Number(r.managerID) === myId);
+                    }
+                    if (!reps.length) {
+                        sel.innerHTML = '<option value="">No representatives found</option>';
+                    } else {
+                        sel.innerHTML = '<option value="">All Representatives</option>' + reps.map(r => `<option value="${r.id}">${r.name || r.phone || ('Rep ' + r.id)}</option>`).join('');
+                    }
+                } catch (e) {
+                    sel.innerHTML = '<option value="">Failed to load representatives</option>';
+                }
+                sel.addEventListener('change', async () => {
+                    this.selectedRepId = sel.value || null;
+                    this.selectedRepName = sel.options[sel.selectedIndex]?.text || '';
+                    // Update subtitle
+                    const subtitle = document.querySelector('h1 + p');
+                    if (subtitle) {
+                        if (this.selectedRepId) subtitle.textContent = `Showing orders for ${this.selectedRepName}`;
+                        else subtitle.textContent = 'Showing all orders by month';
+                    }
+                    await this.reloadAll();
+                });
+            }
+
+            resetOrdersView() {
+                const heading = document.getElementById('ordersHeading');
+                if (heading) heading.textContent = 'Select a month to view orders';
+                const clearBtn = document.getElementById('clearMonthBtn');
+                if (clearBtn) clearBtn.classList.add('hidden');
+                const sumCard = document.getElementById('ordersSummaryCard');
+                if (sumCard) sumCard.classList.add('hidden');
+                const tbody = document.getElementById('ordersTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="px-6 py-8 text-center text-gray-500">
+                                <div class="flex flex-col items-center">
+                                    <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <p>Pick a month card to load its orders</p>
+                                </div>
+                            </td>
+                        </tr>`;
+                }
+            }
+
+            async loadMonthCards() {
+                const monthCards = document.getElementById('monthCards');
+                const badge = document.getElementById('monthTotalBadge');
+                if (!monthCards) return;
+                monthCards.innerHTML = '<div class="col-span-full text-gray-500">Loading…</div>';
+                try {
+                    const effectiveRepId = this.isRep ? this.repId : (this.selectedRepId || '');
+                    const url = effectiveRepId
+                        ? `/api/orders/stats/last-6-months?repId=${encodeURIComponent(effectiveRepId)}`
+                        : `/api/orders/stats/last-6-months`;
+                    const res = await fetch(url, { headers: getAuthHeaders() });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const json = await res.json();
+                    const data = Array.isArray(json.data) ? json.data : [];
+                    if (!data.length) {
+                        monthCards.innerHTML = '<div class="col-span-full text-gray-500">No data</div>';
+                        if (badge) badge.classList.add('hidden');
+                        return;
+                    }
+                    monthCards.innerHTML = data.map((m, idx) => `
+                        <button class="month-card text-left bg-white rounded-lg shadow p-3 border ${idx === data.length - 1 ? 'border-blue-300' : 'border-gray-200'} hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300" data-ym="${m.ym}" data-label="${m.label}" aria-current="${this.selectedYMs.has(m.ym)}">
+                            <div class="flex items-center justify-between mb-1">
+                                <dt class="text-[11px] uppercase tracking-wide text-gray-500">${m.label}</dt>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === data.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === data.length - 1 ? 'Current' : 'Past'}</span>
+                            </div>
+                            <dd class="text-base font-semibold text-gray-900">₹${Number(m.netTotal || m.total || 0).toLocaleString('en-IN')}</dd>
+                        </button>
+                    `).join('');
+                    const total = data.reduce((s, r) => s + Number(r.netTotal || r.total || 0), 0);
+                    if (badge) {
+                        badge.textContent = `₹${total.toLocaleString('en-IN')}`;
+                        badge.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    console.error('loadMonthCards error:', e);
+                    monthCards.innerHTML = '<div class="col-span-full text-red-500">Failed to load</div>';
+                }
+            }
+
+            async onMonthCardClick(e) {
+                const btn = e.target.closest('button[data-ym]');
+                if (!btn) return;
+                const ym = btn.dataset.ym;
+                const label = btn.dataset.label;
+                // toggle selection
+                if (this.selectedYMs.has(ym)) {
+                    this.selectedYMs.delete(ym);
+                    btn.setAttribute('aria-current', 'false');
+                } else {
+                    this.selectedYMs.add(ym);
+                    btn.setAttribute('aria-current', 'true');
+                }
+                if (this.selectedYMs.size === 0) {
+                    this.resetOrdersView();
+                    return;
+                }
+                // collect selected months and labels from DOM to keep order as displayed
+                const cards = Array.from(document.getElementById('monthCards')?.querySelectorAll('button[data-ym]') || []);
+                const selectedButtons = cards.filter(b => this.selectedYMs.has(b.dataset.ym));
+                const months = selectedButtons.map(b => b.dataset.ym);
+                const labels = selectedButtons.map(b => b.dataset.label);
+                await this.loadOrdersForMonths(months, labels);
+            }
+
+            async loadOrdersForMonth(ym, label) {
+                // Backward compatibility: single-month delegate to multi-month
+                return this.loadOrdersForMonths([ym], [label]);
+            }
+
+        async loadOrdersForMonths(months, labels) {
+                try {
+                    const uniqMonths = Array.from(new Set((months || []).filter(Boolean)));
+                    if (!uniqMonths.length) { this.resetOrdersView(); return; }
+            const base = `/api/orders/summary?months=${encodeURIComponent(uniqMonths.join(','))}`;
+            const effectiveRepId = this.isRep ? this.repId : (this.selectedRepId || '');
+            const url = effectiveRepId ? `${base}&repId=${encodeURIComponent(effectiveRepId)}` : base;
+                    const res = await fetch(url, { headers: getAuthHeaders() });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const json = await res.json();
+                    const rows = Array.isArray(json.data) ? json.data : [];
+                    this.orders = rows;
+                    this.filtered = rows;
+                    const clearBtn = document.getElementById('clearMonthBtn');
+                    if (clearBtn) clearBtn.classList.remove('hidden');
+                    // update aria-current for selected set
+                    const cards = document.getElementById('monthCards');
+                    if (cards) Array.from(cards.querySelectorAll('button[data-ym]')).forEach(b => b.setAttribute('aria-current', String(this.selectedYMs.has(b.dataset.ym))));
+                    // heading text
+                    const heading = document.getElementById('ordersHeading');
+                    if (heading) {
+                        const usedLabels = Array.isArray(labels) ? labels.filter(Boolean) : [];
+                        let headText = '';
+                        if (uniqMonths.length === 1) {
+                            headText = usedLabels[0] || uniqMonths[0];
+                        } else if (uniqMonths.length <= 3) {
+                            headText = usedLabels.slice(0, 3).join(', ');
+                        } else {
+                            headText = `${uniqMonths.length} months`;
+                        }
+                        const repSuffix = (!this.isRep && this.selectedRepId && this.selectedRepName) ? ` • ${this.selectedRepName}` : '';
+                        heading.textContent = `Orders for ${headText}${repSuffix}`;
+                    }
+                    this.renderOrders();
+                    const baseLabel = (Array.isArray(labels) && labels.length === 1) ? labels[0] : `${uniqMonths.length} months`;
+                    const summaryLabel = (!this.isRep && this.selectedRepId && this.selectedRepName) ? `${baseLabel} • ${this.selectedRepName}` : baseLabel;
+                    this.renderSummary(summaryLabel);
+                } catch (e) {
+                    console.error('loadOrdersForMonths error:', e);
+                    this.toast('Failed to load monthly orders', true);
+                }
+            }
+
+            clearMonthSelection() {
+                this.selectedYMs = new Set();
+                const cards = document.getElementById('monthCards');
+                if (cards) Array.from(cards.querySelectorAll('button[data-ym]')).forEach(b => b.setAttribute('aria-current', 'false'));
+                this.resetOrdersView();
+            }
+
+            async reloadAll() {
+                await this.loadMonthCards();
+                if (this.selectedYMs && this.selectedYMs.size) {
+                    const months = Array.from(this.selectedYMs);
+                    // derive labels from current cards order
+                    const cards = Array.from(document.getElementById('monthCards')?.querySelectorAll('button[data-ym]') || []);
+                    const labels = months.map(m => cards.find(b => b.dataset.ym === m)?.dataset.label || m);
+                    await this.loadOrdersForMonths(months, labels);
+                } else {
+                    this.resetOrdersView();
+                }
+            }
+
+            renderOrders() {
+                const tbody = document.getElementById('ordersTableBody');
+                if (!this.filtered.length) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="px-6 py-8 text-center text-gray-500">No orders found for this month</td>
+                        </tr>`;
+                    return;
+                }
+                tbody.innerHTML = this.filtered.map(order => `
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-medium text-gray-900">#${order.id}</div></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${this.formatDate(order.orderDate)}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">${order.counterName || 'Unknown'}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${order.itemCount || 0} items (${order.totalQuantity || 0} qty)</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">₹${this.formatCurrency(order.grandTotal || 0)}</div>
+                            <div class="text-xs text-gray-500">Subtotal: ₹${this.formatCurrency(order.subTotal || 0)}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            ${(() => {
+                                const total = Number(order.grandTotal || 0);
+                                const collected = Number(order.collectedTotal || 0);
+                                if (collected <= 0) {
+                                    return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Unpaid<\/span>';
+                                }
+                                if (collected >= total && total > 0) {
+                                    return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Paid<\/span>';
+                                }
+                                return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Partial Paid<\/span>';
+                            })()}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            ${order.invoiceFileName ? `<a class=\"text-indigo-600 hover:text-indigo-900\" href=\"/invoices/${encodeURIComponent(order.invoiceFileName)}\" target=\"_blank\" rel=\"noopener\">View</a>` : '<span class="text-gray-400">N/A</span>'}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <button class="text-blue-600 hover:text-blue-800" data-action="payment-status" data-order-id="${order.id}" data-counter-name="${order.counterName || ''}">Update</button>
+                        </td>
+                    </tr>
+                `).join('');
+                // Bind Payment Status buttons
+                tbody.querySelectorAll('button[data-action="payment-status"]').forEach(btn => {
+                    btn.addEventListener('click', () => window.openPaymentStatusModal({
+                        orderId: Number(btn.getAttribute('data-order-id')),
+                        counterName: btn.getAttribute('data-counter-name') || ''
+                    }));
+                });
+            }
+
+            renderSummary(label) {
+                const card = document.getElementById('ordersSummaryCard');
+                const body = document.getElementById('ordersSummaryBody');
+                const monthEl = document.getElementById('ordersSummaryMonth');
+                if (!card || !body) return;
+                const orders = Array.isArray(this.orders) ? this.orders : [];
+                if (!orders.length) { card.classList.add('hidden'); return; }
+
+                let totalAmount = 0;
+                let paidAmount = 0;
+                let partialAmount = 0;
+                let duesAmount = 0;
+                let paidCount = 0;
+                let partialCount = 0;
+                let duesCount = 0;
+
+                for (const o of orders) {
+                    const total = Number(o.grandTotal || 0);
+                    const collected = Math.min(Number(o.collectedTotal || 0), total);
+                    totalAmount += total;
+                    const remaining = Math.max(0, total - collected);
+                    duesAmount += remaining;
+                    if (collected >= total && total > 0) {
+                        paidCount += 1;
+                        paidAmount += total; // full order amount counted in Paid
+                    } else if (collected > 0 && collected < total) {
+                        partialCount += 1;
+                        partialAmount += collected; // only collected portion counted as Partial Paid amount
+                        duesCount += 1; // has dues
+                    } else {
+                        // unpaid
+                        duesCount += 1;
+                    }
+                }
+
+                const fmt = (n) => `₹${Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                body.innerHTML = `
+                    <tr>
+                        <td class="px-4 py-2">Total</td>
+                        <td class="px-4 py-2 text-right font-medium">${fmt(totalAmount)}</td>
+                        <td class="px-4 py-2 text-right text-gray-600">${orders.length}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-2">Dues</td>
+                        <td class="px-4 py-2 text-right font-medium text-amber-700">${fmt(duesAmount)}</td>
+                        <td class="px-4 py-2 text-right text-gray-600">${duesCount}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-2">Paid</td>
+                        <td class="px-4 py-2 text-right font-medium text-green-700">${fmt(paidAmount)}</td>
+                        <td class="px-4 py-2 text-right text-gray-600">${paidCount}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-2">Partial Paid</td>
+                        <td class="px-4 py-2 text-right font-medium text-blue-700">${fmt(partialAmount)}</td>
+                        <td class="px-4 py-2 text-right text-gray-600">${partialCount}</td>
+                    </tr>
+                `;
+                if (monthEl) monthEl.textContent = label ? String(label) : '';
+                card.classList.remove('hidden');
+            }
+
+            formatDate(d) { return d ? new Date(d).toLocaleDateString('en-IN') : 'N/A'; }
+            formatCurrency(a) { const n = Number(a || 0); return n.toFixed(2); }
+            toast(msg, isErr) {
+                const el = document.createElement('div');
+                el.className = `fixed top-4 right-4 ${isErr ? 'bg-red-500' : 'bg-green-600'} text-white px-4 py-2 rounded shadow`;
+                el.textContent = msg;
+                document.body.appendChild(el);
+                setTimeout(() => { el.remove(); }, 2500);
+            }
+        }
+
+        let manager;
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Enforce permission for this page
+            if (window.ensurePagePermission) {
+                await window.ensurePagePermission('my-orders', 'view');
+            } else if (window.ensurePageAccess) {
+                await window.ensurePageAccess('my-orders');
+            }
+            NavigationLoader.loadNavigation();
+            const user = await requireProfile();
+            if (!user) return;
+            manager = new MyOrdersManager(user);
+        });
+    </script>
+
+        <!-- Payment Status Modal -->
+        <div id="ptModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden z-50">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                        <h3 class="text-lg font-medium text-gray-900">Payment Status</h3>
+                        <button id="ptClose" class="text-gray-500 hover:text-gray-700">✕</button>
+                    </div>
+                    <div class="p-6">
+                        <div class="mb-4 text-sm text-gray-700" id="ptOrderInfo"></div>
+                        <div>
+                            <h4 class="font-medium text-gray-900 mb-2">History</h4>
+                            <div id="ptHistory" class="bg-gray-50 rounded border p-3 max-h-48 overflow-y-auto text-sm">
+                                <div class="text-gray-500">Loading…</div>
+                            </div>
+                        </div>
+                        <form id="ptForm" class="mt-5 space-y-3">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Comment *</label>
+                                <textarea id="ptComment" required rows="3" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Type follow-up note or current status"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Next Follow-up Date</label>
+                                <input type="date" id="ptNextDate" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" />
+                            </div>
+                            <div class="flex justify-end gap-3 pt-2">
+                                <button type="button" id="ptCancel" class="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
+                                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700">Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            (function attachPaymentTracking(){
+                const modal = document.getElementById('ptModal');
+                const closeBtn = document.getElementById('ptClose');
+                const cancelBtn = document.getElementById('ptCancel');
+                const form = document.getElementById('ptForm');
+                const historyEl = document.getElementById('ptHistory');
+                const infoEl = document.getElementById('ptOrderInfo');
+                let currentOrderId = null;
+
+                function hide(){ modal.classList.add('hidden'); currentOrderId = null; form.reset(); }
+                function show(){ modal.classList.remove('hidden'); }
+
+                window.addEventListener('click', (e)=>{ if(e.target === modal) hide(); });
+                if (closeBtn) closeBtn.addEventListener('click', hide);
+                if (cancelBtn) cancelBtn.addEventListener('click', hide);
+
+                async function loadHistory(orderId){
+                    historyEl.innerHTML = '<div class="text-gray-500">Loading…</div>';
+                    try {
+                        const res = await fetch(`/api/payment-tracking/order/${orderId}`, { headers: getAuthHeaders() });
+                        if (!res.ok) throw new Error('HTTP '+res.status);
+                        const json = await res.json();
+                        const rows = Array.isArray(json.data) ? json.data : [];
+                        if (!rows.length){ historyEl.innerHTML = '<div class="text-gray-500">No history yet</div>'; return; }
+                        historyEl.innerHTML = rows.map(r => `
+                            <div class="py-2 border-b last:border-b-0">
+                                <div class="text-gray-900">${r.comment}</div>
+                                <div class="text-xs text-gray-500 mt-1">By ${r.loggedInUserName || 'User'} on ${new Date(r.commentDate).toLocaleString('en-IN')}${r.nextFollowUpDate ? ` • Next: ${new Date(r.nextFollowUpDate).toLocaleDateString('en-IN')}` : ''}</div>
+                            </div>
+                        `).join('');
+                    } catch(e){
+                        historyEl.innerHTML = '<div class="text-red-500">Failed to load history</div>';
+                    }
+                }
+
+                window.myOrders_openPaymentStatus = async function(orderId, counterName){
+                    currentOrderId = orderId;
+                    infoEl.textContent = `Order #${orderId}${counterName ? ' • '+counterName : ''}`;
+                    await loadHistory(orderId);
+                    show();
+                };
+
+                // Connect with page class
+                if (window.MyOrdersManager) {
+                    // no-op
+                }
+
+                form.addEventListener('submit', async (e)=>{
+                    e.preventDefault();
+                    if (!currentOrderId) return;
+                    const payload = {
+                        orderID: currentOrderId,
+                        comment: document.getElementById('ptComment').value.trim(),
+                        nextFollowUpDate: document.getElementById('ptNextDate').value || null
+                    };
+                    if (!payload.comment) { alert('Please enter a comment'); return; }
+                    try {
+                        const res = await fetch('/api/payment-tracking', { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
+                        if (!res.ok) throw new Error('HTTP '+res.status);
+                        await loadHistory(currentOrderId);
+                        document.getElementById('ptComment').value = '';
+                        document.getElementById('ptNextDate').value = '';
+                    } catch(e){ alert('Failed to save'); }
+                });
+
+                // Expose opener used in render binding
+                window.openPaymentStatusModal = ({orderId, counterName}) => window.myOrders_openPaymentStatus(orderId, counterName);
+            })();
+        </script>
+    </body>
+    </html>

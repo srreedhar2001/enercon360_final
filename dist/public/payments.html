@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/js/navigation.js"></script>
     <script src="/js/access.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <!-- Navigation Container -->
@@ -122,6 +123,31 @@
                 </div>
             </div>
 
+            <!-- Monthly Summary (shown on card click) -->
+            <div id="monthSummaryCard" class="bg-white overflow-hidden shadow rounded-lg mb-6 hidden">
+                <div class="p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-lg font-semibold text-gray-800">Monthly Summary - <span id="monthSummaryTitle"></span></h2>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                        <div class="md:col-span-2">
+                            <canvas id="paymentsPie" height="400" style="height:400px; max-height:400px;"></canvas>
+                        </div>
+                        <div class="md:col-span-1">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="monthTotalsTbody" class="bg-white divide-y divide-gray-200 text-sm"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Filters -->
             <div class="bg-white rounded-lg shadow p-4 mb-6">
                 <div class="flex flex-col md:flex-row gap-4">
@@ -152,9 +178,14 @@
                             Showing <span id="recordCount">0</span> records
                         </div>
                     </div>
+
+                    <!-- Prompt State -->
+                    <div id="recordsPrompt" class="text-center py-10">
+                        <p class="text-gray-500">Select a month card above to view payment records.</p>
+                    </div>
                     
                     <!-- Loading State -->
-                    <div id="loadingState" class="text-center py-12">
+                    <div id="loadingState" class="text-center py-12 hidden">
                         <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -300,6 +331,9 @@
                 this.counters = [];
                 this.filteredPayments = [];
                 this.editingPaymentId = null;
+                this.monthlyData = [];
+                this.paymentsLoaded = false;
+                this.pie = null;
                 this.init();
             }
 
@@ -355,15 +389,24 @@
                         this.filterPayments();
                     });
                 });
+                // Month card click (event delegation)
+                const grid = document.getElementById('monthlyPaymentsGrid');
+                grid.addEventListener('click', (e) => {
+                    const card = e.target.closest('[data-ym]');
+                    if (!card) return;
+                    const ym = card.getAttribute('data-ym');
+                    const label = card.getAttribute('data-label') || ym;
+                    this.onMonthCardClick(ym, label);
+                });
             }
 
             async loadData() {
                 this.showLoading();
-                try {
+        try {
                     await Promise.all([
                         this.loadStatistics(),
                         this.loadMonthlyCards(),
-                        this.loadPayments(),
+            // Do not load payments by default; load on month click
                         this.loadPaymentTypes(),
                         this.loadUsers(),
                         this.loadCounters()
@@ -381,13 +424,14 @@
                     if (!response.ok) throw new Error('Failed to load monthly payments');
                     const result = await response.json();
                     const data = Array.isArray(result.data) ? result.data : [];
+                    this.monthlyData = data;
                     const grid = document.getElementById('monthlyPaymentsGrid');
                     if (!data.length) {
                         grid.innerHTML = '<div class="col-span-full text-gray-500">No data</div>';
                         return;
                     }
                     grid.innerHTML = data.map(m => `
-                        <div class="border border-gray-200 rounded-lg p-3 bg-white">
+                        <div class="border border-gray-200 rounded-lg p-3 bg-white cursor-pointer hover:border-blue-300" data-ym="${m.ym}" data-label="${m.label}">
                             <div class="flex items-center justify-between mb-1">
                                 <div class="text-[12px] uppercase tracking-wide text-gray-600">${m.label}</div>
                                 <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Monthly</span>
@@ -401,6 +445,81 @@
                 } catch (error) {
                     console.error('Error loading monthly payments:', error);
                 }
+            }
+
+            onMonthCardClick(ym, label) {
+                // Show monthly summary
+                const rec = (this.monthlyData || []).find(r => r.ym === ym) || { paymentsTotal: 0, collectionsTotal: 0 };
+                const payments = Number(rec.paymentsTotal || 0);
+                const collections = Number(rec.collectionsTotal || 0);
+                document.getElementById('monthSummaryTitle').textContent = label;
+                const card = document.getElementById('monthSummaryCard');
+                card.classList.remove('hidden');
+
+                // We'll render the pie after ensuring payments are loaded, using type-wise breakdown
+
+                // Set date filters to selected month and show table
+                const from = ym + '-01';
+                const lastDay = new Date(Number(ym.slice(0,4)), Number(ym.slice(5,7)), 0).getDate();
+                const to = ym + '-' + String(lastDay).padStart(2, '0');
+                document.getElementById('dateFromFilter').value = from;
+                document.getElementById('dateToFilter').value = to;
+
+                // Load payments if not yet loaded, then compute breakdown, filter and show
+                const proceed = () => {
+                    const breakdown = this.getPaymentsBreakdownByType(from, to);
+                    this.renderPaymentsPie(breakdown);
+                    this.renderTypeTable(breakdown);
+                    this.filterPayments();
+                    this.showTable();
+                    document.getElementById('recordsPrompt').classList.add('hidden');
+                };
+                if (!this.paymentsLoaded) {
+                    this.showLoading();
+                    this.loadPayments().then(() => { this.paymentsLoaded = true; proceed(); })
+                        .catch(() => { this.showEmpty(); });
+                } else {
+                    proceed();
+                }
+            }
+
+            getPaymentsBreakdownByType(from, to) {
+                // Filter payments strictly by date range
+                const fromDate = from ? new Date(from) : null;
+                const toDate = to ? new Date(to) : null;
+                const sums = new Map();
+                (this.payments || []).forEach(p => {
+                    const d = new Date(p.paymentDate);
+                    if ((fromDate && d < fromDate) || (toDate && d > toDate)) return;
+                    const label = (p.paymentType || 'Others').trim();
+                    const cur = sums.get(label) || 0;
+                    sums.set(label, cur + Number(p.amount || 0));
+                });
+                const labels = Array.from(sums.keys());
+                const data = labels.map(l => sums.get(l));
+                const palette = ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#84cc16','#f97316','#14b8a6','#a855f7'];
+                const colors = labels.map((_, i) => palette[i % palette.length]);
+                return { labels, data, colors };
+            }
+
+            renderPaymentsPie({ labels, data, colors }) {
+                const ctx = document.getElementById('paymentsPie').getContext('2d');
+                if (this.pie) { this.pie.destroy(); }
+                this.pie = new Chart(ctx, {
+                    type: 'pie',
+                    data: { labels, datasets: [{ data, backgroundColor: colors }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, title: { display: true, text: 'Payments by Type' } } }
+                });
+            }
+
+            renderTypeTable({ labels, data }) {
+                const tbody = document.getElementById('monthTotalsTbody');
+                if (!tbody) return;
+                const rows = labels.map((label, idx) => {
+                    const amt = data[idx] || 0;
+                    return `<tr><td class="px-4 py-2 text-gray-700">${label}</td><td class="px-4 py-2 text-right font-semibold">${this.formatCurrency(amt)}</td></tr>`;
+                }).join('');
+                tbody.innerHTML = rows || `<tr><td colspan="2" class="px-4 py-3 text-center text-gray-500">No payments in this month</td></tr>`;
             }
 
             async loadStatistics() {
@@ -441,7 +560,7 @@
                         const result = await response.json();
                         this.payments = result.data;
                         this.filteredPayments = [...this.payments];
-                        this.renderPayments();
+                        // Do not render immediately; wait for explicit filter/show
                     } else {
                         throw new Error('Failed to load payments');
                     }
@@ -595,20 +714,20 @@
 
             renderPayments() {
                 const tbody = document.getElementById('paymentsTableBody');
-                
+                // Always clear previous rows first
+                tbody.innerHTML = '';
                 if (this.filteredPayments.length === 0) {
+                    document.getElementById('recordCount').textContent = 0;
                     this.showEmpty();
                     return;
                 }
 
                 this.showTable();
-                tbody.innerHTML = '';
 
                 this.filteredPayments.forEach(payment => {
                     const row = this.createPaymentRow(payment);
                     tbody.appendChild(row);
                 });
-
                 document.getElementById('recordCount').textContent = this.filteredPayments.length;
             }
 
@@ -922,6 +1041,7 @@
             }
 
             showLoading() {
+                document.getElementById('recordsPrompt').classList.add('hidden');
                 document.getElementById('loadingState').classList.remove('hidden');
                 document.getElementById('emptyState').classList.add('hidden');
                 document.getElementById('paymentsTable').classList.add('hidden');
@@ -929,6 +1049,7 @@
 
             showEmpty() {
                 document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('recordsPrompt').classList.add('hidden');
                 document.getElementById('emptyState').classList.remove('hidden');
                 document.getElementById('paymentsTable').classList.add('hidden');
             }
@@ -936,6 +1057,7 @@
             showTable() {
                 document.getElementById('loadingState').classList.add('hidden');
                 document.getElementById('emptyState').classList.add('hidden');
+                document.getElementById('recordsPrompt').classList.add('hidden');
                 document.getElementById('paymentsTable').classList.remove('hidden');
             }
 

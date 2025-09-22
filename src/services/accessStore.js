@@ -23,7 +23,12 @@ function writeStore(data) {
 function getPermissions(designationId) {
   const store = readStore();
   const id = String(designationId);
-  return store.designations[id]?.permissions || null;
+  const perms = store.designations[id]?.permissions || null;
+  // Ensure new modules appear with default view=false when not present
+  if (perms && perms['my-orders'] === undefined) {
+    perms['my-orders'] = { view: false, edit: false, delete: false };
+  }
+  return perms;
 }
 
 function setPermissions(designationId, permissions) {

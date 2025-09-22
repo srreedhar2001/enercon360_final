@@ -53,11 +53,16 @@ const listModules = async (req, res) => {
        ORDER BY sort_order ASC, module_name ASC`
     );
     const modules = (rows || []).map(r => r.moduleKey);
+    // Ensure new frontend pages are present even if DB row not yet created
+  const extras = ['my-orders', 'counters-due'];
+    for (const m of extras) {
+      if (!modules.includes(m)) modules.push(m);
+    }
     return res.json({ success: true, data: modules });
   } catch (e) {
     console.error('Error fetching modules from DB', e);
     // Fallback to the previous static list so UI still works
-    const fallback = ['dashboard','orders','collections','payments','users','products','counters','reports','page-access'];
+    const fallback = ['dashboard','orders','my-orders','collections','payments','users','products','counters','reports','page-access'];
     return res.status(200).json({ success: true, data: fallback });
   }
 };

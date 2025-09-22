@@ -118,11 +118,17 @@ const addCollection = async (req, res) => {
             });
         }
         
-        // Check if amount is valid
-        if (amount <= 0 || amount > order.grandTotal) {
+        // Check if amount is valid against remaining amount (existing collections)
+        const [existingCollectedRow] = await dbQuery(
+            `SELECT COALESCE(SUM(amount), 0) AS totalCollected FROM collections WHERE orderID = ?`,
+            [orderID]
+        );
+        const alreadyCollected = parseFloat(existingCollectedRow.totalCollected || 0);
+        const remainingBefore = Math.max(0, parseFloat(order.grandTotal) - alreadyCollected);
+        if (amount <= 0 || amount > remainingBefore) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid collection amount'
+                message: 'Invalid collection amount: exceeds remaining amount'
             });
         }
         
@@ -132,10 +138,16 @@ const addCollection = async (req, res) => {
             VALUES (?, ?, ?, ?, NOW(), NOW())
         `;
         const result = await dbQuery(insertQuery, [orderID, amount, transactionDate, comments || null]);
-        
-        // Update order payment status if markAsPaid is true or if collection equals total
-        const shouldMarkAsPaid = markAsPaid || (parseFloat(amount) >= parseFloat(order.grandTotal));
-        
+
+        // Recalculate total collected for this order after insert
+        const [totalCollectedRow] = await dbQuery(
+            `SELECT COALESCE(SUM(amount), 0) AS totalCollected FROM collections WHERE orderID = ?`,
+            [orderID]
+        );
+        const totalCollected = parseFloat(totalCollectedRow.totalCollected || 0);
+        // Decide final paid status: user intent OR auto if totals cover grand total
+        const shouldMarkAsPaid = !!markAsPaid || (totalCollected >= parseFloat(order.grandTotal));
+
         if (shouldMarkAsPaid) {
             const updateOrderQuery = `
                 UPDATE orders 
@@ -153,7 +165,8 @@ const addCollection = async (req, res) => {
                 amount,
                 transactionDate,
                 comments,
-                paymentUpdated: shouldMarkAsPaid
+                paymentUpdated: shouldMarkAsPaid,
+                totalCollected
             },
             message: 'Collection added successfully'
         });

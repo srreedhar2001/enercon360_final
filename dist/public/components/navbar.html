@@ -10,14 +10,38 @@
                 </div>
                 <span class="ml-3 text-gray-900 font-bold text-xl">Enercon 360</span>
             </div>
+            <!-- Mobile menu button -->
+            <div class="md:hidden">
+                <button id="mobileMenuBtn" type="button" onclick="toggleMobileMenu()" class="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500" aria-controls="mobileMenu" aria-expanded="false">
+                    <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+                    </svg>
+                </button>
+            </div>
             <div class="hidden md:block">
                 <div class="ml-10 flex items-baseline space-x-4">
                     <!-- <a href="/home.html" class="nav-link" data-page="home">Home</a>
                     <a href="#" class="nav-link" data-page="features">Features</a> -->
                     <a href="/product.html" class="nav-link" data-page="products">Products</a>
                     <a href="/counter.html" class="nav-link" data-page="counters">Counters</a>
-                    <a href="/order.html" class="nav-link" data-page="orders">Orders</a>
-                    <a href="/collections.html" class="nav-link" data-page="collections">Collections</a>
+                    <!-- Transactions Menu -->
+                    <div class="relative group">
+                        <button class="nav-link inline-flex items-center" data-page="transactions" aria-haspopup="true" aria-expanded="false">
+                            Transactions
+                            <svg class="ml-1 h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div class="absolute left-0 mt-0 z-50 w-56 max-h-96 overflow-y-auto rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 hidden group-hover:block">
+                            <div class="py-1" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                                <a href="/order.html" class="nav-link block w-full text-left" data-page="orders" role="menuitem" tabindex="-1">Orders</a>
+                                <a href="/collections.html" class="nav-link block w-full text-left" data-page="collections" role="menuitem" tabindex="-1">Collections</a>
+                                <a href="/payments.html" class="nav-link block w-full text-left" data-page="payments" role="menuitem" tabindex="-1">Payments</a>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="/myOrders.html" class="nav-link" data-page="my-orders">My Orders</a>
+                    <a href="/countersdue.html" class="nav-link" data-page="counters-due">Counters Due</a>
                     <!-- Reports Menu -->
                     <div class="relative group">
                         <button class="nav-link inline-flex items-center" data-page="reports" aria-haspopup="true" aria-expanded="false">
@@ -31,12 +55,26 @@
                 <a href="/dashboard.html" class="nav-link block w-full text-left" data-page="dashboard" role="menuitem" tabindex="-1">Dashboard</a>
                                 <a href="/RepSalesReport.html" class="nav-link block w-full text-left" data-page="reports" role="menuitem" tabindex="-1">Rep Sales Report</a>
                                 <a href="/SalesVsExpReport.html" class="nav-link block w-full text-left" data-page="reports" role="menuitem" tabindex="-1">Sales vs Expenses Report</a>
+                                <a href="/newCounters.html" class="nav-link block w-full text-left" data-page="reports" role="menuitem" tabindex="-1">New Counters Report</a>
                             </div>
                         </div>
                     </div>
-                    <a href="/payments.html" class="nav-link" data-page="payments">Payments</a>
-                    <a href="/user.html" class="nav-link" data-page="users">Users</a>
-                    <a href="/page-access.html" class="nav-link" data-page="page-access">Page Access</a>
+                    
+                    <!-- Others Menu -->
+                    <div class="relative group">
+                        <button class="nav-link inline-flex items-center" data-page="others" aria-haspopup="true" aria-expanded="false">
+                            Others
+                            <svg class="ml-1 h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div class="absolute left-0 mt-0 z-50 w-56 max-h-96 overflow-y-auto rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 hidden group-hover:block">
+                            <div class="py-1" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
+                                <a href="/user.html" class="nav-link block w-full text-left" data-page="users" role="menuitem" tabindex="-1">Users</a>
+                                <a href="/page-access.html" class="nav-link block w-full text-left" data-page="page-access" role="menuitem" tabindex="-1">Page Access</a>
+                            </div>
+                        </div>
+                    </div>
                     <!-- <a href="#" class="nav-link" data-page="about">About</a>
                     <a href="#" class="nav-link" data-page="contact">Contact</a> -->
                 </div>
@@ -49,6 +87,45 @@
                 <a href="/login.html" id="loginBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-300">
                     Sign In
                 </a>
+            </div>
+        </div>
+        <!-- Mobile menu panel -->
+        <div id="mobileMenu" class="md:hidden hidden border-t border-gray-200 bg-white">
+            <div class="px-4 py-3 space-y-1">
+                <a href="/product.html" class="nav-link block" data-page="products">Products</a>
+                <a href="/counter.html" class="nav-link block" data-page="counters">Counters</a>
+                <!-- Transactions collapsible -->
+                <button type="button" class="w-full text-left nav-link flex items-center justify-between mobile-collapse" data-toggle-target="#mm-transactions" onclick="toggleCollapse('#mm-transactions')">
+                    <span>Transactions</span>
+                    <svg class="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <div id="mm-transactions" class="ml-4 hidden">
+                    <a href="/order.html" class="nav-link block" data-page="orders">Orders</a>
+                    <a href="/collections.html" class="nav-link block" data-page="collections">Collections</a>
+                    <a href="/payments.html" class="nav-link block" data-page="payments">Payments</a>
+                </div>
+                <a href="/myOrders.html" class="nav-link block" data-page="my-orders">My Orders</a>
+                <a href="/countersdue.html" class="nav-link block" data-page="counters-due">Counters Due</a>
+                <!-- Reports collapsible -->
+                <button type="button" class="w-full text-left nav-link flex items-center justify-between mobile-collapse" data-toggle-target="#mm-reports" onclick="toggleCollapse('#mm-reports')">
+                    <span>Reports</span>
+                    <svg class="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <div id="mm-reports" class="ml-4 hidden">
+                    <a href="/dashboard.html" class="nav-link block" data-page="dashboard">Dashboard</a>
+                    <a href="/RepSalesReport.html" class="nav-link block" data-page="reports">Rep Sales Report</a>
+                    <a href="/SalesVsExpReport.html" class="nav-link block" data-page="reports">Sales vs Expenses Report</a>
+                    <a href="/newCounters.html" class="nav-link block" data-page="reports">New Counters Report</a>
+                </div>
+                <!-- Others collapsible -->
+                <button type="button" class="w-full text-left nav-link flex items-center justify-between mobile-collapse" data-toggle-target="#mm-others" onclick="toggleCollapse('#mm-others')">
+                    <span>Others</span>
+                    <svg class="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <div id="mm-others" class="ml-4 hidden">
+                    <a href="/user.html" class="nav-link block" data-page="users">Users</a>
+                    <a href="/page-access.html" class="nav-link block" data-page="page-access">Page Access</a>
+                </div>
             </div>
         </div>
     </div>
@@ -134,12 +211,16 @@
     if (path.includes('dashboard.html')) return 'dashboard';
         if (path.includes('user.html')) return 'users';
         if (path.includes('product.html')) return 'products';
-        if (path.includes('counter.html')) return 'counters';
-        if (path.includes('order.html')) return 'orders';
-        if (path.includes('collections.html')) return 'collections';
-        if (path.includes('payments.html')) return 'payments';
+    if (path.includes('counter.html')) return 'counters';
+    // Map transaction pages to the Transactions parent for highlighting
+    if (path.includes('order.html')) return 'transactions';
+    if (path.includes('collections.html')) return 'transactions';
+    if (path.includes('payments.html')) return 'transactions';
+    if (path.includes('myOrders.html')) return 'my-orders';
     if (path.includes('page-access.html')) return 'page-access';
     if (path.includes('RepSalesReport.html')) return 'reports';
+    if (path.includes('newCounters.html')) return 'reports';
+    if (path.includes('countersdue.html')) return 'counters-due';
         if (path.includes('features')) return 'features';
         if (path.includes('about')) return 'about';
         if (path.includes('contact')) return 'contact';
@@ -148,17 +229,44 @@
     
     function setActiveNavItem(page) {
         // Remove active class from all nav links
-        document.querySelectorAll('.nav-link').forEach(link => {
+    document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.remove('active');
         });
         
-        // Add active class to current page
-        const activeLink = document.querySelector(`[data-page="${page}"]`);
-        if (activeLink) {
-            activeLink.classList.add('active');
-        }
+    // Add active class to all matching links (desktop and mobile)
+    const activeLinks = document.querySelectorAll(`[data-page="${page}"]`);
+    activeLinks.forEach(l => l.classList.add('active'));
     }
     
     // Initialize when DOM is loaded
     document.addEventListener('DOMContentLoaded', initializeNavigation);
+
+    // Helpers: robust toggles for mobile
+    function toggleMobileMenu() {
+        const menu = document.getElementById('mobileMenu');
+        if (!menu) return;
+        const nowHidden = menu.classList.toggle('hidden');
+        const btn = document.getElementById('mobileMenuBtn');
+        if (btn) btn.setAttribute('aria-expanded', (!nowHidden).toString());
+    }
+
+    function toggleCollapse(selector) {
+        const tgt = document.querySelector(selector);
+        if (tgt) tgt.classList.toggle('hidden');
+    }
+
+    // Mobile toggles
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('#mobileMenuBtn');
+        if (btn) {
+            toggleMobileMenu();
+        }
+        const coll = e.target.closest('.mobile-collapse');
+        if (coll) {
+            const targetSel = coll.getAttribute('data-toggle-target');
+            if (targetSel) {
+                toggleCollapse(targetSel);
+            }
+        }
+    });
 </script>

@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Counters Report</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/js/navigation.js"></script>
+  <link rel="icon" href="/favicon.ico">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="New Counters created by month">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="navigation-container"></div>
+
+  <main class="container mx-auto px-4 py-8 pt-24">
+    <div class="max-w-6xl mx-auto space-y-6">
+      <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 class="text-2xl font-bold text-gray-800">New Counters Report</h1>
+            <p class="text-gray-600 mt-2">Pick a representative, then click a month to view orders from counters created in that month.</p>
+          </div>
+          <span id="totalBadge" class="hidden text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">0</span>
+        </div>
+        <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label for="repSelect" class="block text-sm font-medium text-gray-700 mb-1">Representative</label>
+            <select id="repSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+              <option value="">Loading representatives…</option>
+            </select>
+            <p id="repHelper" class="text-xs text-gray-500 mt-1">Start by choosing a representative.</p>
+          </div>
+        </div>
+  <div id="monthCards" class="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
+      </div>
+
+      <div id="resultsSection" class="bg-white rounded-lg shadow p-6 hidden">
+        <div class="flex items-center justify-between mb-3">
+  <h2 id="resultsTitle" class="text-lg font-semibold text-gray-800">Counters created in Month</h2>
+          <button id="clearBtn" class="text-xs text-blue-600 hover:underline hidden" type="button">Clear</button>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+    <thead id="resultsHead" class="bg-gray-50"></thead>
+            <tbody id="countersTbody" class="bg-white divide-y divide-gray-200"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async function () {
+      try { await NavigationLoader.loadNavigation(); } catch (_) {}
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      if (!token) { window.location.href = '/login.html'; return; }
+
+      const monthCards = document.getElementById('monthCards');
+      const resultsSection = document.getElementById('resultsSection');
+      const resultsTitle = document.getElementById('resultsTitle');
+      const countersTbody = document.getElementById('countersTbody');
+      const totalBadge = document.getElementById('totalBadge');
+      const clearBtn = document.getElementById('clearBtn');
+      const repSelect = document.getElementById('repSelect');
+      const repHelper = document.getElementById('repHelper');
+      const resultsHead = document.getElementById('resultsHead');
+
+      let selectedYM = null;
+      let selectedRepId = null;
+      let mode = 'counters'; // 'counters' | 'orders'
+
+      function setHeadCounters() {
+        resultsHead.innerHTML = `
+          <tr>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rep</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Orders (₹)</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+          </tr>`;
+      }
+      function setHeadOrders() {
+        resultsHead.innerHTML = `
+          <tr>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Net (₹)</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month Total (₹)</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+          </tr>`;
+      }
+
+      async function loadMonthsCounters() {
+        monthCards.innerHTML = '<div class="col-span-full text-gray-500">Loading…</div>';
+        try {
+          const res = await fetch('/api/counters/stats/last-6-months-created', { headers: { 'Authorization': `Bearer ${token}` } });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const json = await res.json();
+          const data = Array.isArray(json.data) ? json.data : [];
+          if (!data.length) {
+            monthCards.innerHTML = '<div class="col-span-full text-gray-500">No data</div>';
+            return;
+          }
+          monthCards.innerHTML = data.map((m, idx) => `
+            <button class="month-card text-left bg-white rounded-lg shadow p-3 border ${idx === data.length - 1 ? 'border-blue-300' : 'border-gray-200'} hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300" data-ym="${m.ym}" data-label="${m.label}">
+              <div class="flex items-center justify-between mb-1">
+                <dt class="text-[11px] uppercase tracking-wide text-gray-500">${m.label}</dt>
+                <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === data.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === data.length - 1 ? 'Current' : 'Past'}</span>
+              </div>
+              <dd class="text-base font-semibold text-gray-900">${Number(m.count || 0).toLocaleString('en-IN')} new</dd>
+            </button>
+          `).join('');
+          const total = data.reduce((s, r) => s + Number(r.count || 0), 0);
+          totalBadge.textContent = total.toLocaleString('en-IN');
+          totalBadge.classList.remove('hidden');
+        } catch (e) {
+          console.error('loadMonthsCounters error:', e);
+          monthCards.innerHTML = '<div class="col-span-full text-red-500">Failed to load</div>';
+        }
+      }
+
+      async function loadRepresentatives() {
+        try {
+          const res = await fetch('/api/users/designation/2', { headers: { 'Authorization': `Bearer ${token}` } });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const json = await res.json();
+          const reps = Array.isArray(json) ? json : (Array.isArray(json.data) ? json.data : (json.users || []));
+          if (!reps.length) {
+            repSelect.innerHTML = '<option value="">No representatives found</option>';
+            return;
+          }
+          repSelect.innerHTML = '<option value="">-- Select Representative --</option>' + reps.map(r => {
+            const id = r.id ?? r.user_id ?? r.userId;
+            const name = r.name || r.fullName || r.username || r.phone || `Rep ${id}`;
+            const phone = r.phone || r.mobile || '';
+            return `<option value="${id}" data-name="${name}">${name}${phone ? ' — ' + phone : ''}</option>`;
+          }).join('');
+        } catch (e) {
+          repSelect.innerHTML = '<option value="">Failed to load representatives</option>';
+        }
+      }
+
+      async function loadMonthsForRep(repId) {
+        monthCards.innerHTML = '<div class="col-span-full text-gray-500">Loading…</div>';
+        try {
+          const res = await fetch(`/api/orders/stats/rep-new-counters-monthly?repId=${encodeURIComponent(repId)}`, { headers: { 'Authorization': `Bearer ${token}` } });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const json = await res.json();
+          const data = Array.isArray(json.data) ? json.data : [];
+          if (!data.length) {
+            monthCards.innerHTML = '<div class="col-span-full text-gray-500">No data for this representative</div>';
+            return;
+          }
+          monthCards.innerHTML = data.map((m, idx) => `
+            <button class="month-card text-left bg-white rounded-lg shadow p-3 border ${idx === data.length - 1 ? 'border-blue-300' : 'border-gray-200'} hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300" data-ym="${m.ym}" data-label="${m.label}">
+              <div class="flex items-center justify-between mb-1">
+                <dt class="text-[11px] uppercase tracking-wide text-gray-500">${m.label}</dt>
+                <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === data.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === data.length - 1 ? 'Current' : 'Past'}</span>
+              </div>
+              <dd class="text-base font-semibold text-gray-900">₹${Number(m.netTotal || m.total || 0).toLocaleString('en-IN')}</dd>
+              <div class="mt-1 text-[11px] text-gray-600">Orders: ${Number(m.orderCount || 0).toLocaleString('en-IN')}</div>
+            </button>
+          `).join('');
+          const total = data.reduce((s, r) => s + Number(r.netTotal || r.total || 0), 0);
+          totalBadge.textContent = `₹${total.toLocaleString('en-IN')}`;
+          totalBadge.classList.remove('hidden');
+        } catch (e) {
+          console.error('loadMonthsForRep error:', e);
+          monthCards.innerHTML = '<div class="col-span-full text-red-500">Failed to load</div>';
+        }
+      }
+
+      monthCards.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-ym]');
+        if (!btn) return;
+        const ym = btn.dataset.ym;
+        if (!ym) return;
+        if (selectedRepId) {
+          mode = 'orders';
+          setHeadOrders();
+          await loadOrdersForRepMonth(selectedRepId, ym, btn.dataset.label);
+        } else {
+          mode = 'counters';
+          setHeadCounters();
+          await loadCountersForMonth(ym, btn.dataset.label);
+        }
+      });
+
+      clearBtn.addEventListener('click', () => {
+        selectedYM = null;
+        resultsSection.classList.add('hidden');
+        Array.from(monthCards.querySelectorAll('button[data-ym]')).forEach(b => b.classList.remove('ring-2', 'ring-blue-500', 'border-blue-400'));
+      });
+
+  async function loadOrdersForRepMonth(repId, ym, label) {
+        try {
+          const res = await fetch(`/api/orders/stats/rep-new-counters-orders?repId=${encodeURIComponent(repId)}&ym=${encodeURIComponent(ym)}`, { headers: { 'Authorization': `Bearer ${token}` } });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const json = await res.json();
+          const rows = Array.isArray(json.data) ? json.data : [];
+          const monthTotal = rows.reduce((s, r) => s + Number(r.grandTotal || 0), 0);
+
+          // highlight selection
+          Array.from(monthCards.querySelectorAll('button[data-ym]')).forEach(b => {
+            const on = b.dataset.ym === ym;
+            b.classList.toggle('ring-2', on);
+            b.classList.toggle('ring-blue-500', on);
+            b.classList.toggle('border-blue-400', on);
+          });
+          selectedYM = ym;
+
+          resultsTitle.textContent = `Orders for ${label || ym} (counters created same month)`;
+      countersTbody.innerHTML = rows.length ? rows.map((r, i) => `
+            <tr>
+              <td class="px-4 py-2 text-sm text-gray-700">${i + 1}</td>
+              <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(r.id)}</td>
+              <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(r.counterName)}</td>
+              <td class="px-4 py-2 text-sm text-gray-900">${formatCurrency(r.grandTotal)}</td>
+        <td class="px-4 py-2 text-sm text-gray-900">${formatCurrency(monthTotal)}</td>
+              <td class="px-4 py-2 text-sm text-gray-900">${r.paymentReceived ? 'Paid' : 'Unpaid'}</td>
+              <td class="px-4 py-2 text-sm text-blue-700">${r.invoiceFileName ? `<a href="/invoices/${encodeURIComponent(r.invoiceFileName)}" target="_blank" rel="noopener" class="underline">${escapeHtml(r.invoiceFileName)}</a>` : '-'}</td>
+              <td class="px-4 py-2 text-sm text-gray-900">${formatDate(r.orderDate)}</td>
+            </tr>
+      `).join('') : `<tr><td colspan="8" class="px-4 py-6 text-center text-gray-500">No orders for this month</td></tr>`;
+          resultsSection.classList.remove('hidden');
+          clearBtn.classList.remove('hidden');
+        } catch (e) {
+          console.error('loadOrdersForRepMonth error:', e);
+      countersTbody.innerHTML = `<tr><td colspan="8" class="px-4 py-6 text-center text-red-500">Failed to load</td></tr>`;
+          resultsSection.classList.remove('hidden');
+        }
+      }
+
+      async function loadCountersForMonth(ym, label) {
+        try {
+          const res = await fetch(`/api/counters/created?ym=${encodeURIComponent(ym)}`, { headers: { 'Authorization': `Bearer ${token}` } });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const json = await res.json();
+          const rows = Array.isArray(json.data) ? json.data : [];
+
+          Array.from(monthCards.querySelectorAll('button[data-ym]')).forEach(b => {
+            const on = b.dataset.ym === ym;
+            b.classList.toggle('ring-2', on);
+            b.classList.toggle('ring-blue-500', on);
+            b.classList.toggle('border-blue-400', on);
+          });
+          selectedYM = ym;
+          resultsTitle.textContent = `Counters created in ${label || ym}`;
+      countersTbody.innerHTML = rows.length ? rows.map((r, i) => `
+            <tr>
+              <td class="px-4 py-2 text-sm text-gray-700">${i + 1}</td>
+              <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(r.CounterName)}</td>
+              <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(r.cityName || '')}</td>
+              <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(r.repName || '')}</td>
+              <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(r.phone || r.repMobile || '')}</td>
+        <td class="px-4 py-2 text-sm text-gray-900">${formatCurrency(r.monthOrderTotal || 0)}${r.monthOrderCount ? ` <span class=\"text-xs text-gray-500\">(${r.monthOrderCount})</span>` : ''}</td>
+              <td class="px-4 py-2 text-sm text-gray-900">${formatDate(r.createdDate || r.created_at || r.createdAt)}</td>
+            </tr>
+      `).join('') : `<tr><td colspan="7" class="px-4 py-6 text-center text-gray-500">No counters created in this month</td></tr>`;
+          resultsSection.classList.remove('hidden');
+          clearBtn.classList.remove('hidden');
+        } catch (e) {
+          console.error('loadCountersForMonth error:', e);
+          countersTbody.innerHTML = `<tr><td colspan="6" class="px-4 py-6 text-center text-red-500">Failed to load</td></tr>`;
+          resultsSection.classList.remove('hidden');
+        }
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text == null ? '' : String(text);
+        return div.innerHTML;
+      }
+      function formatCurrency(v) {
+        const n = Number(v) || 0;
+        return `₹${n.toLocaleString('en-IN')}`;
+      }
+      function formatDate(v) {
+        if (!v) return '';
+        try { return new Date(v).toLocaleDateString('en-IN'); } catch { return String(v); }
+      }
+
+    repSelect.addEventListener('change', async () => {
+        const opt = repSelect.selectedOptions[0];
+        if (opt && opt.value) {
+          selectedRepId = opt.value;
+          repHelper.textContent = opt.dataset.name || opt.textContent;
+      mode = 'orders';
+          await loadMonthsForRep(selectedRepId);
+          resultsSection.classList.add('hidden');
+        } else {
+          selectedRepId = null;
+          monthCards.innerHTML = '';
+          resultsSection.classList.add('hidden');
+          totalBadge.classList.add('hidden');
+      mode = 'counters';
+      await loadMonthsCounters();
+        }
+      });
+
+    setHeadCounters();
+    await loadRepresentatives();
+    await loadMonthsCounters();
+    });
+  </script>
+</body>
+</html>

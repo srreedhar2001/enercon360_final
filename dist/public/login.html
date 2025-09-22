@@ -129,7 +129,7 @@
                             localStorage.setItem('authToken', data.data.token);
                             localStorage.setItem('userData', JSON.stringify(data.data.user));
                             showMsg('Login successful');
-                              window.location.href = data.data?.defaultActions?.redirectTo || '/order.html';
+                              window.location.href = data.data?.defaultActions?.redirectTo || '/myOrders.html';
                         } else {
                             showMsg(data.message || 'Invalid code', false);
                             verifyBtn.disabled = false;

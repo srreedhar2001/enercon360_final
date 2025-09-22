@@ -25,6 +25,21 @@
                 </button>
             </div>
 
+            <!-- Monthly Sales Cards -->
+            <div class="bg-white rounded-lg shadow p-4 mb-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-800">Monthly Sales</h2>
+                        <p class="text-xs text-gray-500">Net sales per month. Click a month to load its orders.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="monthTotalBadge" class="hidden text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">0</span>
+                        <button id="clearMonthBtn" class="hidden text-sm text-blue-600 hover:underline">Clear selection</button>
+                    </div>
+                </div>
+                <div id="monthCards" class="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3"></div>
+            </div>
+
             <!-- Filters -->
             <div class="bg-white rounded-lg shadow p-4 mb-6">
                 <div class="flex flex-col md:flex-row gap-4">
@@ -42,6 +57,7 @@
                         <select id="paymentFilter" class="px-4 py-2 border border-gray-300 rounded-lg">
                             <option value="">All Payments</option>
                             <option value="1">Paid</option>
+                            <option value="partial">Partial</option>
                             <option value="0">Unpaid</option>
                         </select>
                     </div>
@@ -51,7 +67,7 @@
             <!-- Orders Table -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900">All Orders</h3>
+                    <h3 id="ordersHeading" class="text-lg font-medium text-gray-900">Select a month to view orders</h3>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -74,7 +90,7 @@
                                         <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                                         </svg>
-                                        <p>Loading orders...</p>
+                                        <p>Pick a month card to load its orders</p>
                                     </div>
                                 </td>
                             </tr>
@@ -192,13 +208,15 @@
             constructor() {
                 this.orders = [];
                 this.filteredOrders = [];
-                this.currentOrder = null;
+            this.currentOrder = null;
+            this.selectedYM = null;
                 this.init();
             }
 
             init() {
                 this.bindEvents();
-                this.loadOrders();
+                this.loadMonthCards();
+                this.resetOrdersView();
                 this.setTodayDate();
             }
 
@@ -206,7 +224,11 @@
                 document.getElementById('searchInput').addEventListener('input', () => this.filterOrders());
                 document.getElementById('statusFilter').addEventListener('change', () => this.filterOrders());
                 document.getElementById('paymentFilter').addEventListener('change', () => this.filterOrders());
-                document.getElementById('refreshBtn').addEventListener('click', () => this.loadOrders());
+            document.getElementById('refreshBtn').addEventListener('click', () => this.reloadAll());
+            const clearMonthBtn = document.getElementById('clearMonthBtn');
+            if (clearMonthBtn) clearMonthBtn.addEventListener('click', () => this.clearMonthSelection());
+            const monthCardsEl = document.getElementById('monthCards');
+            if (monthCardsEl) monthCardsEl.addEventListener('click', (e) => this.onMonthCardClick(e));
                 
                 // Modal events
                 document.getElementById('cancelCollectionBtn').addEventListener('click', () => this.closeCollectionModal());
@@ -221,6 +243,30 @@
 
                 // Auto-calculate remaining amount
                 document.getElementById('collectionAmount').addEventListener('input', () => this.updatePaymentStatus());
+            }
+
+            resetOrdersView() {
+                // Clear selection state, heading, and show helpful placeholder
+                const heading = document.getElementById('ordersHeading');
+                if (heading) heading.textContent = 'Select a month to view orders';
+                const clearBtn = document.getElementById('clearMonthBtn');
+                if (clearBtn) clearBtn.classList.add('hidden');
+                this.orders = [];
+                this.filteredOrders = [];
+                const tbody = document.getElementById('ordersTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="8" class="px-6 py-8 text-center text-gray-500">
+                                <div class="flex flex-col items-center">
+                                    <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <p>Pick a month card to load its orders</p>
+                                </div>
+                            </td>
+                        </tr>`;
+                }
             }
 
             setTodayDate() {
@@ -261,8 +307,17 @@
 
                     const matchesStatus = !statusFilter || order.status === statusFilter;
                     
-                    const matchesPayment = !paymentFilter || 
-                        order.paymentReceived.toString() === paymentFilter;
+                    let matchesPayment = true;
+                    if (paymentFilter) {
+                        const total = Number(order.grandTotal || 0);
+                        const collected = Number(order.collectedTotal || 0);
+                        const isPaid = total > 0 && collected >= total;
+                        const isUnpaid = collected <= 0;
+                        const isPartial = collected > 0 && collected < total;
+                        if (paymentFilter === '1') matchesPayment = isPaid;
+                        else if (paymentFilter === '0') matchesPayment = isUnpaid;
+                        else if (paymentFilter === 'partial') matchesPayment = isPartial;
+                    }
 
                     return matchesSearch && matchesStatus && matchesPayment;
                 });
@@ -312,9 +367,17 @@
                         </td>
                         
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${order.paymentReceived ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
-                                ${order.paymentReceived ? 'Paid' : 'Unpaid'}
-                            </span>
+                            ${(() => {
+                                const total = Number(order.grandTotal || 0);
+                                const collected = Number(order.collectedTotal || 0);
+                                if (collected <= 0) {
+                                    return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Unpaid<\/span>';
+                                }
+                                if (collected >= total && total > 0) {
+                                    return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Paid<\/span>';
+                                }
+                                return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Partial Paid<\/span>';
+                            })()}
                         </td>
             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                 <button onclick="ordersManager.viewOrder(${order.id})" 
@@ -352,7 +415,12 @@
             viewOrder(orderId) {
                 const order = this.orders.find(o => o.id === orderId);
                 if (order) {
-                    alert(`Order Details:\nID: ${order.id}\nCounter: ${order.counterName}\nAmount: ₹${this.formatCurrency(order.grandTotal)}\nStatus: ${this.formatStatus(order.status)}\nPayment: ${order.paymentReceived ? 'Paid' : 'Unpaid'}`);
+                    const total = Number(order.grandTotal || 0);
+                    const collected = Number(order.collectedTotal || 0);
+                    let payText = 'Unpaid';
+                    if (collected >= total && total > 0) payText = 'Paid';
+                    else if (collected > 0 && collected < total) payText = 'Partial Paid';
+                    alert(`Order Details:\nID: ${order.id}\nCounter: ${order.counterName}\nAmount: ₹${this.formatCurrency(order.grandTotal)}\nStatus: ${this.formatStatus(order.status)}\nPayment: ${payText}`);
                 }
             }
 
@@ -371,11 +439,18 @@
                 document.getElementById('modalOrderId').textContent = order.id;
                 document.getElementById('modalCounterName').textContent = order.counterName || 'Unknown';
                 document.getElementById('modalTotalAmount').textContent = this.formatCurrency(order.grandTotal || 0);
-                document.getElementById('modalPaymentStatus').textContent = order.paymentReceived ? 'Paid' : 'Unpaid';
+                // Compute modal status using collectedTotal
+                const total = Number(order.grandTotal || 0);
+                const collected = Number(order.collectedTotal || 0);
+                let statusText = 'Unpaid';
+                if (collected >= total && total > 0) statusText = 'Paid';
+                else if (collected > 0 && collected < total) statusText = 'Partial Paid';
+                document.getElementById('modalPaymentStatus').textContent = statusText;
                 
                 // Set default collection amount to remaining amount
-                document.getElementById('collectionAmount').value = order.grandTotal || 0;
-                document.getElementById('collectionAmount').max = order.grandTotal || 0;
+                const remaining = Math.max(0, (Number(order.grandTotal || 0) - Number(order.collectedTotal || 0)));
+                document.getElementById('collectionAmount').value = remaining.toFixed(2);
+                document.getElementById('collectionAmount').max = remaining.toFixed(2);
                 
                 // Set default collection date to today
                 document.getElementById('collectionDate').value = new Date().toISOString().split('T')[0];
@@ -493,18 +568,106 @@
                 document.getElementById('collectionModal').classList.add('hidden');
                 document.getElementById('collectionForm').reset();
                 this.currentOrder = null;
+                this.loadMonthCards();
                 this.setTodayDate();
+            }
+
+            async loadMonthCards() {
+                const monthCards = document.getElementById('monthCards');
+                const badge = document.getElementById('monthTotalBadge');
+                if (!monthCards) return;
+                monthCards.innerHTML = '<div class="col-span-full text-gray-500">Loading…</div>';
+                try {
+                    const res = await fetch('/api/orders/stats/last-6-months', { headers: getAuthHeaders() });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const json = await res.json();
+                    const data = Array.isArray(json.data) ? json.data : [];
+                    if (!data.length) {
+                        monthCards.innerHTML = '<div class="col-span-full text-gray-500">No data</div>';
+                        if (badge) badge.classList.add('hidden');
+                        return;
+                    }
+                    monthCards.innerHTML = data.map((m, idx) => `
+                        <button class="month-card text-left bg-white rounded-lg shadow p-3 border ${idx === data.length - 1 ? 'border-blue-300' : 'border-gray-200'} hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300" data-ym="${m.ym}" data-label="${m.label}">
+                            <div class="flex items-center justify-between mb-1">
+                                <dt class="text-[11px] uppercase tracking-wide text-gray-500">${m.label}</dt>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === data.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === data.length - 1 ? 'Current' : 'Past'}</span>
+                            </div>
+                            <dd class="text-base font-semibold text-gray-900">₹${Number(m.netTotal || m.total || 0).toLocaleString('en-IN')}</dd>
+                        </button>
+                    `).join('');
+                    const total = data.reduce((s, r) => s + Number(r.netTotal || r.total || 0), 0);
+                    if (badge) {
+                        badge.textContent = `₹${total.toLocaleString('en-IN')}`;
+                        badge.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    console.error('loadMonthCards error:', e);
+                    monthCards.innerHTML = '<div class="col-span-full text-red-500">Failed to load</div>';
+                }
+            }
+
+            async onMonthCardClick(e) {
+                const btn = e.target.closest('button[data-ym]');
+                if (!btn) return;
+                const ym = btn.dataset.ym;
+                if (!ym) return;
+                await this.loadOrdersForMonth(ym, btn.dataset.label);
+            }
+
+            async loadOrdersForMonth(ym, label) {
+                try {
+                    const res = await fetch(`/api/orders/summary?months=${encodeURIComponent(ym)}`, { headers: getAuthHeaders() });
+                    if (!res.ok) throw new Error('HTTP ' + res.status);
+                    const json = await res.json();
+                    const rows = Array.isArray(json.data) ? json.data : [];
+                    this.orders = rows;
+                    this.filteredOrders = [...rows];
+                    this.selectedYM = ym;
+                    const heading = document.getElementById('ordersHeading');
+                    if (heading) heading.textContent = `Orders for ${label || ym}`;
+                    const clearBtn = document.getElementById('clearMonthBtn');
+                    if (clearBtn) clearBtn.classList.remove('hidden');
+                    // highlight selection
+                    const cards = document.getElementById('monthCards');
+                    if (cards) Array.from(cards.querySelectorAll('button[data-ym]')).forEach(b => {
+                        const on = b.dataset.ym === ym;
+                        b.classList.toggle('ring-2', on);
+                        b.classList.toggle('ring-blue-500', on);
+                        b.classList.toggle('border-blue-400', on);
+                    });
+                    this.renderOrders();
+                } catch (e) {
+                    console.error('loadOrdersForMonth error:', e);
+                    this.showError('Failed to load monthly orders');
+                }
+            }
+
+            clearMonthSelection() {
+                this.selectedYM = null;
+                this.resetOrdersView();
+                const cards = document.getElementById('monthCards');
+                if (cards) Array.from(cards.querySelectorAll('button[data-ym]')).forEach(b => b.classList.remove('ring-2', 'ring-blue-500', 'border-blue-400'));
+            }
+
+            async reloadAll() {
+                await this.loadMonthCards();
+                if (this.selectedYM) {
+                    await this.loadOrdersForMonth(this.selectedYM);
+                } else {
+                    this.resetOrdersView();
+                }
             }
 
             updatePaymentStatus() {
                 if (!this.currentOrder) return;
                 
                 const collectionAmount = parseFloat(document.getElementById('collectionAmount').value) || 0;
-                const totalAmount = parseFloat(this.currentOrder.grandTotal) || 0;
+                const remaining = Math.max(0, (Number(this.currentOrder.grandTotal || 0) - Number(this.currentOrder.collectedTotal || 0)));
                 const markAsPaidCheckbox = document.getElementById('markAsPaid');
                 
-                // Auto-check mark as paid if collection amount equals total amount
-                if (collectionAmount >= totalAmount) {
+                // Auto-check mark as paid if collection amount covers remaining amount
+                if (collectionAmount >= remaining) {
                     markAsPaidCheckbox.checked = true;
                 }
             }
@@ -518,7 +681,7 @@
                 }
 
                 // Prevent recording new collections for fully paid orders
-                if (this.currentOrder.paymentReceived) {
+                if ((Number(this.currentOrder.collectedTotal || 0) >= Number(this.currentOrder.grandTotal || 0)) || this.currentOrder.paymentReceived) {
                     this.showError('This order is fully paid. Collection history is visible, but new records are disabled.');
                     return;
                 }
@@ -537,8 +700,9 @@
                     return;
                 }
 
-                if (formData.amount > this.currentOrder.grandTotal) {
-                    this.showError('Collection amount cannot exceed order total');
+                const remaining = Math.max(0, (Number(this.currentOrder.grandTotal || 0) - Number(this.currentOrder.collectedTotal || 0)));
+                if (formData.amount > remaining) {
+                    this.showError('Collection amount cannot exceed remaining amount');
                     return;
                 }
 
@@ -553,7 +717,13 @@
                         const result = await response.json();
                         this.showSuccess(`Collection of ₹${formData.amount} recorded successfully for Order #${this.currentOrder.id}`);
                         this.closeCollectionModal();
-                        this.loadOrders(); // Refresh orders list
+                        // Refresh cards and keep current month selection if any
+                        await this.loadMonthCards();
+                        if (this.selectedYM) {
+                            await this.loadOrdersForMonth(this.selectedYM);
+                        } else {
+                            this.resetOrdersView();
+                        }
                     } else {
                         const error = await response.json();
                         this.showError(error.message || 'Failed to record collection');

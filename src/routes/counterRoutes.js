@@ -8,6 +8,9 @@ router.use(verifyToken);
 
 // Counter routes
 router.get('/', counterController.getAllCounters);
+// New: created counters monthly summary and month filter
+router.get('/stats/last-6-months-created', counterController.getLastSixMonthsCreatedTotals);
+router.get('/created', counterController.getCountersByCreatedMonth);
 router.get('/:id', counterController.getCounterById);
 router.post('/', counterController.createCounter);
 router.put('/:id', counterController.updateCounter);

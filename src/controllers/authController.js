@@ -145,7 +145,7 @@ class AuthController {
                     },
                     // Default redirect/action suggestions
                     defaultActions: {
-                        redirectTo: '/order.html',
+                        redirectTo: '/myOrders.html',
                         autoPopulate: true,
                         showDashboard: true
                     }

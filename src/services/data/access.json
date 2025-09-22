@@ -1,5 +1,118 @@
 {
   "designations": {
+    "1": {
+      "permissions": {
+        "dashboard": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "orders": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "collections": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "payments": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "users": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "products": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "counters": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "reports": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "page-access": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "my-orders": {
+          "view": true,
+          "edit": true,
+          "delete": false
+        }
+      }
+    },
+    "2": {
+      "permissions": {
+        "dashboard": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "orders": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "collections": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "payments": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "users": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "products": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "counters": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "reports": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "page-access": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "my-orders": {
+          "view": true,
+          "edit": true,
+          "delete": false
+        },
+        "counters-due": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        }
+      }
+    },
     "3": {
       "permissions": {
         "dashboard": {
@@ -95,6 +208,70 @@
           "view": true,
           "edit": true,
           "delete": true
+        },
+        "my-orders": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        }
+      }
+    },
+    "5": {
+      "permissions": {
+        "dashboard": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "orders": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "collections": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "payments": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "users": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "products": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "counters": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "reports": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "page-access": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "my-orders": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "counters-due": {
+          "view": true,
+          "edit": false,
+          "delete": false
         }
       }
     }

@@ -153,11 +153,16 @@ class NavigationLoader {
                         if (p.includes('user.html')) return 'users';
                         if (p.includes('product.html')) return 'products';
                         if (p.includes('counter.html')) return 'counters';
-                        if (p.includes('order.html')) return 'orders';
-                        if (p.includes('collections.html')) return 'collections';
-                        if (p.includes('payments.html')) return 'payments';
+                        // Group these under Transactions for highlighting
+                        if (p.includes('order.html')) return 'transactions';
+                        if (p.includes('myOrders.html')) return 'my-orders';
+                        if (p.includes('user.html') || p.includes('page-access.html')) return 'others';
+                        if (p.includes('collections.html')) return 'transactions';
+                        if (p.includes('payments.html')) return 'transactions';
                         if (p.includes('page-access.html')) return 'page-access';
                         if (p.includes('RepSalesReport.html')) return 'reports';
+                        if (p.includes('newCounters.html')) return 'reports';
+                        if (p.includes('countersdue.html')) return 'counters-due';
                         return null;
                     })(path);
                     if (pageKey) {

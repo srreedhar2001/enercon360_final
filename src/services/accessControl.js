@@ -6,10 +6,10 @@
 const ROLE_ACCESS = {
   // Example mapping: adjust IDs/names to your designation table
   // 1: Admin, 2: Manager, 3: Staff, 4: Accountant
-  1: ['dashboard', 'orders', 'collections', 'payments', 'users', 'products', 'counters', 'reports', 'page-access'],
-  2: ['dashboard', 'orders', 'collections', 'payments', 'products', 'counters', 'reports', 'page-access'],
-  3: ['dashboard', 'orders', 'collections', 'products', 'page-access'],
-  4: ['dashboard', 'payments', 'reports', 'page-access']
+  1: ['dashboard', 'orders', 'my-orders', 'collections', 'payments', 'users', 'products', 'counters', 'reports', 'counters-due', 'page-access'],
+  2: ['dashboard', 'orders', 'my-orders', 'collections', 'payments', 'products', 'counters', 'reports', 'counters-due', 'page-access'],
+  3: ['dashboard', 'orders', 'my-orders', 'collections', 'products', 'counters-due', 'page-access'],
+  4: ['dashboard', 'my-orders', 'payments', 'reports', 'counters-due', 'page-access']
 };
 
 function getAllowedModules(designationId) {

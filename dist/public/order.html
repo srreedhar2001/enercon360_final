@@ -849,14 +849,13 @@
         async function loadInitialData() {
             try {
                 // Load data in parallel
-                const [ordersData, countersData, productsData, gstMap] = await Promise.all([
-                    fetchOrders(),
+                const [countersData, productsData, gstMap] = await Promise.all([
                     fetchCounters(),
                     fetchProducts(),
                     fetchGSTList()
                 ]);
-                
-                orders = ordersData;
+                // Defer loading of orders until user selects month cards
+                orders = [];
                 counters = countersData;
                 products = productsData;
                 gstRatesMap = gstMap || {};
@@ -864,6 +863,8 @@
                 populateDropdowns();
                 // Load monthly totals
                 try { await loadMonthlyTotals(); } catch (e) { console.warn('Monthly totals failed:', e); }
+                // Adjust monthly totals to ensure discount subtraction is applied uniformly
+                try { recomputeMonthlyTotalsFromOrders(); } catch (e) { console.warn('Recompute monthly totals failed:', e); }
                 // Do not show orders by default; prompt user to select months
                 renderOrdersPrompt();
             } catch (error) {
@@ -896,23 +897,55 @@
             }
         }
 
-        function renderMonthlyCards() {
+    function renderMonthlyCards() {
             const container = document.getElementById('monthlyTotals');
             container.innerHTML = monthlyTotalsData.map((m, idx) => {
                 const ym = String(m.ym || '').slice(0, 7);
                 const selected = selectedMonths.has(ym);
                 const borderCls = selected ? 'border-2 border-blue-500 ring-2 ring-blue-100' : (idx === monthlyTotalsData.length - 1 ? 'border border-blue-300' : 'border border-gray-200');
+        const gross = m.grossTotal ?? m.totalGross ?? m.gross ?? m.total ?? 0;
+        const discount = m.discountTotal ?? m.discount ?? Math.max((m.grossTotal ?? 0) - (m.netTotal ?? 0), 0);
+        const net = m.netTotal ?? (gross - discount);
                 return `
                     <div class="bg-white rounded-lg shadow p-4 cursor-pointer ${borderCls}" data-ym="${ym}">
                         <div class="flex items-center justify-between mb-2">
                             <dt class="text-xs uppercase tracking-wide ${selected ? 'text-blue-700' : 'text-gray-500'}">${escapeHtml(m.label)}</dt>
                             <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === monthlyTotalsData.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === monthlyTotalsData.length - 1 ? 'Current' : 'Past'}</span>
                         </div>
-                        <dd class="text-lg font-semibold ${selected ? 'text-blue-700' : 'text-gray-900'}">${formatCurrency(m.total || 0)}</dd>
+            <dd class="text-base font-semibold ${selected ? 'text-blue-700' : 'text-gray-900'}" title="Total Sales (before discount)">Total Sales: ${formatCurrency(gross)}</dd>
+            <div class="text-[11px] mt-0.5 ${discount>0 ? 'text-amber-600' : 'text-gray-400'}" title="Discount deducted">Discount: ${formatCurrency(discount)}</div>
+            <div class="text-[11px] mt-0.5 ${selected ? 'text-blue-600' : 'text-gray-500'}" title="Net Sales (after discount)">Net Sales: ${formatCurrency(net)}</div>
                         <div class="mt-1 text-[11px] ${selected ? 'text-blue-600' : 'text-gray-400'}">${selected ? 'Selected' : 'Click to select'}</div>
                     </div>
                 `;
             }).join('');
+        }
+        // Recompute monthly gross, discount, net: gross=subTotal+taxes; discount=TotalDiscountAmount; net=gross-discount
+        function recomputeMonthlyTotalsFromOrders() {
+            if (!Array.isArray(monthlyTotalsData) || monthlyTotalsData.length === 0) return;
+            const agg = {}; // ym -> {gross, discount}
+            orders.forEach(o => {
+                const ym = getOrderYM(o);
+                if (!ym) return;
+                const sub = Number(o.subTotal || 0) || 0;
+                const cgst = Number(o.totalCGST || 0) || 0;
+                const sgst = Number(o.totalSGST || 0) || 0;
+                const gross = Math.round(sub + cgst + sgst);
+                const disc = Number(o.TotalDiscountAmount || o.totalDiscountAmount || 0) || 0;
+                if (!agg[ym]) agg[ym] = { gross: 0, discount: 0 };
+                agg[ym].gross += gross;
+                agg[ym].discount += disc;
+            });
+            monthlyTotalsData = monthlyTotalsData.map(m => {
+                if (agg[m.ym]) {
+                    const gross = agg[m.ym].gross;
+                    const discount = agg[m.ym].discount;
+                    const net = Math.max(gross - discount, 0);
+                    return { ...m, grossTotal: gross, discountTotal: discount, netTotal: net };
+                }
+                return m;
+            });
+            renderMonthlyCards();
         }
 
         function onMonthCardClick(e) {
@@ -922,10 +955,34 @@
             if (!ym) return;
             if (selectedMonths.has(ym)) selectedMonths.delete(ym); else selectedMonths.add(ym);
             renderMonthlyCards();
-            if (selectedMonths.size > 0) {
-                renderSelectedOrders();
-            } else {
+            if (selectedMonths.size === 0) {
+                orders = [];
                 renderOrdersPrompt();
+                return;
+            }
+            fetchMonthlySummaries().then(() => {
+                renderSelectedOrders();
+            });
+        }
+
+        async function fetchMonthlySummaries() {
+            const monthsParam = Array.from(selectedMonths).join(',');
+            if (!monthsParam) return;
+            try {
+                const params = new URLSearchParams({ months: monthsParam });
+                if (statusFilter.value && statusFilter.value !== 'all') params.append('status', statusFilter.value);
+                if (paymentFilter.value) params.append('payment', paymentFilter.value);
+                if (counterFilter.value) params.append('counterId', counterFilter.value);
+                const resp = await fetch(`/api/orders/summary?${params.toString()}`, { headers: getAuthHeaders() });
+                const json = await resp.json();
+                if (resp.ok && json.success) {
+                    orders = json.data || [];
+                } else {
+                    throw new Error(json.message || 'Failed summary fetch');
+                }
+            } catch (err) {
+                console.error('Summary fetch error:', err);
+                showError('Failed to load month orders');
             }
         }
 
@@ -1161,7 +1218,10 @@
             return filtered;
         }
 
-        function filterOrders() {
+        async function filterOrders() {
+            if (selectedMonths.size > 0) {
+                await fetchMonthlySummaries();
+            }
             const base = (selectedMonths.size > 0) ? orders.filter(o => selectedMonths.has(getOrderYM(o))) : orders;
             const filtered = applyActiveFilters(base);
             if (filtered.length === 0 && selectedMonths.size === 0) {
@@ -1186,6 +1246,9 @@
             const now = new Date();
             document.getElementById('invoiceDate').textContent = now.toLocaleDateString('en-IN');
             document.getElementById('invoiceTime').textContent = now.toLocaleTimeString('en-IN');
+            // Always set orderDate field to today (dynamic) when opening modal
+            const orderDateInput = document.getElementById('orderDate');
+            if (orderDateInput) orderDateInput.value = formatLocalYMD(now);
             
             // Generate order number
             const orderNum = `SO-${now.getFullYear()}-${String(Date.now()).slice(-6)}`;
@@ -1602,8 +1665,25 @@
             }
         }
 
-        function viewOrder(orderId) {
-            const order = orders.find(o => o.id === orderId);
+        async function viewOrder(orderId) {
+            let order = orders.find(o => o.id === orderId && Array.isArray(o.orderDetails));
+            if (!order) {
+                try {
+                    const resp = await fetch(`/api/orders/${orderId}/details`, { headers: getAuthHeaders() });
+                    const json = await resp.json();
+                    if (resp.ok && json.success) {
+                        order = json.data;
+                        const idx = orders.findIndex(o => o.id === orderId);
+                        if (idx >= 0) orders[idx] = order; else orders.push(order);
+                    } else {
+                        throw new Error(json.message || 'Failed to fetch order');
+                    }
+                } catch (err) {
+                    console.error('View order detail fetch error:', err);
+                    showError('Failed to load order details');
+                    return;
+                }
+            }
             if (order) {
                 // Populate modal with order details
                 document.getElementById('viewOrderId').textContent = `#${order.id}`;
@@ -1833,8 +1913,25 @@
         }
 
                 // Edit order using the main Order modal with line items
-                function editOrder(orderId) {
-                    const order = orders.find(o => o.id === orderId);
+                async function editOrder(orderId) {
+                    let order = orders.find(o => o.id === orderId && Array.isArray(o.orderDetails));
+                    if (!order) {
+                        try {
+                            const resp = await fetch(`/api/orders/${orderId}/details`, { headers: getAuthHeaders() });
+                            const json = await resp.json();
+                            if (resp.ok && json.success) {
+                                order = json.data;
+                                const idx = orders.findIndex(o => o.id === orderId);
+                                if (idx >= 0) orders[idx] = order; else orders.push(order);
+                            } else {
+                                throw new Error(json.message || 'Failed to fetch order');
+                            }
+                        } catch (err) {
+                            console.error('Edit order detail fetch error:', err);
+                            showError('Failed to load order for edit');
+                            return;
+                        }
+                    }
                     if (!order) return;
                     isEditing = true;
                     editingOrderId = orderId;

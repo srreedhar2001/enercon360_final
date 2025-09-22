@@ -95,18 +95,20 @@
         if (!data.length) {
           cards.innerHTML = '<div class="col-span-full text-gray-500">No data for the selected range</div>';
         } else {
-          cards.innerHTML = data.map(d => `
+      cards.innerHTML = data.map(d => `
             <div class="border border-gray-200 rounded-lg p-3 bg-white">
               <div class="flex items-center justify-between mb-1">
                 <div class="text-[12px] uppercase tracking-wide text-gray-600">${d.label}</div>
                 <span class="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Monthly</span>
               </div>
               <div class="space-y-1">
-                <div class="flex justify-between text-sm"><span class="text-gray-600">Total Sales</span><span class="font-semibold text-gray-900">₹${Number(d.sales||0).toLocaleString('en-IN')}</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-600" title="Gross = Subtotal + Taxes (before discount)">Gross Sales</span><span class="font-semibold text-gray-900">₹${Number(d.gross||0).toLocaleString('en-IN')}</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-600" title="Discount amount deducted">Discount</span><span class="font-semibold text-amber-700">₹${Number(d.discount||0).toLocaleString('en-IN')}</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-600" title="Net = Gross - Discount">Total Sales (Net)</span><span class="font-semibold text-gray-900">₹${Number(d.sales||0).toLocaleString('en-IN')}</span></div>
                 <div class="flex justify-between text-sm cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded" data-action="show-exp" data-ym="${d.ym}" data-label="${d.label}"><span class="text-gray-600 underline decoration-dotted">Total Payments</span><span class="font-semibold text-gray-900">₹${Number(d.expenses||0).toLocaleString('en-IN')}</span></div>
                 <div class="flex justify-between text-sm"><span class="text-gray-600">Product Cost</span><span class="font-semibold text-gray-900">₹${Number(d.productCost||0).toLocaleString('en-IN')}</span></div>
                 <div class="border-t border-gray-300 my-1"></div>
-                <div class="flex justify-between text-sm"><span class="text-gray-700 font-medium">Gross Profit</span><span class="font-semibold text-gray-900">₹${(Number(d.sales||0) - (Number(d.expenses||0) + Number(d.productCost||0))).toLocaleString('en-IN')}</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-700 font-medium" title="Net Sales - (Payments + Product Cost)">Gross Profit</span><span class="font-semibold text-gray-900">₹${(Number(d.sales||0) - (Number(d.expenses||0) + Number(d.productCost||0))).toLocaleString('en-IN')}</span></div>
                 <div class="flex justify-between text-sm"><span class="text-gray-600">Monthly Collection</span><span class="font-semibold text-gray-900">₹${Number(d.collection||0).toLocaleString('en-IN')}</span></div>
                 <div class="flex justify-between text-sm"><span class="text-gray-700 font-medium">Net Profit</span><span class="font-semibold text-gray-900">₹${(Number(d.collection||0) - (Number(d.expenses||0) + Number(d.productCost||0))).toLocaleString('en-IN')}</span></div>
               </div>
@@ -170,14 +172,21 @@
         } catch (e) { console.error('Failed to fetch monthly collections', e); }
 
         const expMap = Object.fromEntries(expData.map(e => [e.ym, Number(e.total || 0)]));
-        const data = salesData.map(m => ({
-          label: m.label,
-          ym: m.ym,
-          sales: Number(m.total || 0),
+        const data = salesData.map(m => {
+          const gross = Number(m.grossTotal != null ? m.grossTotal : (m.total || 0));
+          const net = Number(m.netTotal != null ? m.netTotal : (m.grandTotal != null ? m.grandTotal : gross));
+          const discount = Math.max(gross - net, 0);
+          return {
+            label: m.label,
+            ym: m.ym,
+            sales: net,
+            gross,
+            discount,
           expenses: Number(expMap[m.ym] || 0),
           productCost: Number(m.productCost || 0),
           collection: Number(colMap[m.ym] || 0)
-        }));
+          };
+        });
         render(data);
       }
 
@@ -220,7 +229,7 @@
             `).join('');
           }
         } catch (err) {
-          tbody.innerHTML = `<tr><td colspan=\"5\" class=\"px-4 py-6 text-center text-red-600\">Failed to load details</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-6 text-center text-red-600">Failed to load details</td></tr>`;
         }
       });
 
