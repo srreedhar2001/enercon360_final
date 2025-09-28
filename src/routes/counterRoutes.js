@@ -14,6 +14,8 @@ router.get('/created', counterController.getCountersByCreatedMonth);
 router.get('/:id', counterController.getCounterById);
 router.post('/', counterController.createCounter);
 router.put('/:id', counterController.updateCounter);
+// Update only finance fields
+router.patch('/:id/finance', counterController.updateCounterFinance);
 router.delete('/:id', counterController.deleteCounter);
 
 // Additional routes

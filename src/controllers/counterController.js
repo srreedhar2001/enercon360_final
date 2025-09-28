@@ -444,6 +444,55 @@ class CounterController {
         }
     }
 
+    // Update finance fields (openingBalance, collectionTarget)
+    async updateCounterFinance(req, res) {
+        try {
+            const { id } = req.params;
+            let { openingBalance, collectionTarget } = req.body || {};
+
+            // Ensure counter exists
+            const exists = await dbQuery('SELECT id FROM counters WHERE id = ? LIMIT 1', [id]);
+            if (!exists.length) {
+                return res.status(404).json({ success: false, message: 'Counter not found' });
+            }
+
+            const sets = [];
+            const params = [];
+
+            if (openingBalance !== undefined) {
+                const ob = openingBalance === null || openingBalance === '' ? null : Number(openingBalance);
+                if (ob !== null && Number.isNaN(ob)) {
+                    return res.status(400).json({ success: false, message: 'openingBalance must be a number or null' });
+                }
+                sets.push('openingBalance = ?');
+                params.push(ob);
+            }
+
+            if (collectionTarget !== undefined) {
+                const ct = collectionTarget === null || collectionTarget === '' ? null : Number(collectionTarget);
+                if (ct !== null && Number.isNaN(ct)) {
+                    return res.status(400).json({ success: false, message: 'collectionTarget must be a number or null' });
+                }
+                sets.push('collectionTarget = ?');
+                params.push(ct);
+            }
+
+            if (!sets.length) {
+                return res.status(400).json({ success: false, message: 'No fields provided to update' });
+            }
+
+            params.push(id);
+            const sql = `UPDATE counters SET ${sets.join(', ')} WHERE id = ?`;
+            await dbQuery(sql, params);
+
+            const [row] = await dbQuery('SELECT id, openingBalance, collectionTarget FROM counters WHERE id = ? LIMIT 1', [id]);
+            return res.json({ success: true, message: 'Finance fields updated', data: row });
+        } catch (error) {
+            console.error('Error updating counter finance fields:', error);
+            return res.status(500).json({ success: false, message: 'Failed to update finance fields', error: error.message });
+        }
+    }
+
     // Get counters by city
     async getCountersByCity(req, res) {
         try {

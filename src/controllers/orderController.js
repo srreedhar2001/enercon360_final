@@ -5,13 +5,22 @@ class OrderController {
     // Aggregate outstanding dues per counter, optional filter by representative
     async getDuesByCounter(req, res) {
         try {
-            const { repId } = req.query;
+            const { repId, month } = req.query;
 
-            const params = [];
             let where = ' WHERE 1=1 ';
             if (repId) {
                 where += ' AND c.RepID = ? ';
-                params.push(repId);
+            }
+
+            // Validate month if provided
+            let monthFilter = null;
+            if (month) {
+                const m = String(month).trim();
+                if (/^\d{4}-(0[1-9]|1[0-2])$/.test(m)) {
+                    monthFilter = m;
+                } else {
+                    return res.status(400).json({ success: false, message: 'Invalid month format. Use YYYY-MM' });
+                }
             }
 
             const sql = `
@@ -19,12 +28,21 @@ class OrderController {
                     c.id AS counterId,
                     c.CounterName AS counterName,
                     c.RepID AS repId,
+                    c.openingBalance AS openingBalance,
+                    c.collectionTarget AS collectionTarget,
                     u.name AS repName,
                     u.phone AS repMobile,
                     COALESCE(COUNT(DISTINCT o.id), 0) AS orderCount,
                     COALESCE(ROUND(SUM(COALESCE(o.grandTotal,0))), 0) AS totalGrand,
                     COALESCE(ROUND(SUM(LEAST(COALESCE(col.totalCollected,0), COALESCE(o.grandTotal,0)))), 0) AS totalCollected,
                     COALESCE(ROUND(SUM(GREATEST(COALESCE(o.grandTotal,0) - LEAST(COALESCE(col.totalCollected,0), COALESCE(o.grandTotal,0)), 0))), 0) AS totalDue,
+                                        (
+                                                SELECT COALESCE(ROUND(SUM(COALESCE(cx.amount,0))), 0)
+                                                FROM collections cx
+                                                INNER JOIN orders o2 ON o2.id = cx.orderID
+                                                WHERE o2.counterID = c.id
+                                                    AND DATE_FORMAT(cx.transactionDate, '%Y-%m') = ${monthFilter ? ' ? ' : 'DATE_FORMAT(CURDATE(), "%Y-%m")'}
+                                        ) AS monthlyCollected,
                     DATE_FORMAT(MAX(o.orderDate), '%Y-%m-%d') AS latestOrderDate
                 FROM counters c
                 LEFT JOIN users u ON c.RepID = u.id
@@ -35,13 +53,17 @@ class OrderController {
                     GROUP BY orderID
                 ) col ON col.orderID = o.id
                 ${where}
-                GROUP BY c.id, c.CounterName, c.RepID, u.name, u.phone
+                GROUP BY c.id, c.CounterName, c.RepID, c.openingBalance, c.collectionTarget, u.name, u.phone
                 HAVING totalDue > 0
                 ORDER BY totalDue DESC, c.CounterName ASC
             `;
 
-            const rows = await dbQuery(sql, params);
-            return res.status(200).json({ success: true, message: 'Dues by counter fetched', data: rows, count: rows.length, meta: { repId: repId ? Number(repId) : null } });
+            // Bind params in SQL placeholder order: monthlyCollected (if any) appears before WHERE repId
+            const paramsOrdered = [];
+            if (monthFilter) paramsOrdered.push(monthFilter);
+            if (repId) paramsOrdered.push(repId);
+            const rows = await dbQuery(sql, paramsOrdered);
+            return res.status(200).json({ success: true, message: 'Dues by counter fetched', data: rows, count: rows.length, meta: { repId: repId ? Number(repId) : null, month: monthFilter } });
         } catch (error) {
             console.error('Error fetching dues by counter:', error);
             return res.status(500).json({ success: false, message: 'Failed to fetch dues by counter', error: error.message });
@@ -586,7 +608,9 @@ class OrderController {
             const orderId = orderResult.insertId;
 
             // Create order details and accumulate total discount
+            // Also aggregate quantities per product to decrement stock after creation
             let totalDiscountAmountSum = 0;
+            const productQtyToReduce = new Map(); // productId -> total units (qty + freeQty)
             for (const detail of orderDetails) {
                 // Normalize numeric fields so that 0 is preserved and undefined/NaN become 0
                 const qtyParsed = parseInt(detail.quantity ?? detail.qty, 10);
@@ -603,6 +627,7 @@ class OrderController {
                 const safeSgst = Number.isFinite(sgstParsed) ? sgstParsed : 0;
                 const discountParsed = Number(detail.discount);
                 const safeDiscount = Number.isFinite(discountParsed) ? discountParsed : 0;
+                const productId = detail.productID ?? detail.productId;
                 // Compute discount amount from qty * rate and percentage, using whole-rupee rounding policy
                 const lineSubtotal = Math.round(safeQty * safeRate);
                 const discountAmountRaw = lineSubtotal * (safeDiscount / 100);
@@ -616,7 +641,7 @@ class OrderController {
                 
                 await dbQuery(detailQuery, [
                     orderId,
-                    detail.productID,
+                    productId,
                     safeQty,
                     safeFreeQty,
                     safeRate,
@@ -627,6 +652,17 @@ class OrderController {
                     safeDiscountAmount
                 ]);
                 totalDiscountAmountSum += safeDiscountAmount;
+
+                // Accumulate quantity to reduce from product stock (qty + freeQty consume inventory)
+                if (Number.isFinite(Number(productId))) {
+                    const reduceBy = Math.max(0, (safeQty || 0) + (safeFreeQty || 0));
+                    if (reduceBy > 0) {
+                        productQtyToReduce.set(
+                            Number(productId),
+                            (productQtyToReduce.get(Number(productId)) || 0) + reduceBy
+                        );
+                    }
+                }
             }
 
             // Update order header with total discount amount and corrected grand total
@@ -636,6 +672,20 @@ class OrderController {
                 totalDiscountRounded,
                 orderId
             ]);
+
+            // Decrement product stock for each product in the order
+            // Note: We clamp to zero to avoid negative inventory. For stricter control, add pre-checks and transactions.
+            for (const [pid, reduceBy] of productQtyToReduce.entries()) {
+                try {
+                    await dbQuery(
+                        'UPDATE product SET qty = GREATEST(COALESCE(qty,0) - ?, 0), updated_at = NOW() WHERE id = ?',
+                        [reduceBy, pid]
+                    );
+                } catch (invErr) {
+                    console.error(`Failed to decrement stock for product ${pid} by ${reduceBy}:`, invErr);
+                    // Continue without failing the whole order creation
+                }
+            }
 
             // Fetch the created order with all details - simplified approach
             const fetchOrderQuery = `
