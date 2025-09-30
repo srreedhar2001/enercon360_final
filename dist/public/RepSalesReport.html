@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/js/navigation.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
     <link rel="icon" href="/favicon.ico">
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="Rep Sales Report">
@@ -43,7 +44,10 @@
             <div id="reportContainer" class="bg-white rounded-lg shadow p-6 hidden">
                 <div class="flex items-center justify-between">
                     <h2 class="text-lg font-semibold text-gray-800">Last 12 Months Sales</h2>
-                    <div class="text-sm text-gray-600">Rep: <span id="selectedRepName" class="font-medium text-gray-900"></span></div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-sm text-gray-600">Rep: <span id="selectedRepName" class="font-medium text-gray-900"></span></div>
+                        <button id="exportPdfBtn" type="button" class="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded bg-red-600 text-white hover:bg-red-700" title="Export this report to PDF" data-html2canvas-ignore="true">Export PDF</button>
+                    </div>
                 </div>
                 <div id="repMonths" class="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"></div>
                 <div id="chartSection" class="mt-8 hidden">
@@ -78,6 +82,14 @@
                     <div id="tableSection" class="mt-6 hidden">
                         <div class="flex items-center justify-between mb-2">
                             <h3 class="text-md font-semibold text-gray-800">Counters and values</h3>
+                            <div class="flex items-center gap-2">
+                                <label for="counterStatusFilter" class="text-xs text-gray-600">Show</label>
+                                <select id="counterStatusFilter" class="px-2 py-1 border border-gray-300 rounded text-sm">
+                                    <option value="all">All</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -85,11 +97,11 @@
                                     <tr>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
                                         <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Status</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Order Date</th>
                                         <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Order Value (₹)</th>
-                                        <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Product Cost (₹)</th>
                                     </tr>
                                 </thead>
                 <tbody id="repCountersTbody" class="bg-white divide-y divide-gray-200"></tbody>
@@ -114,36 +126,154 @@
             const reportContainer = document.getElementById('reportContainer');
             const selectedRepName = document.getElementById('selectedRepName');
             const repMonths = document.getElementById('repMonths');
+            const repHelper = document.getElementById('repHelper');
+
+            let currentUserId = null;
+            let designationId = null;
+            let isAdmin = false;
+            let isManager = false;
+            let isViewer = false;
+            let isRepresentative = false;
 
             function getParam(name) {
                 const url = new URL(window.location.href);
                 return url.searchParams.get(name);
             }
 
+            const userContext = await fetchUserContext(token);
+            currentUserId = Number(userContext?.userId) || null;
+            designationId = Number(userContext?.designationId) || null;
+            isAdmin = designationId === 4;
+            isManager = designationId === 1;
+            isViewer = designationId === 3;
+            isRepresentative = designationId === 2;
+
+            if (repHelper) {
+                if (isManager) {
+                    repHelper.textContent = 'Showing only representatives assigned to you.';
+                } else if (isViewer) {
+                    repHelper.textContent = 'Viewer access: choose any representative to review their performance.';
+                } else if (isAdmin) {
+                    repHelper.textContent = 'Select a representative to view their sales performance.';
+                } else if (isRepresentative) {
+                    repHelper.textContent = 'Only your performance is available in this report.';
+                } else {
+                    repHelper.textContent = 'Start by choosing a representative.';
+                }
+            }
+
+            function getRepId(rep) {
+                if (!rep) return null;
+                const raw = rep.id ?? rep.user_id ?? rep.userId ?? rep.repId ?? rep.RepID;
+                if (raw == null) return null;
+                const asNumber = Number(raw);
+                return Number.isFinite(asNumber) ? asNumber : String(raw);
+            }
+
+            function filterRepresentatives(list) {
+                if (!Array.isArray(list) || list.length === 0) return [];
+                if (isManager && currentUserId != null) {
+                    const managerId = Number(currentUserId);
+                    return list.filter(rep => {
+                        const rawManager = rep.managerID ?? rep.managerId ?? rep.manager_id;
+                        return Number(rawManager) === managerId;
+                    });
+                }
+                if (isRepresentative && currentUserId != null) {
+                    const myId = Number(currentUserId);
+                    return list.filter(rep => Number(getRepId(rep)) === myId);
+                }
+                return list;
+            }
+
+            async function fetchUserContext(authToken) {
+                const resolved = { userId: null, designationId: null };
+                try {
+                    const res = await fetch('/api/access/me', {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const payload = data?.data || {};
+                        resolved.userId = payload.userId ?? payload.id ?? null;
+                        resolved.designationId = payload.designation_id ?? payload.designationId ?? null;
+                    }
+                } catch (err) {
+                    console.warn('Failed to fetch user context', err);
+                }
+
+                if (resolved.userId == null || resolved.designationId == null) {
+                    try {
+                        const stored = JSON.parse(localStorage.getItem('userData') || 'null');
+                        if (stored) {
+                            if (resolved.userId == null) {
+                                resolved.userId = stored.id ?? stored.userId ?? stored.user_id ?? null;
+                            }
+                            if (resolved.designationId == null) {
+                                resolved.designationId = stored.designation_id ?? stored.designationId ?? null;
+                            }
+                        }
+                    } catch (_) {
+                        /* ignore parse errors */
+                    }
+                }
+
+                return resolved;
+            }
+
         function setOptions(reps) {
-                if (!Array.isArray(reps) || reps.length === 0) {
-                    repSelect.innerHTML = '<option value="">No representatives found</option>';
+                const list = Array.isArray(reps) ? reps : [];
+                const filtered = filterRepresentatives(list);
+                if (!filtered.length) {
+                    repSelect.innerHTML = isManager
+                        ? '<option value="">No representatives assigned to you</option>'
+                        : '<option value="">No representatives found</option>';
                     repCountBadge.classList.add('hidden');
+                    reportContainer.classList.add('hidden');
                     return;
                 }
-                repSelect.innerHTML = '<option value="">-- Select Representative --</option>' + reps.map(r => {
-            const id = r.id ?? r.user_id ?? r.userId;
-            const name = r.name || r.fullName || r.username || r.phone || `Rep ${id}`;
+
+                const badgeSuffix = (isManager || isRepresentative) && filtered.length !== list.length ? ' (filtered)' : '';
+                repCountBadge.textContent = `${filtered.length} rep${filtered.length === 1 ? '' : 's'}${badgeSuffix}`;
+                repCountBadge.classList.remove('hidden');
+
+                repSelect.innerHTML = '<option value="">-- Select Representative --</option>' + filtered.map(r => {
+                    const id = getRepId(r);
+                    const name = r.name || r.fullName || r.username || r.phone || `Rep ${id}`;
                     const phone = r.phone || r.mobile || '';
                     return `<option value="${id}" data-name="${name}">${name}${phone ? ' — ' + phone : ''}</option>`;
                 }).join('');
-                repCountBadge.textContent = `${reps.length} reps`;
-                repCountBadge.classList.remove('hidden');
+
+                const available = new Map();
+                filtered.forEach(rep => {
+                    const id = getRepId(rep);
+                    if (id == null) return;
+                    const name = rep.name || rep.fullName || rep.username || rep.phone || `Rep ${id}`;
+                    available.set(String(id), { rep, name });
+                });
 
                 const pre = getParam('repId');
-                if (pre) {
-                    repSelect.value = String(pre);
+                const normalizedPre = pre ? String(pre) : '';
+                if (normalizedPre && available.has(normalizedPre)) {
+                    repSelect.value = normalizedPre;
                     const opt = repSelect.selectedOptions[0];
                     if (opt) {
                         selectedRepName.textContent = opt.dataset.name || opt.textContent;
                         reportContainer.classList.remove('hidden');
-                        loadRepMonths(pre);
+                        loadRepMonths(normalizedPre);
                     }
+                    return;
+                }
+
+                if ((isRepresentative || isManager) && available.size === 1) {
+                    const [[onlyId, meta]] = Array.from(available.entries());
+                    repSelect.value = onlyId;
+                    selectedRepName.textContent = meta.name;
+                    reportContainer.classList.remove('hidden');
+                    loadRepMonths(onlyId);
                 }
             }
 
@@ -187,7 +317,36 @@
                     const res = await fetch(`/api/orders/stats/last-6-months?repId=${encodeURIComponent(repId)}`, { headers: { 'Authorization': `Bearer ${token}` } });
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
                     const json = await res.json();
-                    const data = Array.isArray(json.data) ? json.data : [];
+                    const raw = Array.isArray(json.data) ? json.data : [];
+                    // Normalize incoming items and index by ym
+                    const normalized = raw
+                        .map(item => ({
+                            ...item,
+                            ym: String(item?.ym || ''),
+                            label: item?.label || item?.ym || ''
+                        }))
+                        .filter(item => item.ym);
+
+                    const byYm = new Map(normalized.map(it => [it.ym, it]));
+
+                    // Build exactly last 12 months (oldest -> newest), filling gaps with zeros
+                    const months = [];
+                    const now = new Date();
+                    // start from 11 months ago up to current month
+                    for (let i = 11; i >= 0; i--) {
+                        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                        const y = d.getFullYear();
+                        const m = String(d.getMonth() + 1).padStart(2, '0');
+                        const ym = `${y}-${m}`;
+                        if (byYm.has(ym)) {
+                            months.push(byYm.get(ym));
+                        } else {
+                            // Create a zeroed entry with a friendly label
+                            const label = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+                            months.push({ ym, label, total: 0, productCost: 0 });
+                        }
+                    }
+                    const data = months;
                     lastMonthsCache = { repId, data };
                     if (data.length === 0) {
                         repMonths.innerHTML = '<div class="col-span-full text-gray-500">No data</div>';
@@ -200,7 +359,7 @@
                                 <span class="text-[10px] px-2 py-0.5 rounded-full ${idx === data.length - 1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'}">${idx === data.length - 1 ? 'Current' : 'Past'}</span>
                             </div>
                 <dd class="text-base font-semibold text-gray-900">₹${Number(m.total || 0).toLocaleString('en-IN')}</dd>
-                <div class="mt-1 text-[11px] text-gray-600">Cost: ₹${Number(m.productCost || 0).toLocaleString('en-IN')}</div>
+                
                         </button>
                     `).join('');
                     // Reset selection on reload
@@ -229,13 +388,60 @@
                 updateCombinedView(repId);
             });
 
+            // Export PDF handler
+            const exportBtn = document.getElementById('exportPdfBtn');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', async () => {
+                    if (typeof html2pdf === 'undefined') {
+                        alert('PDF export library not loaded.');
+                        return;
+                    }
+                    const reportEl = document.getElementById('reportContainer');
+                    if (!reportEl || reportEl.classList.contains('hidden')) {
+                        alert('No report to export.');
+                        return;
+                    }
+
+                    // Build a filename: RepName-YYYYMM-to-YYYYMM or RepName-Report
+                    const repName = (document.getElementById('selectedRepName').textContent || 'Representative').trim().replace(/\s+/g, '-');
+                    const monthsArray = Array.from(selectedMonths);
+                    const safeMonths = monthsArray.length ? `${monthsArray[0]}-to-${monthsArray[monthsArray.length-1]}` : 'Report';
+                    const fileName = `RepSales-${repName}-${safeMonths}.pdf`;
+
+                    // Temporarily hide UI controls that shouldn't appear in PDF
+                    const controls = [];
+                    const addIf = (el) => { if (el) { controls.push({ el, prev: el.style.display }); el.style.display = 'none'; } };
+                    addIf(document.getElementById('repSelect'));
+                    addIf(document.getElementById('repHelper'));
+                    addIf(document.getElementById('clearSelectionBtn'));
+
+                    // Ensure chart is rendered; Chart.js canvas is captured by html2canvas
+                    try {
+                        const opt = {
+                            margin:       [10,10,10,10],
+                            filename:     fileName,
+                            image:        { type: 'jpeg', quality: 0.95 },
+                            html2canvas:  { scale: 2, useCORS: true, logging: false },
+                            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                        };
+                        await html2pdf().set(opt).from(reportEl).save();
+                    } catch (err) {
+                        console.error('PDF export failed', err);
+                        alert('Failed to export PDF');
+                    } finally {
+                        // Restore controls
+                        controls.forEach(({ el, prev }) => { el.style.display = prev || ''; });
+                    }
+                });
+            }
+
             let chartInstance = null;
             function escapeHtml(text) {
                 const div = document.createElement('div');
                 div.textContent = text == null ? '' : String(text);
                 return div.innerHTML;
             }
-            function renderBarChart(labels, salesValues, costValues) {
+            function renderBarChart(labels, salesValues) {
                 const ctx = document.getElementById('repCountersChart').getContext('2d');
                 if (typeof Chart === 'undefined') {
                     console.warn('Chart.js not available, skipping chart render');
@@ -254,13 +460,6 @@
                                 data: salesValues,
                                 backgroundColor: 'rgba(37, 99, 235, 0.6)',
                                 borderColor: 'rgba(37, 99, 235, 1)',
-                                borderWidth: 1
-                            },
-                            {
-                                label: 'Product Cost (₹)',
-                                data: costValues,
-                                backgroundColor: 'rgba(234, 179, 8, 0.6)',
-                                borderColor: 'rgba(234, 179, 8, 1)',
                                 borderWidth: 1
                             }
                         ]
@@ -318,6 +517,9 @@
                 }
             }
 
+            let lastAggRows = [];
+            let statusFilter = 'all';
+
             async function updateCombinedView(repId) {
                 const chartSection = document.getElementById('chartSection');
                 const chartTitle = document.getElementById('chartTitle');
@@ -358,10 +560,15 @@
                                 unpaidCount: 0,
                                 latestOrderDate: null,
                 total: 0,
-                pendingTotal: 0
+                pendingTotal: 0,
+                // carry over status from source rows (constant per counter)
+                counterStatus: r.counterStatus
                             });
                         }
                         const agg = aggregateMap.get(id);
+                        if (agg.counterStatus === undefined && r.counterStatus !== undefined) {
+                            agg.counterStatus = r.counterStatus;
+                        }
                         agg.orderCount += Number(r.orderCount || 0);
                         agg.paidCount += Number(r.paidCount || 0);
                         agg.unpaidCount += Number(r.unpaidCount || 0);
@@ -382,10 +589,10 @@
                     if (t !== 0) return t;
                     return String(a.counterName).localeCompare(String(b.counterName));
                 });
+                lastAggRows = aggRows;
 
                 const labels = aggRows.map(r => r.counterName);
                 const values = aggRows.map(r => Number(r.total || 0));
-                const costs = aggRows.map(r => Number(r.productCost || 0));
 
                 chartSection.classList.remove('hidden');
                 clearBtn.classList.remove('hidden');
@@ -393,8 +600,8 @@
                 chartTitle.textContent = `Counter-wise totals for ${monthsArray.length} month${monthsArray.length>1?'s':''} (combined)`;
                 chartMeta.textContent = `Months: ${monthsArray.join(', ')}`;
 
-                renderBarChart(labels, values, costs);
-                renderCountersTable(aggRows);
+                renderBarChart(labels, values);
+                renderCountersTable(applyStatusFilter(aggRows));
 
                 // Build summary values
         const repName = (document.getElementById('selectedRepName').textContent || '').trim();
@@ -415,6 +622,15 @@
                 summarySection.classList.remove('hidden');
             }
 
+        function applyStatusFilter(rows) {
+                if (statusFilter === 'all') return rows;
+                return rows.filter(r => {
+                    const cs = r.counterStatus;
+                    const isActive = (cs === 1 || cs === '1' || cs === true || cs === 'true');
+                    return statusFilter === 'active' ? isActive : !isActive;
+                });
+            }
+
         function renderCountersTable(rows) {
                 const tbody = document.getElementById('repCountersTbody');
                 const tableSection = document.getElementById('tableSection');
@@ -425,27 +641,71 @@
                 }
                 const html = rows.map((r, idx) => {
                     const val = Number(r.total || 0);
-                    const cost = Number(r.productCost || 0);
                     const paid = Number(r.paidCount || 0);
                     const unpaid = Number(r.unpaidCount || 0);
+                    const cs = r.counterStatus;
+                    const isActive = (cs === 1 || cs === '1' || cs === true || cs === 'true');
                     const statusBadge = unpaid > 0
                         ? `<span class=\"inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800\">${paid} paid / ${unpaid} unpaid</span>`
                         : `<span class=\"inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800\">${paid} paid</span>`;
                     return `
-                        <tr>
-                            <td class="px-4 py-2 text-sm text-gray-700">${idx + 1}</td>
-                            <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(r.counterName)}</td>
-                            <td class="px-4 py-2 text-sm text-gray-900 text-right">${Number(r.orderCount || 0).toLocaleString('en-IN')}</td>
-                            <td class="px-4 py-2 text-sm text-gray-900 text-right">${statusBadge}</td>
-                            <td class="px-4 py-2 text-sm text-gray-900 text-right">${r.latestOrderDate ? escapeHtml(r.latestOrderDate) : '-'}</td>
-                            <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${val.toLocaleString('en-IN')}</td>
-                            <td class="px-4 py-2 text-sm text-gray-900 text-right">₹${cost.toLocaleString('en-IN')}</td>
+                        <tr class="${isActive ? '' : 'bg-red-50'}">
+                            <td class="px-4 py-2 text-sm text-gray-700${isActive ? '' : ' border border-red-400'}">${idx + 1}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900${isActive ? '' : ' border border-red-400'}">${escapeHtml(r.counterName)}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900${isActive ? '' : ' border border-red-400'}">
+                                <select class="status-toggle px-2 py-1 border border-gray-300 rounded text-xs" data-counter-id="${r.counterId}" ${isAdmin ? '' : 'disabled title="Only admins can change status"'}>
+                                    <option value="1" ${isActive ? 'selected' : ''}>Active</option>
+                                    <option value="0" ${!isActive ? 'selected' : ''}>Inactive</option>
+                                </select>
+                            </td>
+                            <td class="px-4 py-2 text-sm text-gray-900 text-right${isActive ? '' : ' border border-red-400'}">${Number(r.orderCount || 0).toLocaleString('en-IN')}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 text-right${isActive ? '' : ' border border-red-400'}">${statusBadge}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 text-right${isActive ? '' : ' border border-red-400'}">${r.latestOrderDate ? escapeHtml(r.latestOrderDate) : '-'}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 text-right${isActive ? '' : ' border border-red-400'}">₹${val.toLocaleString('en-IN')}</td>
                         </tr>
                     `;
                 }).join('');
                 tbody.innerHTML = html;
                 tableSection.classList.remove('hidden');
             }
+
+            // Hook up status filter dropdown
+            document.getElementById('counterStatusFilter').addEventListener('change', (e) => {
+                statusFilter = e.target.value;
+                renderCountersTable(applyStatusFilter(lastAggRows));
+            });
+
+            // Per-row status change handler
+            document.getElementById('repCountersTbody').addEventListener('change', async (e) => {
+                if (!isAdmin) return;
+                const sel = e.target.closest('select.status-toggle');
+                if (!sel) return;
+                const counterId = sel.dataset.counterId;
+                const desired = sel.value; // '1' or '0'
+                sel.disabled = true;
+                try {
+                    const res = await fetch(`/api/counters/${encodeURIComponent(counterId)}/status`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ counterStatus: desired })
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    // Update local cache and re-render with current filter
+                    const idx = lastAggRows.findIndex(r => String(r.counterId) === String(counterId));
+                    if (idx !== -1) {
+                        lastAggRows[idx].counterStatus = (desired === '1' || desired === 1 || desired === true);
+                    }
+                    renderCountersTable(applyStatusFilter(lastAggRows));
+                } catch (err) {
+                    alert('Failed to update status');
+                    sel.value = desired === '1' ? '0' : '1';
+                } finally {
+                    sel.disabled = false;
+                }
+            });
         });
     </script>
 </body>
