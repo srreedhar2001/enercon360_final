@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Login Logs</title>
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Monitor recent login activity across all users.">
+    <link rel="icon" href="/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/navigation.js" defer></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="navigation-container"></div>
+
+    <main class="container mx-auto px-4 py-8 pt-24">
+        <div class="max-w-6xl mx-auto space-y-6">
+            <section class="bg-white shadow-sm rounded-xl border border-gray-100 p-6">
+                <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">User Login Logs</h1>
+                        <p class="text-sm text-gray-500 mt-1">Review recent login activity, filter by user, or search within a custom date range.</p>
+                    </div>
+                    <div class="inline-flex items-center gap-2 text-sm text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">
+                        <span class="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                        <span id="logsRangeLabel">Last 3 days</span>
+                    </div>
+                </header>
+
+                <form id="filtersForm" class="mt-6 grid grid-cols-1 lg:grid-cols-6 gap-4">
+                    <div class="lg:col-span-2">
+                        <label for="userSelect" class="block text-sm font-medium text-gray-700 mb-1">User</label>
+                        <select id="userSelect" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                            <option value="">All users</option>
+                        </select>
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">From</label>
+                        <input id="startDate" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                    </div>
+                    <div class="lg:col-span-2">
+                        <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">To</label>
+                        <input id="endDate" type="date" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                    </div>
+                    <div class="lg:col-span-6 flex flex-wrap items-center gap-3 pt-2">
+                        <button type="submit" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold shadow hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <span>Apply filters</span>
+                        </button>
+                        <button type="button" id="resetFiltersBtn" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-100 focus:ring-2 focus:ring-gray-300 focus:outline-none">
+                            Reset
+                        </button>
+                        <span id="filterMeta" class="text-sm text-gray-500 hidden">Showing 0 entries</span>
+                    </div>
+                </form>
+            </section>
+
+            <section class="bg-white shadow-sm rounded-xl border border-gray-100">
+                <div class="px-6 pt-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <h2 class="text-lg font-semibold text-gray-800">Login activity</h2>
+                        <p id="logsSummary" class="text-sm text-gray-500"></p>
+                    </div>
+                </div>
+
+                <div id="logsError" class="hidden mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+                <div id="logsEmpty" class="hidden mx-6 mt-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                    No login activity found for the selected filters.
+                </div>
+                <div id="logsLoading" class="mx-6 mt-4 text-sm text-gray-500">Loading logs…</div>
+
+                <div class="overflow-x-auto mt-4">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">#</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Login time</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logsTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+
+                <div class="px-6 pb-6 pt-4 flex items-center justify-between text-xs text-gray-500">
+                    <span id="logsCountLabel">0 log entries</span>
+                    <span>Updated <time id="logsUpdatedAt">—</time></span>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            await NavigationLoader.loadNavigation();
+            if (typeof window.ensurePagePermission === 'function') {
+                try { await window.ensurePagePermission('user-logs'); } catch (_) {}
+            }
+
+            const userSelect = document.getElementById('userSelect');
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+            const filtersForm = document.getElementById('filtersForm');
+            const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+            const logsTableBody = document.getElementById('logsTableBody');
+            const logsLoading = document.getElementById('logsLoading');
+            const logsEmpty = document.getElementById('logsEmpty');
+            const logsError = document.getElementById('logsError');
+            const logsSummary = document.getElementById('logsSummary');
+            const logsCountLabel = document.getElementById('logsCountLabel');
+            const logsUpdatedAt = document.getElementById('logsUpdatedAt');
+            const logsRangeLabel = document.getElementById('logsRangeLabel');
+            const filterMeta = document.getElementById('filterMeta');
+
+            const defaultRange = buildDefaultRange();
+            startDateInput.value = formatForInput(defaultRange.start);
+            endDateInput.value = formatForInput(defaultRange.end);
+
+            let lastFilters = {
+                userId: '',
+                start: defaultRange.start,
+                end: defaultRange.end
+            };
+
+            async function loadUsers() {
+                try {
+                    const res = await fetch('/api/users', {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    if (!res.ok) throw new Error('Failed to fetch users');
+                    const data = await res.json();
+                    const users = Array.isArray(data?.data) ? data.data : [];
+                    populateUsers(users);
+                } catch (error) {
+                    console.error('Failed to load users', error);
+                    userSelect.innerHTML = '<option value="">All users</option>';
+                }
+            }
+
+            function populateUsers(users) {
+                userSelect.innerHTML = '';
+                userSelect.appendChild(new Option('All users', ''));
+                users
+                    .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+                    .forEach(user => {
+                        const label = user.name || user.emailID || user.phone || `User #${user.id}`;
+                        userSelect.appendChild(new Option(label, user.id));
+                    });
+            }
+
+            function buildDefaultRange() {
+                const end = new Date();
+                const start = new Date(end);
+                start.setDate(end.getDate() - 2);
+                start.setHours(0, 0, 0, 0);
+                end.setHours(23, 59, 59, 999);
+                return { start, end };
+            }
+
+            function formatForInput(date) {
+                if (!(date instanceof Date)) return '';
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function formatDateTime(value) {
+                if (!value) return '';
+                const date = value instanceof Date ? value : new Date(value);
+                if (Number.isNaN(date.getTime())) return '';
+                return new Intl.DateTimeFormat(undefined, {
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                }).format(date);
+            }
+
+            function getFiltersFromInputs() {
+                const userId = userSelect.value || '';
+                const start = startDateInput.value ? new Date(`${startDateInput.value}T00:00:00`) : null;
+                const end = endDateInput.value ? new Date(`${endDateInput.value}T23:59:59`) : null;
+                return { userId, start, end };
+            }
+
+            function validateFilters({ start, end }) {
+                if (start && end && end < start) {
+                    throw new Error('End date must be after the start date.');
+                }
+            }
+
+            async function fetchLogs(filters) {
+                const params = new URLSearchParams();
+                if (filters.userId) params.set('userId', filters.userId);
+                if (filters.start) params.set('startDate', filters.start.toISOString());
+                if (filters.end) params.set('endDate', filters.end.toISOString());
+
+                const url = `/api/user-logs${params.toString() ? `?${params.toString()}` : ''}`;
+                const res = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!res.ok) {
+                    let message = 'Failed to fetch logs';
+                    try {
+                        const errorPayload = await res.json();
+                        message = errorPayload?.message || message;
+                    } catch (_) {
+                        try {
+                            const raw = await res.text();
+                            if (raw) message = raw;
+                        } catch (_) {}
+                    }
+                    throw new Error(message);
+                }
+                const payload = await res.json();
+                return {
+                    logs: Array.isArray(payload?.data?.logs) ? payload.data.logs : [],
+                    meta: payload?.data || {}
+                };
+            }
+
+            function updateRangeLabel({ start, end }) {
+                const sameDay = start.toDateString() === end.toDateString();
+                if (sameDay) {
+                    logsRangeLabel.textContent = `On ${formatDateTime(start)}`;
+                    return;
+                }
+                const rangeText = `${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(start)} – ${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(end)}`;
+                logsRangeLabel.textContent = rangeText;
+            }
+
+            function renderLogs(logs) {
+                logsTableBody.innerHTML = '';
+
+                if (!Array.isArray(logs) || logs.length === 0) {
+                    logsEmpty.classList.remove('hidden');
+                    return;
+                }
+
+                logsEmpty.classList.add('hidden');
+
+                const fragment = document.createDocumentFragment();
+                logs.forEach((log, index) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="px-6 py-3 text-sm text-gray-500">${index + 1}</td>
+                        <td class="px-6 py-3 text-sm text-gray-900">
+                            <div class="font-medium">${log.name || '—'}</div>
+                            <div class="text-xs text-gray-500">User ID: ${log.userID ?? '—'}</div>
+                        </td>
+                        <td class="px-6 py-3 text-sm text-gray-500">
+                            <div>${log.emailID || '—'}</div>
+                            <div class="text-xs">${log.phone ? `+91-${log.phone}` : ''}</div>
+                        </td>
+                        <td class="px-6 py-3 text-sm text-gray-700">${formatDateTime(log.loginTime)}</td>
+                    `;
+                    fragment.appendChild(tr);
+                });
+                logsTableBody.appendChild(fragment);
+            }
+
+            async function refreshLogs({ announce = false } = {}) {
+                logsLoading.classList.remove('hidden');
+                logsError.classList.add('hidden');
+                logsEmpty.classList.add('hidden');
+
+                const filters = getFiltersFromInputs();
+                try {
+                    validateFilters(filters);
+                    const { logs, meta } = await fetchLogs(filters);
+                    renderLogs(logs);
+
+                    logsSummary.textContent = filters.userId
+                        ? `Showing ${logs.length} entr${logs.length === 1 ? 'y' : 'ies'} for the selected user.`
+                        : `Showing ${logs.length} entr${logs.length === 1 ? 'y' : 'ies'} across all users.`;
+                    logsCountLabel.textContent = `${logs.length} log entr${logs.length === 1 ? 'y' : 'ies'}`;
+                    logsUpdatedAt.textContent = formatDateTime(new Date());
+                    filterMeta.textContent = logsSummary.textContent;
+                    filterMeta.classList.remove('hidden');
+
+                    const serverStart = meta?.filters?.startDate ? new Date(meta.filters.startDate) : null;
+                    const serverEnd = meta?.filters?.endDate ? new Date(meta.filters.endDate) : null;
+                    const appliedStart = serverStart && !Number.isNaN(serverStart.getTime()) ? serverStart : (filters.start || defaultRange.start);
+                    const appliedEnd = serverEnd && !Number.isNaN(serverEnd.getTime()) ? serverEnd : (filters.end || defaultRange.end);
+                    updateRangeLabel({ start: appliedStart, end: appliedEnd });
+
+                    lastFilters = {
+                        userId: filters.userId,
+                        start: appliedStart,
+                        end: appliedEnd
+                    };
+
+                    if (announce && logs.length === 0) {
+                        logsEmpty.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    console.error('Failed to refresh logs', error);
+                    logsError.textContent = error.message || 'Failed to load logs. Please try again.';
+                    logsError.classList.remove('hidden');
+                    logsTableBody.innerHTML = '';
+                    logsSummary.textContent = '';
+                    logsCountLabel.textContent = '0 log entries';
+                    updateRangeLabel({ start: lastFilters.start || defaultRange.start, end: lastFilters.end || defaultRange.end });
+                } finally {
+                    logsLoading.classList.add('hidden');
+                }
+            }
+
+            filtersForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                await refreshLogs({ announce: true });
+            });
+
+            userSelect.addEventListener('change', () => {
+                refreshLogs({ announce: true });
+            });
+
+            resetFiltersBtn.addEventListener('click', async () => {
+                userSelect.value = '';
+                const range = buildDefaultRange();
+                startDateInput.value = formatForInput(range.start);
+                endDateInput.value = formatForInput(range.end);
+                lastFilters = { userId: '', start: range.start, end: range.end };
+                await refreshLogs({ announce: true });
+            });
+
+            await loadUsers();
+            await refreshLogs({ announce: true });
+        });
+    </script>
+</body>
+</html>

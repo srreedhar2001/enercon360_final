@@ -16,6 +16,8 @@ router.post('/', counterController.createCounter);
 router.put('/:id', counterController.updateCounter);
 // Update only finance fields
 router.patch('/:id/finance', counterController.updateCounterFinance);
+// Update only counterStatus
+router.patch('/:id/status', counterController.updateCounterStatus);
 router.delete('/:id', counterController.deleteCounter);
 
 // Additional routes

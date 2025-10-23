@@ -4,11 +4,9 @@
         <div class="flex justify-between items-center h-16">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
-                    <div class="h-10 w-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center">
-                        <span class="text-white font-bold text-lg">E</span>
-                    </div>
+                    <img src="/assets/logo.jpeg" alt="360" class="h-[50px] w-[100px] object-contain rounded-lg shadow-sm" loading="lazy" />
                 </div>
-                <span class="ml-3 text-gray-900 font-bold text-xl">Enercon 360</span>
+                <span class="ml-1 text-gray-900 font-bold text-lg">360</span>
             </div>
             <!-- Mobile menu button -->
             <div class="md:hidden">
@@ -53,9 +51,12 @@
                         <div class="absolute left-0 mt-0 z-50 w-64 max-h-96 overflow-y-auto rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 hidden group-hover:block">
                             <div class="py-1" role="menu" aria-orientation="vertical" aria-labelledby="menu-button" tabindex="-1">
                 <a href="/dashboard.html" class="nav-link block w-full text-left" data-page="dashboard" role="menuitem" tabindex="-1">Dashboard</a>
-                                <a href="/RepSalesReport.html" class="nav-link block w-full text-left" data-page="reports" role="menuitem" tabindex="-1">Rep Sales Report</a>
-                                <a href="/SalesVsExpReport.html" class="nav-link block w-full text-left" data-page="reports" role="menuitem" tabindex="-1">Sales vs Expenses Report</a>
-                                <a href="/newCounters.html" class="nav-link block w-full text-left" data-page="reports" role="menuitem" tabindex="-1">New Counters Report</a>
+                                <a href="/RepSalesReport.html" class="nav-link block w-full text-left" data-page="rep-sales-report" role="menuitem" tabindex="-1">Rep Sales Report</a>
+                                <a href="/SalesVsExpReport.html" class="nav-link block w-full text-left" data-page="sales-vs-exp-report" role="menuitem" tabindex="-1">Sales vs Expenses Report</a>
+                                <a href="/newCounters.html" class="nav-link block w-full text-left" data-page="new-counters-report" role="menuitem" tabindex="-1">New Counters Report</a>
+                                <a href="/WorkLog.html" class="nav-link block w-full text-left" data-page="work-log-report" role="menuitem" tabindex="-1">Work Log</a>
+                                <a href="/createdoctorslist.html" class="nav-link block w-full text-left" data-page="doctor-calls" role="menuitem" tabindex="-1">Doctor Management</a>
+                                <a href="/logs.html" class="nav-link block w-full text-left" data-page="user-logs" role="menuitem" tabindex="-1">User Logs</a>
                             </div>
                         </div>
                     </div>
@@ -113,9 +114,12 @@
                 </button>
                 <div id="mm-reports" class="ml-4 hidden">
                     <a href="/dashboard.html" class="nav-link block" data-page="dashboard">Dashboard</a>
-                    <a href="/RepSalesReport.html" class="nav-link block" data-page="reports">Rep Sales Report</a>
-                    <a href="/SalesVsExpReport.html" class="nav-link block" data-page="reports">Sales vs Expenses Report</a>
-                    <a href="/newCounters.html" class="nav-link block" data-page="reports">New Counters Report</a>
+                    <a href="/RepSalesReport.html" class="nav-link block" data-page="rep-sales-report">Rep Sales Report</a>
+                    <a href="/SalesVsExpReport.html" class="nav-link block" data-page="sales-vs-exp-report">Sales vs Expenses Report</a>
+                    <a href="/newCounters.html" class="nav-link block" data-page="new-counters-report">New Counters Report</a>
+                    <a href="/WorkLog.html" class="nav-link block" data-page="work-log-report">Work Log</a>
+                    <a href="/createdoctorslist.html" class="nav-link block" data-page="doctor-calls">Doctor Management</a>
+                    <a href="/logs.html" class="nav-link block" data-page="user-logs">User Logs</a>
                 </div>
                 <!-- Others collapsible -->
                 <button type="button" class="w-full text-left nav-link flex items-center justify-between mobile-collapse" data-toggle-target="#mm-others" onclick="toggleCollapse('#mm-others')">
@@ -207,24 +211,32 @@
     
     function getCurrentPage() {
         const path = window.location.pathname;
-        if (path.includes('home.html') || path === '/') return 'home';
-    if (path.includes('dashboard.html')) return 'dashboard';
-        if (path.includes('user.html')) return 'users';
-        if (path.includes('product.html')) return 'products';
-    if (path.includes('counter.html')) return 'counters';
-    // Map transaction pages to the Transactions parent for highlighting
-    if (path.includes('order.html')) return 'transactions';
-    if (path.includes('collections.html')) return 'transactions';
-    if (path.includes('payments.html')) return 'transactions';
-    if (path.includes('myOrders.html')) return 'my-orders';
-    if (path.includes('page-access.html')) return 'page-access';
-    if (path.includes('RepSalesReport.html')) return 'reports';
-    if (path.includes('newCounters.html')) return 'reports';
-    if (path.includes('countersdue.html')) return 'counters-due';
-        if (path.includes('features')) return 'features';
-        if (path.includes('about')) return 'about';
-        if (path.includes('contact')) return 'contact';
-        return 'home';
+        const keys = [];
+        const pushKey = (key) => {
+            if (key && !keys.includes(key)) keys.push(key);
+        };
+
+        if (path.includes('home.html') || path === '/') pushKey('home');
+        if (path.includes('dashboard.html')) pushKey('dashboard');
+        if (path.includes('product.html')) pushKey('products');
+        if (path.includes('counter.html')) pushKey('counters');
+        if (path.includes('order.html')) { pushKey('orders'); pushKey('transactions'); }
+        if (path.includes('collections.html')) { pushKey('collections'); pushKey('transactions'); }
+        if (path.includes('payments.html')) { pushKey('payments'); pushKey('transactions'); }
+        if (path.includes('myOrders.html')) pushKey('my-orders');
+        if (path.includes('countersdue.html')) pushKey('counters-due');
+        if (path.includes('RepSalesReport.html')) { pushKey('rep-sales-report'); pushKey('reports'); }
+        if (path.includes('SalesVsExpReport.html')) { pushKey('sales-vs-exp-report'); pushKey('reports'); }
+        if (path.includes('newCounters.html')) { pushKey('new-counters-report'); pushKey('reports'); }
+        if (path.includes('WorkLog.html')) { pushKey('work-log-report'); pushKey('reports'); }
+        if (path.includes('createdoctorslist.html')) { pushKey('doctor-calls'); pushKey('reports'); }
+        if (path.includes('page-access.html')) { pushKey('page-access'); pushKey('others'); }
+        if (path.includes('user.html')) { pushKey('users'); pushKey('others'); }
+        if (path.includes('features')) pushKey('features');
+        if (path.includes('about')) pushKey('about');
+        if (path.includes('contact')) pushKey('contact');
+
+        return keys.length ? keys : ['home'];
     }
     
     function setActiveNavItem(page) {
@@ -233,9 +245,10 @@
             link.classList.remove('active');
         });
         
-    // Add active class to all matching links (desktop and mobile)
-    const activeLinks = document.querySelectorAll(`[data-page="${page}"]`);
-    activeLinks.forEach(l => l.classList.add('active'));
+    const pages = Array.isArray(page) ? page : [page];
+    pages.forEach(key => {
+        document.querySelectorAll(`[data-page="${key}"]`).forEach(l => l.classList.add('active'));
+    });
     }
     
     // Initialize when DOM is loaded

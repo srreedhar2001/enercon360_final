@@ -2,17 +2,27 @@
   "designations": {
     "1": {
       "permissions": {
-        "dashboard": {
+        "counters": {
           "view": false,
           "edit": false,
           "delete": false
         },
-        "orders": {
-          "view": false,
+        "products": {
+          "view": true,
           "edit": false,
           "delete": false
         },
         "collections": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "my-orders": {
+          "view": true,
+          "edit": true,
+          "delete": false
+        },
+        "orders": {
           "view": false,
           "edit": false,
           "delete": false
@@ -22,22 +32,57 @@
           "edit": false,
           "delete": false
         },
-        "users": {
+        "transactions": {
           "view": false,
           "edit": false,
           "delete": false
         },
-        "products": {
+        "counters-due": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "dashboard": {
           "view": false,
           "edit": false,
           "delete": false
         },
-        "counters": {
+        "doctor-calls": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "new-counters-report": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "rep-sales-report": {
           "view": true,
           "edit": false,
           "delete": false
         },
         "reports": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "sales-vs-exp-report": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "user-logs": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "work-log-report": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "others": {
           "view": false,
           "edit": false,
           "delete": false
@@ -47,36 +92,16 @@
           "edit": false,
           "delete": false
         },
-        "my-orders": {
-          "view": true,
-          "edit": true,
+        "users": {
+          "view": false,
+          "edit": false,
           "delete": false
         }
       }
     },
     "2": {
       "permissions": {
-        "dashboard": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "orders": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "collections": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "payments": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "users": {
+        "counters": {
           "view": false,
           "edit": false,
           "delete": false
@@ -86,17 +111,7 @@
           "edit": false,
           "delete": false
         },
-        "counters": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "reports": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "page-access": {
+        "collections": {
           "view": false,
           "edit": false,
           "delete": false
@@ -106,8 +121,78 @@
           "edit": true,
           "delete": false
         },
+        "orders": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "payments": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "transactions": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
         "counters-due": {
           "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "dashboard": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "doctor-calls": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "new-counters-report": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "rep-sales-report": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "reports": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "sales-vs-exp-report": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "user-logs": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "work-log-report": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "others": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "page-access": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "users": {
+          "view": false,
           "edit": false,
           "delete": false
         }
@@ -155,6 +240,11 @@
           "edit": false,
           "delete": false
         },
+        "doctor-calls": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
         "page-access": {
           "view": false,
           "edit": false,
@@ -164,27 +254,7 @@
     },
     "4": {
       "permissions": {
-        "dashboard": {
-          "view": true,
-          "edit": true,
-          "delete": true
-        },
-        "orders": {
-          "view": true,
-          "edit": true,
-          "delete": true
-        },
-        "collections": {
-          "view": true,
-          "edit": true,
-          "delete": true
-        },
-        "payments": {
-          "view": true,
-          "edit": true,
-          "delete": true
-        },
-        "users": {
+        "counters": {
           "view": true,
           "edit": true,
           "delete": true
@@ -194,7 +264,52 @@
           "edit": true,
           "delete": true
         },
-        "counters": {
+        "collections": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "my-orders": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "orders": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "payments": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "transactions": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "counters-due": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "dashboard": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "doctor-calls": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "new-counters-report": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "rep-sales-report": {
           "view": true,
           "edit": true,
           "delete": true
@@ -204,12 +319,32 @@
           "edit": true,
           "delete": true
         },
+        "sales-vs-exp-report": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "user-logs": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "work-log-report": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "others": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
         "page-access": {
           "view": true,
           "edit": true,
           "delete": true
         },
-        "my-orders": {
+        "users": {
           "view": true,
           "edit": true,
           "delete": true
@@ -218,47 +353,17 @@
     },
     "5": {
       "permissions": {
-        "dashboard": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "orders": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "collections": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "payments": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "users": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
-        "products": {
-          "view": false,
-          "edit": false,
-          "delete": false
-        },
         "counters": {
           "view": true,
           "edit": false,
           "delete": false
         },
-        "reports": {
-          "view": false,
+        "products": {
+          "view": true,
           "edit": false,
           "delete": false
         },
-        "page-access": {
+        "collections": {
           "view": false,
           "edit": false,
           "delete": false
@@ -268,8 +373,78 @@
           "edit": false,
           "delete": false
         },
+        "orders": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "payments": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "transactions": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
         "counters-due": {
           "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "dashboard": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "doctor-calls": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "new-counters-report": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "rep-sales-report": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "reports": {
+          "view": true,
+          "edit": false,
+          "delete": false
+        },
+        "sales-vs-exp-report": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "user-logs": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "work-log-report": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "others": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "page-access": {
+          "view": false,
+          "edit": false,
+          "delete": false
+        },
+        "users": {
+          "view": false,
           "edit": false,
           "delete": false
         }

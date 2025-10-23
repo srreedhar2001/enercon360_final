@@ -14,6 +14,10 @@ const collectionsRoutes = require('./routes/collectionsRoutes');
 const paymentsRoutes = require('./routes/paymentsRoutes');
 const accessRoutes = require('./routes/accessRoutes');
 const paymentTrackingRoutes = require('./routes/paymentTrackingRoutes');
+const repWorkLogRoutes = require('./routes/repWorkLogRoutes');
+const doctorCallRoutes = require('./routes/doctorCallRoutes');
+const drWorkLogRoutes = require('./routes/drWorkLogRoutes');
+const userLogRoutes = require('./routes/userLogRoutes');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware');
@@ -67,6 +71,10 @@ app.use('/api/collections', collectionsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/access', accessRoutes);
 app.use('/api/payment-tracking', paymentTrackingRoutes);
+app.use('/api/work-log', repWorkLogRoutes);
+app.use('/api/doctor-work-log', drWorkLogRoutes);
+app.use('/api/doctor-calls', doctorCallRoutes);
+app.use('/api/user-logs', userLogRoutes);
 app.use('/api/sample', sampleRoutes);
 
 // Quietly handle Chrome DevTools /.well-known requests to avoid noisy 404s

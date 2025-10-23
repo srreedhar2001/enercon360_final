@@ -25,8 +25,13 @@ function getPermissions(designationId) {
   const id = String(designationId);
   const perms = store.designations[id]?.permissions || null;
   // Ensure new modules appear with default view=false when not present
-  if (perms && perms['my-orders'] === undefined) {
-    perms['my-orders'] = { view: false, edit: false, delete: false };
+  if (perms) {
+  const ensureKeys = ['my-orders', 'counters-due', 'rep-sales-report', 'sales-vs-exp-report', 'new-counters-report', 'reports', 'transactions', 'others', 'doctor-calls', 'work-log-report', 'user-logs'];
+    ensureKeys.forEach(key => {
+      if (perms[key] === undefined) {
+        perms[key] = { view: false, edit: false, delete: false };
+      }
+    });
   }
   return perms;
 }

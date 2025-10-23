@@ -126,6 +126,12 @@ class AuthController {
             // Update last login
             await User.updateLastLogin(user.id);
 
+            try {
+                await User.logLogin(user.id);
+            } catch (logError) {
+                console.error('Failed to record login audit entry:', logError);
+            }
+
             // Generate JWT token
             const token = AuthController.generateJWT(user);
 

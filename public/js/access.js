@@ -109,12 +109,20 @@ async function applyNavPermissions() {
 
   const perms = bundle.permissions || {};
   const allowedModules = new Set(bundle.modules || []);
+  // Explicitly allow certain nav items regardless of backend modules,
+  // so users can discover utility pages like Work Log.
+  const ALWAYS_VISIBLE_LINKS = new Set(['work-log-report']);
+
+  const isAllowed = (moduleKey) => {
+    if (ALWAYS_VISIBLE_LINKS.has(moduleKey)) return true;
+    const p = perms[moduleKey];
+    return p && typeof p.view === 'boolean' ? p.view : allowedModules.has(moduleKey);
+  };
   // Determine parent visibility states first
   const parentVisibility = new Map();
   links.forEach(link => {
     const mod = link.getAttribute('data-page');
-    const p = perms[mod];
-    const ok = p && typeof p.view === 'boolean' ? p.view : allowedModules.has(mod);
+    const ok = isAllowed(mod);
     parentVisibility.set(mod, !!ok);
   });
 
@@ -129,8 +137,7 @@ async function applyNavPermissions() {
     childLinks.forEach(cl => {
       const cmod = cl.getAttribute('data-page');
       if (cmod === parentKey) return; // skip parent button
-      const cp = perms[cmod];
-      const cok = cp && typeof cp.view === 'boolean' ? cp.view : allowedModules.has(cmod);
+      const cok = isAllowed(cmod);
       if (cok) anyChildAllowed = true;
     });
     if (anyChildAllowed) parentVisibility.set(parentKey, true);
@@ -146,15 +153,13 @@ async function applyNavPermissions() {
       if (parentKey && parentVisibility.get(parentKey)) {
         // Still hide individual child if not allowed
         if (mod !== parentKey) {
-          const p = perms[mod];
-          const ok = p && typeof p.view === 'boolean' ? p.view : allowedModules.has(mod);
+          const ok = isAllowed(mod);
           if (!ok) link.style.display = 'none';
           return;
         }
       }
     }
-    const p = perms[mod];
-    let ok = p && typeof p.view === 'boolean' ? p.view : allowedModules.has(mod);
+    let ok = isAllowed(mod);
     // For parent menus, use the computed parentVisibility
     if (['reports','others','transactions'].includes(mod)) {
       ok = !!parentVisibility.get(mod);

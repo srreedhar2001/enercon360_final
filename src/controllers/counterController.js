@@ -568,6 +568,34 @@ class CounterController {
             });
         }
     }
+
+    // Update counter status
+    async updateCounterStatus(req, res) {
+        try {
+            const { id } = req.params;
+            let { counterStatus } = req.body || {};
+
+            // Normalize to boolean-ish 0/1
+            if (counterStatus === undefined) {
+                return res.status(400).json({ success: false, message: 'counterStatus is required' });
+            }
+            const truthy = counterStatus === true || counterStatus === 1 || counterStatus === '1' || String(counterStatus).toLowerCase() === 'true';
+            const val = truthy ? 1 : 0;
+
+            // Ensure exists
+            const exists = await dbQuery('SELECT id FROM counters WHERE id = ? LIMIT 1', [id]);
+            if (!exists.length) {
+                return res.status(404).json({ success: false, message: 'Counter not found' });
+            }
+
+            await dbQuery('UPDATE counters SET counterStatus = ? WHERE id = ?', [val, id]);
+            const [row] = await dbQuery('SELECT id, CounterName, counterStatus FROM counters WHERE id = ? LIMIT 1', [id]);
+            return res.json({ success: true, message: 'Counter status updated', data: row });
+        } catch (error) {
+            console.error('Error updating counter status:', error);
+            return res.status(500).json({ success: false, message: 'Failed to update counter status', error: error.message });
+        }
+    }
 }
 
 module.exports = new CounterController();

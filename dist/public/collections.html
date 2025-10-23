@@ -394,6 +394,26 @@
                 return new Date(dateString).toLocaleDateString('en-IN');
             }
 
+            getOrdinalSuffix(day) {
+                if (day >= 11 && day <= 13) return 'th';
+                switch (day % 10) {
+                    case 1: return 'st';
+                    case 2: return 'nd';
+                    case 3: return 'rd';
+                    default: return 'th';
+                }
+            }
+
+            formatHistoryDate(dateString) {
+                if (!dateString) return 'N/A';
+                const date = new Date(dateString);
+                if (Number.isNaN(date.getTime())) return 'N/A';
+                const day = date.getDate();
+                const month = date.toLocaleString('en-GB', { month: 'short' });
+                const year = date.getFullYear();
+                return `${day}${this.getOrdinalSuffix(day)} ${month} ${year}`;
+            }
+
             formatCurrency(amount) {
                 if (!amount) return '0.00';
                 return parseFloat(amount).toFixed(2);
@@ -457,7 +477,8 @@
                 
                 // Clear other fields
                 document.getElementById('collectionComments').value = '';
-                document.getElementById('markAsPaid').checked = true; // Default to marking as paid
+                const markAsPaidCheckbox = document.getElementById('markAsPaid');
+                markAsPaidCheckbox.checked = false; // Default unchecked per requirement
                 
                 // Toggle record button visibility for fully paid orders (history-only)
                 const recordBtn = document.getElementById('recordCollectionBtn');
@@ -529,7 +550,7 @@
                             <tbody>
                                 ${collections.map(collection => `
                                     <tr class="border-t border-gray-200">
-                                        <td class="px-2 py-1 text-gray-600">${new Date(collection.collection_date).toLocaleDateString()}</td>
+                                        <td class="px-2 py-1 text-gray-600">${this.formatHistoryDate(collection.collection_date)}</td>
                                         <td class="px-2 py-1 text-right font-medium text-green-600">₹${parseFloat(collection.amount).toFixed(2)}</td>
                                         <td class="px-2 py-1 text-gray-600">${collection.comments || '-'}</td>
                                     </tr>
@@ -665,10 +686,12 @@
                 const collectionAmount = parseFloat(document.getElementById('collectionAmount').value) || 0;
                 const remaining = Math.max(0, (Number(this.currentOrder.grandTotal || 0) - Number(this.currentOrder.collectedTotal || 0)));
                 const markAsPaidCheckbox = document.getElementById('markAsPaid');
-                
-                // Auto-check mark as paid if collection amount covers remaining amount
-                if (collectionAmount >= remaining) {
+
+                // Auto-toggle mark as paid if collection amount meets remaining balance
+                if (collectionAmount >= remaining && remaining > 0) {
                     markAsPaidCheckbox.checked = true;
+                } else {
+                    markAsPaidCheckbox.checked = false;
                 }
             }
 

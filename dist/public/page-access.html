@@ -75,6 +75,87 @@
         return;
       }
 
+      const CATEGORY_ORDER = { master: 1, transactions: 2, reports: 3, others: 4 };
+      const FALLBACK_MODULES = [
+        { key: 'dashboard', name: 'Dashboard', category: 'reports' },
+        { key: 'orders', name: 'Orders', category: 'transactions' },
+        { key: 'my-orders', name: 'My Orders', category: 'transactions' },
+        { key: 'collections', name: 'Collections', category: 'transactions' },
+        { key: 'payments', name: 'Payments', category: 'transactions' },
+        { key: 'rep-sales-report', name: 'Rep Sales Report', category: 'reports' },
+        { key: 'sales-vs-exp-report', name: 'Sales vs Expenses Report', category: 'reports' },
+        { key: 'new-counters-report', name: 'New Counters Report', category: 'reports' },
+        { key: 'counters-due', name: 'Counters Due', category: 'reports' },
+        { key: 'reports', name: 'Reports', category: 'reports' },
+        { key: 'work-log-report', name: 'Work Log', category: 'reports' },
+        { key: 'doctor-calls', name: 'Doctor Management', category: 'reports' },
+        { key: 'user-logs', name: 'User Logs', category: 'reports' },
+        { key: 'users', name: 'Users', category: 'others' },
+        { key: 'page-access', name: 'Page Access', category: 'others' },
+        { key: 'others', name: 'Others', category: 'others' },
+        { key: 'products', name: 'Products', category: 'master' },
+        { key: 'counters', name: 'Counters', category: 'master' },
+        { key: 'transactions', name: 'Transactions', category: 'transactions' }
+      ];
+      const REPORT_KEYS = new Set(['rep-sales-report','sales-vs-exp-report','new-counters-report','counters-due','dashboard','reports','work-log-report','doctor-calls','user-logs']);
+
+      const prettify = (text = '') => text.split(/[-_]/).filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+      const escapeHtml = (str = '') => str.replace(/[&<>"']/g, ch => {
+        switch (ch) {
+          case '&': return '&amp;';
+          case '<': return '&lt;';
+          case '>': return '&gt;';
+          case '"': return '&quot;';
+          case "'": return '&#39;';
+          default: return ch;
+        }
+      });
+
+      function normalizeModuleEntry(entry) {
+        if (!entry) return null;
+        if (typeof entry === 'string') {
+          return { key: entry, name: prettify(entry), category: null };
+        }
+        const key = (entry.key || entry.moduleKey || entry.id || '').trim();
+        if (!key) return null;
+        return {
+          key,
+          name: entry.name || entry.moduleName || prettify(key),
+          category: entry.category || null
+        };
+      }
+
+      function resolveCategory(mod) {
+        if (mod.category) return mod.category;
+        const key = mod.key.toLowerCase();
+        if (REPORT_KEYS.has(key) || key.includes('report')) return 'reports';
+        if (['transactions','orders','collections','payments','my-orders'].includes(key)) return 'transactions';
+        if (['others','users','page-access'].includes(key)) return 'others';
+        return 'master';
+      }
+
+      function normalizeModules(list) {
+        const map = new Map();
+        [...list, ...FALLBACK_MODULES].forEach(item => {
+          const mod = normalizeModuleEntry(item);
+          if (!mod) return;
+          const key = mod.key;
+          if (!map.has(key)) {
+            map.set(key, { key, name: mod.name, category: resolveCategory(mod) });
+          } else {
+            const existing = map.get(key);
+            if ((!existing.name || existing.name === prettify(existing.key)) && mod.name) existing.name = mod.name;
+            if (!existing.category && mod.category) existing.category = resolveCategory(mod);
+          }
+        });
+        return Array.from(map.values()).sort((a, b) => {
+          const ca = CATEGORY_ORDER[a.category] || 99;
+          const cb = CATEGORY_ORDER[b.category] || 99;
+          if (ca !== cb) return ca - cb;
+          return a.name.localeCompare(b.name);
+        });
+      }
+
       async function fetchJSON(url) {
         const res = await fetch(url, { headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` } });
         if (!res.ok) throw new Error('Request failed');
@@ -88,7 +169,8 @@
       ]);
 
       const desigs = desigsResp.data || [];
-      const modules = modulesResp.data || [];
+      const rawModules = modulesResp.data || modulesResp.modules || [];
+      const modules = normalizeModules(rawModules);
       const sel = document.getElementById('designationSelect');
       sel.innerHTML = '<option value="">Select designation...</option>';
       desigs.forEach(d => {
@@ -101,18 +183,27 @@
       const body = document.getElementById('permBody');
       const wrap = document.getElementById('matrixWrap');
       const saveBtn = document.getElementById('saveBtn');
-  const selectAllBtn = document.getElementById('selectAllBtn');
+      const selectAllBtn = document.getElementById('selectAllBtn');
+
+      function categoryBadge(category) {
+        if (!category) return '';
+        const label = prettify(category);
+        return `<span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700">${escapeHtml(label)}</span>`;
+      }
 
       function renderMatrix(perms) {
         body.innerHTML = '';
         modules.forEach(m => {
-          const p = perms[m] || { view: false, edit: false, delete: false };
+          const key = m.key;
+          const display = escapeHtml(m.name || key);
+          const badge = categoryBadge(m.category);
+          const p = perms[key] || { view: false, edit: false, delete: false };
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td class="px-6 py-3 text-sm text-gray-900">${m}</td>
-            <td class="px-6 py-3 text-center"><input type="checkbox" data-mod="${m}" data-key="view" ${p.view ? 'checked' : ''}></td>
-            <td class="px-6 py-3 text-center"><input type="checkbox" data-mod="${m}" data-key="edit" ${p.edit ? 'checked' : ''}></td>
-            <td class="px-6 py-3 text-center"><input type="checkbox" data-mod="${m}" data-key="delete" ${p.delete ? 'checked' : ''}></td>
+            <td class="px-6 py-3 text-sm text-gray-900">${display}${badge}</td>
+            <td class="px-6 py-3 text-center"><input type="checkbox" data-mod="${key}" data-key="view" ${p.view ? 'checked' : ''}></td>
+            <td class="px-6 py-3 text-center"><input type="checkbox" data-mod="${key}" data-key="edit" ${p.edit ? 'checked' : ''}></td>
+            <td class="px-6 py-3 text-center"><input type="checkbox" data-mod="${key}" data-key="delete" ${p.delete ? 'checked' : ''}></td>
           `;
           body.appendChild(tr);
         });

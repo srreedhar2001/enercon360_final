@@ -159,11 +159,7 @@
                         <input type="date" id="dateFromFilter" class="px-4 py-2 border border-gray-300 rounded-lg">
                         <input type="date" id="dateToFilter" class="px-4 py-2 border border-gray-300 rounded-lg">
                         <select id="paymentMethodFilter" class="px-4 py-2 border border-gray-300 rounded-lg">
-                            <option value="">All Methods</option>
-                            <option value="cash">Cash</option>
-                            <option value="upi">UPI</option>
-                            <option value="bank">Bank Transfer</option>
-                            <option value="cheque">Cheque</option>
+                            <option value="">All Types</option>
                         </select>
                     </div>
                 </div>
@@ -584,6 +580,7 @@
                         const result = await response.json();
                         this.paymentTypes = result.data;
                         this.populatePaymentTypeSelect();
+                        this.populatePaymentTypeFilter();
                     }
                 } catch (error) {
                     console.error('Error loading payment types:', error);
@@ -642,6 +639,31 @@
                     option.setAttribute('data-name', type.serviceTypeName.toLowerCase());
                     select.appendChild(option);
                 });
+            }
+
+            populatePaymentTypeFilter() {
+                const filter = document.getElementById('paymentMethodFilter');
+                if (!filter) return;
+                // Preserve current selection if any
+                const current = filter.value;
+                // Build unique list of type names
+                const typeNames = Array.from(new Set((this.paymentTypes || []).map(t => (t.serviceTypeName || '').trim()).filter(Boolean)));
+                // Reset options
+                filter.innerHTML = '';
+                const allOpt = document.createElement('option');
+                allOpt.value = '';
+                allOpt.textContent = 'All Types';
+                filter.appendChild(allOpt);
+                typeNames.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name.toLowerCase();
+                    opt.textContent = name;
+                    filter.appendChild(opt);
+                });
+                // Restore selection if still valid
+                if (current && typeNames.some(n => n.toLowerCase() === current)) {
+                    filter.value = current;
+                }
             }
 
             handlePaymentTypeChange(selectedTypeId) {
@@ -786,7 +808,7 @@
                 const searchTerm = document.getElementById('searchInput').value.toLowerCase();
                 const dateFrom = document.getElementById('dateFromFilter').value;
                 const dateTo = document.getElementById('dateToFilter').value;
-                const paymentMethod = document.getElementById('paymentMethodFilter').value;
+                const paymentMethod = document.getElementById('paymentMethodFilter').value; // actually Type name in lower-case
 
                 this.filteredPayments = this.payments.filter(payment => {
                     const matchesSearch = !searchTerm || 
@@ -799,7 +821,7 @@
                     const payDate = new Date(payment.paymentDate);
                     const matchesDateFrom = !dateFrom || payDate >= new Date(dateFrom);
                     const matchesDateTo = !dateTo || payDate <= new Date(dateTo);
-                    const matchesMethod = !paymentMethod; // General payments don't have specific methods
+                    const matchesMethod = !paymentMethod || (payment.paymentType && payment.paymentType.trim().toLowerCase() === paymentMethod);
 
                     return matchesSearch && matchesDateFrom && matchesDateTo && matchesMethod;
                 });

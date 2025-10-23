@@ -65,7 +65,10 @@ const DESIGNATIONS = {
 const TABLES = {
     USERS: 'users',
     DESIGNATION: 'designation',
-    ITEMS: 'items'
+    ITEMS: 'items',
+    USER_LOG: 'userlog',
+    DOCTOR_CALLS: 'drcalls',
+    DR_WORK_LOG: 'drworklog'
 };
 
 module.exports = {

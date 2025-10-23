@@ -23,10 +23,11 @@ class OrderController {
                 }
             }
 
-            const sql = `
+        const sql = `
                 SELECT 
                     c.id AS counterId,
                     c.CounterName AS counterName,
+            c.counterStatus AS counterStatus,
                     c.RepID AS repId,
                     c.openingBalance AS openingBalance,
                     c.collectionTarget AS collectionTarget,
@@ -53,7 +54,7 @@ class OrderController {
                     GROUP BY orderID
                 ) col ON col.orderID = o.id
                 ${where}
-                GROUP BY c.id, c.CounterName, c.RepID, c.openingBalance, c.collectionTarget, u.name, u.phone
+                GROUP BY c.id, c.CounterName, c.counterStatus, c.RepID, c.openingBalance, c.collectionTarget, u.name, u.phone
                 HAVING totalDue > 0
                 ORDER BY totalDue DESC, c.CounterName ASC
             `;
@@ -289,6 +290,7 @@ class OrderController {
                 SELECT 
                     c.id AS counterId,
                     c.CounterName AS counterName,
+                    c.counterStatus AS counterStatus,
                     COALESCE(COUNT(DISTINCT o.id), 0) AS orderCount,
                     COALESCE(COUNT(DISTINCT CASE WHEN o.paymentReceived = 1 THEN o.id END), 0) AS paidCount,
                     COALESCE(COUNT(DISTINCT CASE WHEN o.paymentReceived = 0 THEN o.id END), 0) AS unpaidCount,
@@ -308,7 +310,7 @@ class OrderController {
                     ON o.counterID = c.id 
                     AND DATE_FORMAT(o.orderDate, '%Y-%m') = ?
                 WHERE c.RepID = ?
-                GROUP BY c.id, c.CounterName
+                GROUP BY c.id, c.CounterName, c.counterStatus
                 ORDER BY total DESC, c.CounterName ASC
             `;
 

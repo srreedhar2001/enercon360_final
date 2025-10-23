@@ -47,22 +47,80 @@ const listDesignations = async (req, res) => {
 const listModules = async (req, res) => {
   try {
     const rows = await dbQuery(
-      `SELECT module_key AS moduleKey
+      `SELECT module_key AS moduleKey, module_name AS moduleName, category
        FROM access_modules
        WHERE is_active = 1
        ORDER BY sort_order ASC, module_name ASC`
     );
-    const modules = (rows || []).map(r => r.moduleKey);
-    // Ensure new frontend pages are present even if DB row not yet created
-  const extras = ['my-orders', 'counters-due'];
-    for (const m of extras) {
-      if (!modules.includes(m)) modules.push(m);
-    }
+
+    const extras = [
+      { moduleKey: 'dashboard', moduleName: 'Dashboard', category: 'reports' },
+      { moduleKey: 'rep-sales-report', moduleName: 'Rep Sales Report', category: 'reports' },
+      { moduleKey: 'sales-vs-exp-report', moduleName: 'Sales vs Expenses Report', category: 'reports' },
+      { moduleKey: 'new-counters-report', moduleName: 'New Counters Report', category: 'reports' },
+      { moduleKey: 'counters-due', moduleName: 'Counters Due', category: 'reports' },
+      { moduleKey: 'work-log-report', moduleName: 'Work Log', category: 'reports' },
+      { moduleKey: 'user-logs', moduleName: 'User Login Logs', category: 'reports' },
+      { moduleKey: 'doctor-calls', moduleName: 'Doctor Management', category: 'reports' },
+      { moduleKey: 'reports', moduleName: 'Reports', category: 'reports' },
+      { moduleKey: 'my-orders', moduleName: 'My Orders', category: 'transactions' },
+      { moduleKey: 'orders', moduleName: 'Orders', category: 'transactions' },
+      { moduleKey: 'collections', moduleName: 'Collections', category: 'transactions' },
+      { moduleKey: 'payments', moduleName: 'Payments', category: 'transactions' },
+      { moduleKey: 'transactions', moduleName: 'Transactions', category: 'transactions' },
+      { moduleKey: 'users', moduleName: 'Users', category: 'others' },
+      { moduleKey: 'products', moduleName: 'Products', category: 'master' },
+      { moduleKey: 'counters', moduleName: 'Counters', category: 'master' },
+      { moduleKey: 'page-access', moduleName: 'Page Access', category: 'others' },
+      { moduleKey: 'others', moduleName: 'Others', category: 'others' }
+    ];
+
+    const moduleMap = new Map();
+    const addModule = (mod = {}) => {
+      if (!mod.moduleKey) return;
+      const key = String(mod.moduleKey).trim();
+      if (!key) return;
+      if (!moduleMap.has(key)) {
+        moduleMap.set(key, {
+          key,
+          name: mod.moduleName || mod.name || key,
+          category: mod.category || null
+        });
+      } else {
+        const existing = moduleMap.get(key);
+        if (!existing.category && mod.category) existing.category = mod.category;
+        if (existing.name === existing.key && mod.moduleName) existing.name = mod.moduleName;
+      }
+    };
+
+    (rows || []).forEach(addModule);
+    extras.forEach(addModule);
+
+    const modules = Array.from(moduleMap.values());
     return res.json({ success: true, data: modules });
   } catch (e) {
     console.error('Error fetching modules from DB', e);
-    // Fallback to the previous static list so UI still works
-    const fallback = ['dashboard','orders','my-orders','collections','payments','users','products','counters','reports','page-access'];
+    const fallback = [
+      { key: 'dashboard', name: 'Dashboard', category: 'reports' },
+      { key: 'rep-sales-report', name: 'Rep Sales Report', category: 'reports' },
+      { key: 'sales-vs-exp-report', name: 'Sales vs Expenses Report', category: 'reports' },
+      { key: 'new-counters-report', name: 'New Counters Report', category: 'reports' },
+      { key: 'counters-due', name: 'Counters Due', category: 'reports' },
+      { key: 'work-log-report', name: 'Work Log', category: 'reports' },
+      { key: 'user-logs', name: 'User Login Logs', category: 'reports' },
+      { key: 'doctor-calls', name: 'Doctor Management', category: 'reports' },
+      { key: 'reports', name: 'Reports', category: 'reports' },
+      { key: 'orders', name: 'Orders', category: 'transactions' },
+      { key: 'my-orders', name: 'My Orders', category: 'transactions' },
+      { key: 'collections', name: 'Collections', category: 'transactions' },
+      { key: 'payments', name: 'Payments', category: 'transactions' },
+      { key: 'transactions', name: 'Transactions', category: 'transactions' },
+      { key: 'users', name: 'Users', category: 'others' },
+      { key: 'page-access', name: 'Page Access', category: 'others' },
+      { key: 'others', name: 'Others', category: 'others' },
+      { key: 'products', name: 'Products', category: 'master' },
+      { key: 'counters', name: 'Counters', category: 'master' }
+    ];
     return res.status(200).json({ success: true, data: fallback });
   }
 };

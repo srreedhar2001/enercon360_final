@@ -1,0 +1,2621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Work Log</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="/js/navigation.js"></script>
+    <link rel="icon" href="/favicon.ico">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="description" content="Capture representative visit logs with location, date, and time.">
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+    <div id="navigation-container"></div>
+
+    <main class="flex-1 container mx-auto px-4 py-8 pt-24">
+        <div class="max-w-5xl mx-auto flex flex-col gap-6 h-full">
+            <div class="space-y-6">
+                <section class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-800">Work Log</h1>
+                        <p class="text-gray-600 mt-2">Select a representative and counter to capture the current location, date, and time for your visit.</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div id="repSelectSection">
+                        <label for="repSelect" class="block text-sm font-medium text-gray-700 mb-1">Representative</label>
+                        <select id="repSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Loading representatives…</option>
+                        </select>
+                        <p id="repHelper" class="text-xs text-gray-500 mt-1">Start by choosing a representative.</p>
+                    </div>
+                    <div id="counterSelectSection" class="hidden">
+                        <label for="counterSelect" class="block text-sm font-medium text-gray-700 mb-1">Counter</label>
+                        <select id="counterSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select a representative first…</option>
+                        </select>
+                        <p id="counterHelper" class="text-xs text-gray-500 mt-1">Choose a counter to record a visit log.</p>
+                    </div>
+                    <div id="doctorSelectSection" class="hidden">
+                        <label for="doctorSelect" class="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
+                        <div id="doctorSearchWrapper" class="relative mb-2 hidden">
+                            <input type="search" id="doctorSearchInput" placeholder="Search doctors" autocomplete="off"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                                   aria-label="Search doctors by name or speciality">
+                        </div>
+                        <select id="doctorSelect" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="">Select a representative first…</option>
+                        </select>
+                        <p id="doctorSelectHelper" class="text-xs text-gray-500 mt-1">Choose a doctor to log a visit.</p>
+                    </div>
+                </div>
+
+                <div id="repSummary" class="hidden mt-4 text-sm text-gray-600">
+                    Logging work for <span id="selectedRepLabel" class="font-medium text-gray-900"></span>
+                </div>
+
+                <p id="statusMessage" class="mt-4 text-sm text-gray-600 hidden"></p>
+                </section>
+
+                <section id="logSection" class="bg-white rounded-lg shadow p-6 hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-gray-800">Work Log Entries</h2>
+                    <button id="clearLogBtn" type="button" class="text-sm text-blue-600 hover:underline hidden">Clear log</button>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comments</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTbody" class="bg-white divide-y divide-gray-200">
+                            <tr id="emptyStateRow">
+                                <td colspan="7" class="px-4 py-6 text-center text-gray-500">No entries yet. Select a counter to log your visit.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                </section>
+
+                <section id="doctorLogSection" class="bg-white rounded-lg shadow p-6 hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-semibold text-gray-800">Doctor Work Log</h2>
+                    <button id="clearDoctorLogBtn" type="button" class="text-sm text-blue-600 hover:underline hidden">Clear log</button>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comments</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="doctorLogTbody" class="bg-white divide-y divide-gray-200">
+                            <tr id="doctorEmptyStateRow">
+                                <td colspan="8" class="px-4 py-6 text-center text-gray-500">No entries yet. Select a doctor to log your visit.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                </section>
+
+                <section id="summarySection" class="bg-white rounded-lg shadow p-6 hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <h2 class="text-lg font-semibold text-gray-800">Monthly Overview</h2>
+                    <p id="summaryHelper" class="text-sm text-gray-500">Pick a month card to view detailed work log entries.</p>
+                </div>
+                <div id="monthlyCards" class="mt-4 grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5 sm:gap-2"></div>
+                </section>
+
+                <section id="workLogChartSection" class="bg-white rounded-lg shadow p-6 hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                    <h2 class="text-lg font-semibold text-gray-800">Work Log Activity</h2>
+                    <span id="workLogChartSubtitle" class="text-sm text-gray-500"></span>
+                </div>
+                <div class="relative h-64">
+                    <canvas id="workLogChart" class="w-full h-full"></canvas>
+                </div>
+                <p id="workLogChartEmpty" class="mt-4 text-sm text-gray-500 hidden">Select a month to visualize work log activity.</p>
+                </section>
+            </div>
+
+            <div class="mt-auto space-y-6 pt-4">
+                <section id="reportSection" class="bg-white rounded-lg shadow p-6 hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                    <div>
+                        <h2 id="reportTitle" class="text-lg font-semibold text-gray-800">Work Log Report</h2>
+                        <p id="reportSubtitle" class="text-sm text-gray-500">Select a month above to view entries.</p>
+                    </div>
+                </div>
+                <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comments</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Logged By</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTbody" class="bg-white divide-y divide-gray-200">
+                            <tr id="reportEmptyStateRow">
+                                <td colspan="6" class="px-4 py-6 text-center text-gray-500">Select a month to view entries.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div id="doctorReportWrapper" class="mt-6 border-t border-gray-200 pt-4 hidden">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                        <h3 class="text-md font-semibold text-gray-800">Doctor Work Logs</h3>
+                        <p id="doctorReportSubtitle" class="text-sm text-gray-500">Select a month to view doctor log entries.</p>
+                    </div>
+                    <div class="bg-white border border-gray-200 rounded-lg overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comments</th>
+                                </tr>
+                            </thead>
+                            <tbody id="doctorReportTbody" class="bg-white divide-y divide-gray-200">
+                                <tr id="doctorReportEmptyStateRow">
+                                    <td colspan="6" class="px-4 py-6 text-center text-gray-500">Select a month to view doctor entries.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            try { await NavigationLoader.loadNavigation(); } catch (_) {}
+
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            if (!token) { window.location.href = '/login.html'; return; }
+
+            const repSelectSection = document.getElementById('repSelectSection');
+            const repSelect = document.getElementById('repSelect');
+            const repHelper = document.getElementById('repHelper');
+            const repSummary = document.getElementById('repSummary');
+            const selectedRepLabel = document.getElementById('selectedRepLabel');
+
+            const counterSelectSection = document.getElementById('counterSelectSection');
+            const counterSelect = document.getElementById('counterSelect');
+            const counterHelper = document.getElementById('counterHelper');
+
+            const doctorSelectSection = document.getElementById('doctorSelectSection');
+            const doctorSelect = document.getElementById('doctorSelect');
+            const doctorSearchWrapper = document.getElementById('doctorSearchWrapper');
+            const doctorSearchInput = document.getElementById('doctorSearchInput');
+            const doctorSelectHelper = document.getElementById('doctorSelectHelper');
+            const workLogChartSection = document.getElementById('workLogChartSection');
+            const workLogChartCanvas = document.getElementById('workLogChart');
+            const workLogChartSubtitle = document.getElementById('workLogChartSubtitle');
+            const workLogChartEmpty = document.getElementById('workLogChartEmpty');
+
+            const doctorLogSection = document.getElementById('doctorLogSection');
+            const doctorLogTbody = document.getElementById('doctorLogTbody');
+            const clearDoctorLogBtn = document.getElementById('clearDoctorLogBtn');
+
+            const statusMessage = document.getElementById('statusMessage');
+            const logSection = document.getElementById('logSection');
+            const logTbody = document.getElementById('logTbody');
+            const clearLogBtn = document.getElementById('clearLogBtn');
+            const summarySection = document.getElementById('summarySection');
+            const monthlyCardsContainer = document.getElementById('monthlyCards');
+            const summaryHelper = document.getElementById('summaryHelper');
+            const reportSection = document.getElementById('reportSection');
+            const reportTitle = document.getElementById('reportTitle');
+            const reportSubtitle = document.getElementById('reportSubtitle');
+            const reportTbody = document.getElementById('reportTbody');
+            const doctorReportWrapper = document.getElementById('doctorReportWrapper');
+            const doctorReportSubtitle = document.getElementById('doctorReportSubtitle');
+            const doctorReportTbody = document.getElementById('doctorReportTbody');
+
+            const logEntries = new Map();
+            const doctorLogEntries = new Map();
+
+            let currentUserId = null;
+            let designationId = null;
+            let isAdmin = false;
+            let isManager = false;
+            let isRepresentative = false;
+            let isViewer = false;
+
+            let availableReps = [];
+            let selectedRepId = null;
+            let entryCounter = 0;
+
+            let countersLoaded = false;
+            let countersCache = [];
+            const countersById = new Map();
+            const doctorsCacheByRep = new Map();
+            let doctorsRequestToken = 0;
+            let currentDoctorList = [];
+            let selectedDoctorId = null;
+            let selectedRepName = '';
+            let monthsCache = [];
+            let monthlySummaryMap = new Map();
+            let doctorMonthlySummaryMap = new Map();
+            let selectedMonthKey = null;
+            const monthEntriesCache = new Map();
+            const doctorMonthEntriesCache = new Map();
+            let latestMonthRequestToken = 0;
+            let latestDoctorMonthRequestToken = 0;
+            let doctorEntryCounter = 0;
+            let workLogChart = null;
+
+            resetReportSections();
+            resetDoctorDisplay();
+            resetDoctorLog();
+
+            function setStatus(message, tone = 'info') {
+                if (!statusMessage) return;
+                statusMessage.textContent = message;
+                statusMessage.classList.remove('hidden', 'text-gray-600', 'text-green-600', 'text-red-600');
+                const toneClass = tone === 'success' ? 'text-green-600' : tone === 'error' ? 'text-red-600' : 'text-gray-600';
+                statusMessage.classList.add(toneClass);
+            }
+
+            function clearStatus() {
+                if (!statusMessage) return;
+                statusMessage.textContent = '';
+                statusMessage.classList.add('hidden');
+                statusMessage.classList.remove('text-green-600', 'text-red-600');
+                if (!statusMessage.classList.contains('text-gray-600')) {
+                    statusMessage.classList.add('text-gray-600');
+                }
+            }
+
+            function normalizeId(value) {
+                if (value === null || value === undefined) return null;
+                const num = Number(value);
+                if (!Number.isNaN(num) && Number.isFinite(num)) {
+                    return String(num);
+                }
+                const str = String(value).trim();
+                return str.length ? str : null;
+            }
+
+            function getRepIdentifier(rep) {
+                if (!rep) return null;
+                return normalizeId(rep.id ?? rep.userId ?? rep.user_id ?? rep.repId ?? rep.RepID);
+            }
+
+            function getRepManagerId(rep) {
+                if (!rep) return null;
+                return normalizeId(rep.managerID ?? rep.managerId ?? rep.manager_id);
+            }
+
+            function getCounterId(counter) {
+                if (!counter) return null;
+                return normalizeId(counter.id ?? counter.counterId ?? counter.CounterID ?? counter.CounterId);
+            }
+
+            function getCounterRepId(counter) {
+                if (!counter) return null;
+                return normalizeId(counter.repId ?? counter.RepID ?? counter.repID ?? counter.rep_id ?? counter.userId ?? counter.user_id);
+            }
+
+            function getCounterName(counter) {
+                if (!counter) return '';
+                return counter.CounterName || counter.counterName || counter.name || counter.counter || `Counter ${getCounterId(counter) ?? ''}`;
+            }
+
+            function getDoctorIdentifier(doctor) {
+                if (!doctor) return null;
+                const primary = normalizeId(
+                    doctor.id
+                    ?? doctor.doctorId
+                    ?? doctor.doctorID
+                    ?? doctor.drId
+                    ?? doctor.drID
+                    ?? doctor.dr_id
+                    ?? doctor.doctor_id
+                    ?? doctor.drcallId
+                    ?? doctor.drcallID
+                );
+                if (primary) return primary;
+
+                const fallbackCandidates = [
+                    doctor.doctorName,
+                    doctor.drName,
+                    doctor.name,
+                    doctor.phone,
+                    doctor.mobile,
+                    doctor.specialityName,
+                    doctor.speciality,
+                    doctor.email
+                ];
+                for (const candidate of fallbackCandidates) {
+                    const normalized = normalizeId(candidate);
+                    if (normalized) return normalized;
+                }
+                return null;
+            }
+
+            function getDoctorDisplayName(doctor) {
+                if (!doctor) return '';
+                const textValue = (value) => (value == null ? '' : String(value).trim());
+                const docId = getDoctorIdentifier(doctor);
+                const nameRaw = textValue(doctor?.doctorName || doctor?.drName || doctor?.name);
+                return nameRaw || (docId ? `Doctor #${docId}` : 'Doctor');
+            }
+
+            function safeText(value, fallback = '-') {
+                if (value === null || value === undefined) return fallback;
+                const str = String(value).trim();
+                return str.length ? str : fallback;
+            }
+
+            function escapeHtml(value) {
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            function generateRecentMonths() {
+                const result = [];
+                const today = new Date();
+                const cursor = new Date(today.getFullYear(), today.getMonth(), 1);
+                for (let i = 0; i < 12; i += 1) {
+                    const year = cursor.getFullYear();
+                    const month = cursor.getMonth() + 1;
+                    const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
+                    const label = cursor.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+                    result.push({ yearMonth, label, year, month });
+                    cursor.setMonth(cursor.getMonth() - 1);
+                }
+                return result;
+            }
+
+            function getMonthLabel(yearMonth) {
+                if (!yearMonth) return null;
+                const match = monthsCache.find((m) => m.yearMonth === yearMonth);
+                if (match) return match.label;
+                const parts = yearMonth.split('-');
+                if (parts.length === 2) {
+                    const [year, month] = parts;
+                    const date = new Date(Number(year), Number(month) - 1, 1);
+                    if (!Number.isNaN(date.getTime())) {
+                        return date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+                    }
+                }
+                return yearMonth;
+            }
+
+            function resetReportSections({ clearCache = true } = {}) {
+                monthsCache = [];
+                monthlySummaryMap = new Map();
+                doctorMonthlySummaryMap = new Map();
+                selectedMonthKey = null;
+                latestMonthRequestToken += 1;
+                latestDoctorMonthRequestToken += 1;
+                if (clearCache) {
+                    monthEntriesCache.clear();
+                    doctorMonthEntriesCache.clear();
+                }
+                resetWorkLogChart();
+                if (monthlyCardsContainer) {
+                    monthlyCardsContainer.innerHTML = '';
+                }
+                if (summarySection) {
+                    summarySection.classList.add('hidden');
+                }
+                if (summaryHelper) {
+                    summaryHelper.textContent = 'Pick a month card to view detailed work log entries.';
+                }
+                if (reportTbody) {
+                    reportTbody.innerHTML = '<tr id="reportEmptyStateRow"><td colspan="6" class="px-4 py-6 text-center text-gray-500">Select a month to view entries.</td></tr>';
+                }
+                if (reportSubtitle) {
+                    reportSubtitle.textContent = 'Select a month above to view entries.';
+                }
+                if (reportSection) {
+                    reportSection.classList.add('hidden');
+                }
+                if (doctorReportTbody) {
+                    doctorReportTbody.innerHTML = '<tr id="doctorReportEmptyStateRow"><td colspan="6" class="px-4 py-6 text-center text-gray-500">Select a month to view doctor entries.</td></tr>';
+                }
+                if (doctorReportSubtitle) {
+                    doctorReportSubtitle.textContent = 'Select a month to view doctor log entries.';
+                }
+                if (doctorReportWrapper) {
+                    doctorReportWrapper.classList.add('hidden');
+                }
+            }
+
+            function updateMonthCardActive() {
+                if (!monthlyCardsContainer) return;
+                const cards = monthlyCardsContainer.querySelectorAll('[data-month-key]');
+                cards.forEach((card) => {
+                    const key = card.getAttribute('data-month-key');
+                    const isActive = key === selectedMonthKey;
+                    card.classList.toggle('border-blue-500', isActive);
+                    card.classList.toggle('bg-blue-50', isActive);
+                    card.classList.toggle('ring-2', isActive);
+                    card.classList.toggle('ring-blue-500', isActive);
+                    card.classList.toggle('shadow-sm', isActive);
+                    card.classList.toggle('border-gray-200', !isActive);
+                    card.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                });
+            }
+
+            function renderMonthCards() {
+                if (!summarySection || !monthlyCardsContainer) return;
+                if (!monthsCache.length) {
+                    summarySection.classList.add('hidden');
+                    monthlyCardsContainer.innerHTML = '';
+                    return;
+                }
+
+                const cardsHtml = monthsCache.map(({ yearMonth, label }) => {
+                    const counterCount = monthlySummaryMap.get(yearMonth) || 0;
+                    const doctorCount = doctorMonthlySummaryMap.get(yearMonth) || 0;
+                    const counterLabel = counterCount === 1 ? 'counter entry' : 'counter entries';
+                    const doctorLabel = doctorCount === 1 ? 'doctor entry' : 'doctor entries';
+                    const isActive = yearMonth === selectedMonthKey;
+                    const baseClasses = 'month-card w-[calc(100%-30px)] mx-auto rounded-sm border px-2 py-1.5 text-left text-xs leading-tight transition duration-150 ease-in-out';
+                    const activeClasses = isActive
+                        ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500 shadow-sm'
+                        : 'border-gray-200 hover:border-blue-400 hover:shadow';
+                    return `
+                        <button type="button" class="${baseClasses} ${activeClasses}" data-month-key="${yearMonth}" aria-pressed="${isActive ? 'true' : 'false'}">
+                            <div class="text-[10px] font-medium text-gray-500 uppercase tracking-wide">${label}</div>
+                            <div class="mt-2 flex items-center justify-between text-sm font-semibold text-gray-800">
+                                <span>Counters</span>
+                                <span>${counterCount}</span>
+                            </div>
+                            <div class="text-[10px] text-gray-500">${counterLabel}</div>
+                            <div class="mt-1 flex items-center justify-between text-sm font-semibold text-emerald-700">
+                                <span>Doctors</span>
+                                <span>${doctorCount}</span>
+                            </div>
+                            <div class="text-[10px] text-gray-500">${doctorLabel}</div>
+                        </button>`;
+                }).join('');
+
+                monthlyCardsContainer.innerHTML = cardsHtml;
+                summarySection.classList.remove('hidden');
+
+                const totalEntries = monthsCache.reduce((sum, month) => sum
+                    + (monthlySummaryMap.get(month.yearMonth) || 0)
+                    + (doctorMonthlySummaryMap.get(month.yearMonth) || 0), 0);
+                if (summaryHelper) {
+                    summaryHelper.textContent = totalEntries
+                        ? 'Click a month card to view detailed counter and doctor work log entries.'
+                        : 'No counter or doctor work log entries recorded for the last 12 months. New submissions will appear here.';
+                }
+
+                updateMonthCardActive();
+            }
+
+            function renderReportRows(entries, yearMonth, emptyMessage) {
+                if (!reportTbody || !reportSection) return;
+                const monthLabel = getMonthLabel(yearMonth) || 'Selected Month';
+                const repLabel = selectedRepName ? selectedRepName : 'Representative';
+
+                if (reportTitle) {
+                    reportTitle.textContent = `${repLabel} · ${monthLabel}`;
+                }
+                if (reportSubtitle) {
+                    reportSubtitle.textContent = entries.length
+                        ? `Showing ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'}`
+                        : (emptyMessage || 'No entries recorded this month.');
+                }
+
+                if (!entries.length) {
+                    reportTbody.innerHTML = `<tr id="reportEmptyStateRow"><td colspan="6" class="px-4 py-6 text-center text-gray-500">${emptyMessage || 'No entries recorded this month.'}</td></tr>`;
+                    reportSection.classList.remove('hidden');
+                    updateMonthCardActive();
+                    return;
+                }
+
+                const rowsHtml = entries.map((entry) => {
+                    const created = entry.createdDate ? new Date(entry.createdDate) : null;
+                    const validDate = created instanceof Date && !Number.isNaN(created.getTime());
+                    const dateStr = validDate ? created.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
+                    const timeStr = validDate ? created.toLocaleTimeString('en-IN', { hour12: false }) : '-';
+                    const counterDisplay = entry.counterName && String(entry.counterName).trim().length
+                        ? String(entry.counterName).trim()
+                        : (entry.counterID != null ? `Counter ${entry.counterID}` : '—');
+                    const address = entry.address && String(entry.address).trim().length ? String(entry.address).trim() : '—';
+                    const latNum = entry.latitude == null ? null : Number(entry.latitude);
+                    const lonNum = entry.longitude == null ? null : Number(entry.longitude);
+                    const hasCoords = Number.isFinite(latNum) && Number.isFinite(lonNum);
+                    const coords = hasCoords ? `Lat ${latNum.toFixed(5)}, Lon ${lonNum.toFixed(5)}` : '';
+                    const mapUrl = hasCoords ? `https://www.google.com/maps?q=${encodeURIComponent(`${latNum.toFixed(6)},${lonNum.toFixed(6)}`)}` : null;
+                    const mapLink = mapUrl ? `<a href="${mapUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">(Click)</a>` : '';
+                    const addressLine = mapLink
+                        ? `<div class="flex flex-wrap items-center gap-2">${address}<span class="text-xs">${mapLink}</span></div>`
+                        : `<div>${address}</div>`;
+                    const comments = entry.comments && String(entry.comments).trim().length ? String(entry.comments).trim() : '—';
+                    let loggedBy = '—';
+                    if (entry.loggedByName && String(entry.loggedByName).trim().length) {
+                        loggedBy = String(entry.loggedByName).trim();
+                    } else if (entry.loggedByPhone && String(entry.loggedByPhone).trim().length) {
+                        loggedBy = String(entry.loggedByPhone).trim();
+                    } else if (entry.userID != null) {
+                        loggedBy = `User #${entry.userID}`;
+                    }
+                    const locationDetail = coords ? `<div class="text-xs text-gray-500">${coords}</div>` : '';
+                    return `
+                        <tr>
+                            <td class="px-4 py-2 text-sm text-gray-900">${dateStr}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${timeStr}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${counterDisplay}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${addressLine}${locationDetail}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${comments}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${loggedBy}</td>
+                        </tr>`;
+                }).join('');
+
+                reportTbody.innerHTML = rowsHtml;
+                reportSection.classList.remove('hidden');
+                updateMonthCardActive();
+            }
+
+            function renderDoctorReportRows(entries, yearMonth, emptyMessage) {
+                if (!doctorReportTbody || !doctorReportWrapper) return;
+                const monthLabel = getMonthLabel(yearMonth) || 'Selected Month';
+
+                if (doctorReportSubtitle) {
+                    doctorReportSubtitle.textContent = entries.length
+                        ? `Showing ${entries.length} doctor entr${entries.length === 1 ? 'y' : 'ies'} for ${monthLabel}.`
+                        : (emptyMessage || 'No doctor entries recorded this month.');
+                }
+
+                if (!entries.length) {
+                    doctorReportTbody.innerHTML = `<tr id="doctorReportEmptyStateRow"><td colspan="6" class="px-4 py-6 text-center text-gray-500">${emptyMessage || 'No doctor entries recorded this month.'}</td></tr>`;
+                    doctorReportWrapper.classList.remove('hidden');
+                    updateMonthCardActive();
+                    return;
+                }
+
+                const rowsHtml = entries.map((entry) => {
+                    const created = entry.createdDate ? new Date(entry.createdDate) : null;
+                    const validDate = created instanceof Date && !Number.isNaN(created.getTime());
+                    const dateStr = validDate ? created.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : '-';
+                    const timeStr = validDate ? created.toLocaleTimeString('en-IN', { hour12: false }) : '-';
+                    const doctorName = entry.doctorName && String(entry.doctorName).trim().length
+                        ? String(entry.doctorName).trim()
+                        : (entry.callId != null ? `Doctor #${entry.callId}` : '—');
+                    const speciality = entry.specialityName && String(entry.specialityName).trim().length
+                        ? String(entry.specialityName).trim()
+                        : (entry.speciality && String(entry.speciality).trim().length ? String(entry.speciality).trim() : '—');
+                    const locationMeta = [entry.cityName, entry.stateName]
+                        .map((value) => (value == null ? '' : String(value).trim()))
+                        .filter(Boolean)
+                        .join(', ');
+                    const detailHtml = `
+                        <div class="text-sm text-gray-900">${escapeHtml(doctorName)}</div>
+                        <div class="text-xs text-gray-500">${escapeHtml(speciality)}</div>`;
+                    const detailsCell = locationMeta
+                        ? `<div class="flex flex-col gap-1">
+                                ${detailHtml}
+                                <div class="text-xs text-gray-500">${escapeHtml(locationMeta)}</div>
+                           </div>`
+                        : `<div class="flex flex-col gap-1">${detailHtml}</div>`;
+
+                    const latNum = entry.latitude == null ? null : Number(entry.latitude);
+                    const lonNum = entry.longitude == null ? null : Number(entry.longitude);
+                    const hasCoords = Number.isFinite(latNum) && Number.isFinite(lonNum);
+                    const addr = entry.address && String(entry.address).trim().length ? String(entry.address).trim() : '—';
+                    const mapUrl = hasCoords ? `https://www.google.com/maps?q=${encodeURIComponent(`${latNum.toFixed(6)},${lonNum.toFixed(6)}`)}` : null;
+                    const mapLink = mapUrl ? `<a href="${mapUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">(Click)</a>` : '';
+                    const coordsLine = hasCoords ? `<div class="text-xs text-gray-500">Lat ${latNum.toFixed(5)}, Lon ${lonNum.toFixed(5)}</div>` : '';
+                    const locationCell = `
+                        <div class="flex flex-col gap-1">
+                            <div class="flex flex-wrap items-center gap-2 text-gray-900">${escapeHtml(addr)} ${mapLink}</div>
+                            ${coordsLine}
+                        </div>`;
+
+                    const comments = entry.comments && String(entry.comments).trim().length ? String(entry.comments).trim() : '—';
+
+                    return `
+                        <tr>
+                            <td class="px-4 py-2 text-sm text-gray-900">${dateStr}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${timeStr}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(doctorName)}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${detailsCell}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${locationCell}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(comments)}</td>
+                        </tr>`;
+                }).join('');
+
+                doctorReportTbody.innerHTML = rowsHtml;
+                doctorReportWrapper.classList.remove('hidden');
+                updateMonthCardActive();
+            }
+
+            async function loadMonthlySummary(repId) {
+                monthsCache = generateRecentMonths();
+                monthlySummaryMap = new Map();
+                doctorMonthlySummaryMap = new Map();
+                selectedMonthKey = null;
+                monthEntriesCache.clear();
+                doctorMonthEntriesCache.clear();
+                latestMonthRequestToken += 1;
+                latestDoctorMonthRequestToken += 1;
+
+                if (monthlyCardsContainer) {
+                    monthlyCardsContainer.innerHTML = '';
+                }
+                if (summaryHelper) {
+                    summaryHelper.textContent = 'Loading counter and doctor summaries…';
+                }
+                if (reportTbody) {
+                    reportTbody.innerHTML = '<tr id="reportEmptyStateRow"><td colspan="6" class="px-4 py-6 text-center text-gray-500">Select a month to view entries.</td></tr>';
+                }
+                if (reportSection) {
+                    reportSection.classList.add('hidden');
+                }
+                if (doctorReportTbody) {
+                    doctorReportTbody.innerHTML = '<tr id="doctorReportEmptyStateRow"><td colspan="6" class="px-4 py-6 text-center text-gray-500">Select a month to view doctor entries.</td></tr>';
+                }
+                if (doctorReportWrapper) {
+                    doctorReportWrapper.classList.add('hidden');
+                }
+
+                if (!repId) {
+                    if (summarySection) {
+                        summarySection.classList.add('hidden');
+                    }
+                    return {
+                        counters: { totalEntries: 0, error: null },
+                        doctors: { totalEntries: 0, error: null }
+                    };
+                }
+
+                let counterSummary = [];
+                let doctorSummary = [];
+                let counterError = null;
+                let doctorError = null;
+
+                const summaryPromises = [
+                    fetch(`/api/work-log/representative/${encodeURIComponent(repId)}/summary`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }).then(async (response) => {
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        const payload = await response.json();
+                        counterSummary = Array.isArray(payload?.data) ? payload.data : [];
+                    }).catch((error) => {
+                        counterError = error.message || 'Unable to load counter summary.';
+                    }),
+                    fetch(`/api/doctor-work-log/representative/${encodeURIComponent(repId)}/summary`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }).then(async (response) => {
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        const payload = await response.json();
+                        doctorSummary = Array.isArray(payload?.data) ? payload.data : [];
+                    }).catch((error) => {
+                        doctorError = error.message || 'Unable to load doctor summary.';
+                    })
+                ];
+
+                await Promise.all(summaryPromises);
+
+                monthlySummaryMap = new Map(
+                    counterSummary.map((item) => [item.yearMonth, Number(item.entryCount) || 0])
+                );
+                doctorMonthlySummaryMap = new Map(
+                    doctorSummary.map((item) => [item.yearMonth, Number(item.entryCount) || 0])
+                );
+
+                if (counterError && doctorError) {
+                    const message = `${counterError} ${doctorError}`.trim();
+                    setStatus(message || 'Unable to load work log summaries.', 'error');
+                    if (summaryHelper) {
+                        summaryHelper.textContent = 'Unable to load counter or doctor summaries.';
+                    }
+                    if (summarySection) {
+                        summarySection.classList.add('hidden');
+                    }
+                    return {
+                        counters: { totalEntries: 0, error: counterError },
+                        doctors: { totalEntries: 0, error: doctorError }
+                    };
+                }
+
+                renderMonthCards();
+
+                const totalCounterEntries = counterSummary.reduce((sum, item) => sum + (Number(item.entryCount) || 0), 0);
+                const totalDoctorEntries = doctorSummary.reduce((sum, item) => sum + (Number(item.entryCount) || 0), 0);
+
+                const defaultMonth = monthsCache.find((m) =>
+                    (monthlySummaryMap.get(m.yearMonth) || 0) > 0
+                    || (doctorMonthlySummaryMap.get(m.yearMonth) || 0) > 0
+                ) || monthsCache[0];
+
+                if (defaultMonth) {
+                    await selectMonth(defaultMonth.yearMonth, { suppressStatus: true });
+                } else if (monthsCache.length) {
+                    selectedMonthKey = monthsCache[0].yearMonth;
+                    updateMonthCardActive();
+                    renderReportRows([], monthsCache[0].yearMonth, 'No counter entries recorded this month.');
+                    renderDoctorReportRows([], monthsCache[0].yearMonth, 'No doctor entries recorded this month.');
+                } else {
+                    renderReportRows([], null, 'No counter entries recorded.');
+                    renderDoctorReportRows([], null, 'No doctor entries recorded.');
+                }
+
+                if (counterError || doctorError) {
+                    const parts = [];
+                    if (counterError) parts.push(counterError);
+                    if (doctorError) parts.push(doctorError);
+                    setStatus(parts.join(' '), 'error');
+                }
+
+                return {
+                    counters: { totalEntries: totalCounterEntries, error: counterError },
+                    doctors: { totalEntries: totalDoctorEntries, error: doctorError }
+                };
+            }
+
+            async function selectMonth(yearMonth, options = {}) {
+                if (!yearMonth || !selectedRepId) {
+                    resetWorkLogChart({ showPlaceholder: false });
+                    return;
+                }
+                const sameSelection = selectedMonthKey === yearMonth && !options.force;
+
+                selectedMonthKey = yearMonth;
+                updateMonthCardActive();
+
+                if (sameSelection) {
+                    if (monthEntriesCache.has(yearMonth)) {
+                        renderReportRows(monthEntriesCache.get(yearMonth), yearMonth);
+                    }
+                    if (doctorMonthEntriesCache.has(yearMonth)) {
+                        renderDoctorReportRows(doctorMonthEntriesCache.get(yearMonth), yearMonth);
+                    }
+
+                    const needsCounterFetch = !monthEntriesCache.has(yearMonth);
+                    const needsDoctorFetch = !doctorMonthEntriesCache.has(yearMonth);
+
+                    if (!needsCounterFetch && !needsDoctorFetch) {
+                        updateWorkLogChart(yearMonth);
+                        return;
+                    }
+
+                    await Promise.all([
+                        needsCounterFetch ? fetchMonthLogs(yearMonth, options) : Promise.resolve(),
+                        needsDoctorFetch ? fetchDoctorMonthLogs(yearMonth, options) : Promise.resolve()
+                    ]);
+                    updateWorkLogChart(yearMonth);
+                    return;
+                }
+
+                await Promise.all([
+                    fetchMonthLogs(yearMonth, options),
+                    fetchDoctorMonthLogs(yearMonth, options)
+                ]);
+                updateWorkLogChart(yearMonth);
+            }
+
+            async function fetchMonthLogs(yearMonth, options = {}) {
+                if (!yearMonth || !selectedRepId) return;
+                const { suppressStatus = false, refresh = false } = options;
+                const monthLabel = getMonthLabel(yearMonth) || yearMonth;
+                const cached = monthEntriesCache.get(yearMonth);
+
+                if (cached && !refresh) {
+                    renderReportRows(cached, yearMonth);
+                    if (!suppressStatus) {
+                        setStatus(`Showing cached entries for ${monthLabel}.`, 'info');
+                    }
+                    return;
+                }
+
+                const requestToken = ++latestMonthRequestToken;
+
+                if (reportTbody) {
+                    reportTbody.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-center text-gray-500">Loading entries…</td></tr>';
+                }
+                if (reportSubtitle) {
+                    reportSubtitle.textContent = `Loading entries for ${monthLabel}…`;
+                }
+                if (reportSection) {
+                    reportSection.classList.remove('hidden');
+                }
+
+                try {
+                    const response = await fetch(`/api/work-log/representative/${encodeURIComponent(selectedRepId)}/month/${encodeURIComponent(yearMonth)}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const payload = await response.json();
+                    const entries = Array.isArray(payload?.data) ? payload.data : [];
+
+                    if (requestToken !== latestMonthRequestToken) {
+                        return;
+                    }
+
+                    monthEntriesCache.set(yearMonth, entries);
+                    renderReportRows(entries, yearMonth);
+
+                    if (!suppressStatus) {
+                        setStatus(
+                            entries.length
+                                ? `Loaded ${entries.length} entr${entries.length === 1 ? 'y' : 'ies'} for ${monthLabel}.`
+                                : `No work log entries found for ${monthLabel}.`,
+                            entries.length ? 'success' : 'info'
+                        );
+                    }
+                } catch (error) {
+                    console.error('Failed to load work log entries', error);
+                    if (requestToken !== latestMonthRequestToken) {
+                        return;
+                    }
+                    renderReportRows([], yearMonth, error.message || 'Unable to load work log entries.');
+                    if (!suppressStatus) {
+                        setStatus(error.message || 'Unable to load work log entries.', 'error');
+                    }
+                }
+            }
+
+            async function fetchDoctorMonthLogs(yearMonth, options = {}) {
+                if (!yearMonth || !selectedRepId) return;
+                const { suppressStatus = false, refresh = false } = options;
+                const monthLabel = getMonthLabel(yearMonth) || yearMonth;
+                const cached = doctorMonthEntriesCache.get(yearMonth);
+
+                if (cached && !refresh) {
+                    renderDoctorReportRows(cached, yearMonth);
+                    if (!suppressStatus) {
+                        setStatus(
+                            cached.length
+                                ? `Showing cached doctor entries for ${monthLabel}.`
+                                : `No doctor work log entries found for ${monthLabel}.`,
+                            cached.length ? 'info' : 'info'
+                        );
+                    }
+                    return;
+                }
+
+                const requestToken = ++latestDoctorMonthRequestToken;
+
+                if (doctorReportTbody) {
+                    doctorReportTbody.innerHTML = '<tr><td colspan="6" class="px-4 py-6 text-center text-gray-500">Loading doctor entries…</td></tr>';
+                }
+                if (doctorReportSubtitle) {
+                    doctorReportSubtitle.textContent = `Loading doctor entries for ${monthLabel}…`;
+                }
+                if (doctorReportWrapper) {
+                    doctorReportWrapper.classList.remove('hidden');
+                }
+
+                try {
+                    const response = await fetch(`/api/doctor-work-log/representative/${encodeURIComponent(selectedRepId)}/month/${encodeURIComponent(yearMonth)}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const payload = await response.json();
+                    const entries = Array.isArray(payload?.data) ? payload.data : [];
+
+                    if (requestToken !== latestDoctorMonthRequestToken) {
+                        return;
+                    }
+
+                    doctorMonthEntriesCache.set(yearMonth, entries);
+                    renderDoctorReportRows(entries, yearMonth);
+
+                    if (!suppressStatus) {
+                        setStatus(
+                            entries.length
+                                ? `Loaded ${entries.length} doctor entr${entries.length === 1 ? 'y' : 'ies'} for ${monthLabel}.`
+                                : `No doctor work log entries found for ${monthLabel}.`,
+                            entries.length ? 'success' : 'info'
+                        );
+                    }
+                } catch (error) {
+                    console.error('Failed to load doctor work log entries', error);
+                    if (requestToken !== latestDoctorMonthRequestToken) {
+                        return;
+                    }
+                    renderDoctorReportRows([], yearMonth, error.message || 'Unable to load doctor work log entries.');
+                    if (!suppressStatus) {
+                        setStatus(error.message || 'Unable to load doctor work log entries.', 'error');
+                    }
+                }
+            }
+
+            async function fetchUserContext(authToken) {
+                const resolved = { userId: null, designationId: null, name: null };
+                try {
+                    const res = await fetch('/api/access/me', {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const payload = data?.data || {};
+                        resolved.userId = payload.userId ?? payload.id ?? null;
+                        resolved.designationId = payload.designation_id ?? payload.designationId ?? null;
+                        resolved.name = payload.name ?? payload.full_name ?? payload.fullName ?? null;
+                    }
+                } catch (err) {
+                    console.warn('Failed to fetch user context', err);
+                }
+
+                try {
+                    const stored = JSON.parse(localStorage.getItem('userData') || 'null');
+                    if (stored) {
+                        if (resolved.userId == null) {
+                            resolved.userId = stored.id ?? stored.userId ?? stored.user_id ?? null;
+                        }
+                        if (resolved.designationId == null) {
+                            resolved.designationId = stored.designation_id ?? stored.designationId ?? null;
+                        }
+                        if (!resolved.name) {
+                            resolved.name = stored.name ?? stored.fullName ?? stored.full_name ?? stored.username ?? stored.mobile ?? null;
+                        }
+                    }
+                } catch (_) {
+                    /* ignore */
+                }
+
+                return resolved;
+            }
+
+            function filterRepresentatives(list) {
+                if (!Array.isArray(list) || !list.length) return [];
+                if (isManager && currentUserId != null) {
+                    const managerId = normalizeId(currentUserId);
+                    return list.filter(rep => getRepManagerId(rep) === managerId);
+                }
+                if (isRepresentative && currentUserId != null) {
+                    const myId = normalizeId(currentUserId);
+                    return list.filter(rep => getRepIdentifier(rep) === myId);
+                }
+                return list;
+            }
+
+            function setRepHelperText() {
+                if (!repHelper) return;
+                if (isManager) {
+                    repHelper.textContent = 'Managers can log work only for their assigned representatives.';
+                } else if (isViewer) {
+                    repHelper.textContent = 'Viewers can pick any representative to review or log visits.';
+                } else if (isAdmin) {
+                    repHelper.textContent = 'Admins can log work for any representative.';
+                } else if (isRepresentative) {
+                    repHelper.textContent = 'You can log work for your assigned counters.';
+                } else {
+                    repHelper.textContent = 'Start by choosing a representative.';
+                }
+            }
+
+            function populateRepOptions(reps) {
+                if (!repSelect) return;
+                const list = Array.isArray(reps) ? reps : [];
+                if (!list.length) {
+                    repSelect.innerHTML = '<option value="">No representatives available</option>';
+                    counterSelectSection.classList.add('hidden');
+                    setStatus('No representatives available for your role.', 'error');
+                    return;
+                }
+
+                repSelect.innerHTML = '<option value="">-- Select Representative --</option>' + list.map(rep => {
+                    const id = getRepIdentifier(rep);
+                    const name = safeText(rep.name ?? rep.fullName ?? rep.username ?? rep.phone ?? rep.mobile ?? `Rep ${id}`);
+                    return `<option value="${id}" data-name="${name}">${name}</option>`;
+                }).join('');
+
+                if ((isManager || isRepresentative) && list.length === 1) {
+                    const only = getRepIdentifier(list[0]);
+                    repSelect.value = only || '';
+                    const selectedName = repSelect.selectedOptions[0]?.dataset.name || '';
+                    applyRepresentativeSelection(only, selectedName);
+                }
+            }
+
+            function populateCounterOptions(counters) {
+                if (!counterSelect) return;
+                const list = Array.isArray(counters) ? counters : [];
+
+                if (!list.length) {
+                    counterSelect.innerHTML = '<option value="">No counters for this representative</option>';
+                    if (counterHelper) {
+                        counterHelper.textContent = 'No counters available. Make sure the representative has assigned counters.';
+                    }
+                    if (counterSelectSection) {
+                        counterSelectSection.classList.remove('hidden');
+                    }
+                    return;
+                }
+
+                counterSelect.innerHTML = '<option value="">-- Select Counter --</option>' + list.map(counter => {
+                    const id = getCounterId(counter);
+                    const name = safeText(getCounterName(counter));
+                    const city = safeText(counter?.cityName ?? counter?.CityName ?? counter?.city ?? '', '');
+                    const display = city ? `${name} — ${city}` : name;
+                    return `<option value="${id}">${display}</option>`;
+                }).join('');
+
+                if (counterHelper) {
+                    counterHelper.textContent = 'Choose a counter to record a visit log.';
+                }
+                if (counterSelectSection) {
+                    counterSelectSection.classList.remove('hidden');
+                }
+                counterSelect.value = '';
+            }
+
+            function resetWorkLogChart({ showPlaceholder = false } = {}) {
+                if (workLogChart) {
+                    workLogChart.destroy();
+                    workLogChart = null;
+                }
+                if (workLogChartSection) {
+                    workLogChartSection.classList.add('hidden');
+                }
+                if (workLogChartEmpty) {
+                    if (showPlaceholder) {
+                        workLogChartEmpty.textContent = 'Select a month to visualize work log activity.';
+                        workLogChartEmpty.classList.remove('hidden');
+                    } else {
+                        workLogChartEmpty.classList.add('hidden');
+                    }
+                }
+                if (workLogChartSubtitle) {
+                    workLogChartSubtitle.textContent = '';
+                }
+            }
+
+            function getEntryDateKey(entry) {
+                const raw = entry?.createdDate
+                    ?? entry?.created_at
+                    ?? entry?.createdAt
+                    ?? entry?.logDate
+                    ?? entry?.visitDate
+                    ?? entry?.date
+                    ?? null;
+                if (!raw) return null;
+                const date = new Date(raw);
+                if (Number.isNaN(date.getTime())) return null;
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function getAllDayKeysForMonth(yearMonth) {
+                if (!yearMonth || typeof yearMonth !== 'string') return [];
+                const parts = yearMonth.split('-');
+                if (parts.length !== 2) return [];
+                const [yearPart, monthPart] = parts;
+                const yearNum = Number(yearPart);
+                const monthNum = Number(monthPart);
+                if (!Number.isFinite(yearNum) || !Number.isFinite(monthNum)) return [];
+                const monthIndex = Math.max(1, Math.min(12, monthNum));
+                const paddedMonth = String(monthIndex).padStart(2, '0');
+                const daysInMonth = new Date(yearNum, monthIndex, 0).getDate();
+                const keys = [];
+                for (let day = 1; day <= daysInMonth; day += 1) {
+                    keys.push(`${yearNum}-${paddedMonth}-${String(day).padStart(2, '0')}`);
+                }
+                return keys;
+            }
+
+            function aggregateWorkLogData(yearMonth) {
+                const counters = monthEntriesCache.get(yearMonth) || [];
+                const doctors = doctorMonthEntriesCache.get(yearMonth) || [];
+                const dailyMap = new Map();
+
+                const increment = (key, field) => {
+                    if (!dailyMap.has(key)) {
+                        dailyMap.set(key, { counter: 0, doctor: 0 });
+                    }
+                    const bucket = dailyMap.get(key);
+                    bucket[field] += 1;
+                };
+
+                counters.forEach((entry) => {
+                    const key = getEntryDateKey(entry);
+                    if (!key) return;
+                    increment(key, 'counter');
+                });
+
+                doctors.forEach((entry) => {
+                    const key = getEntryDateKey(entry);
+                    if (!key) return;
+                    increment(key, 'doctor');
+                });
+
+                const targetKeys = getAllDayKeysForMonth(yearMonth);
+                const sortedKeys = targetKeys.length
+                    ? targetKeys
+                    : Array.from(dailyMap.keys()).sort();
+
+                const labels = sortedKeys.map((key) => {
+                    const [year, month, day] = key.split('-');
+                    const date = new Date(Number(year), Number(month) - 1, Number(day));
+                    return Number.isNaN(date.getTime())
+                        ? key
+                        : date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                });
+
+                const counterCounts = sortedKeys.map((key) => (dailyMap.get(key)?.counter ?? 0));
+                const doctorCounts = sortedKeys.map((key) => (dailyMap.get(key)?.doctor ?? 0));
+                const totalCounts = sortedKeys.map((key, idx) => counterCounts[idx] + doctorCounts[idx]);
+
+                return { labels, counterCounts, doctorCounts, totalCounts, dateKeys: sortedKeys };
+            }
+
+            function updateWorkLogChart(yearMonth) {
+                if (!workLogChartSection || !workLogChartCanvas || typeof Chart === 'undefined') {
+                    return;
+                }
+
+                if (!yearMonth) {
+                    resetWorkLogChart({ showPlaceholder: true });
+                    return;
+                }
+
+                const { labels, counterCounts, doctorCounts, totalCounts, dateKeys } = aggregateWorkLogData(yearMonth);
+                const monthLabel = getMonthLabel(yearMonth) || yearMonth;
+
+                if (!labels.length) {
+                    if (workLogChart) {
+                        workLogChart.destroy();
+                        workLogChart = null;
+                    }
+                    workLogChartSection.classList.remove('hidden');
+                    if (workLogChartEmpty) {
+                        workLogChartEmpty.textContent = 'No work log entries recorded for this month.';
+                        workLogChartEmpty.classList.remove('hidden');
+                    }
+                    if (workLogChartSubtitle) {
+                        workLogChartSubtitle.textContent = monthLabel;
+                    }
+                    return;
+                }
+
+                if (workLogChartEmpty) {
+                    workLogChartEmpty.classList.add('hidden');
+                }
+                workLogChartSection.classList.remove('hidden');
+                if (workLogChartSubtitle) {
+                    workLogChartSubtitle.textContent = monthLabel;
+                }
+
+                const ctx = workLogChartCanvas.getContext('2d');
+                if (workLogChart) {
+                    workLogChart.destroy();
+                }
+
+                const sundayIndices = new Set();
+                (dateKeys || []).forEach((key, idx) => {
+                    const parts = typeof key === 'string' ? key.split('-') : [];
+                    if (parts.length === 3) {
+                        const [year, month, day] = parts.map(Number);
+                        if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+                            const date = new Date(year, month - 1, day);
+                            if (!Number.isNaN(date.getTime()) && date.getDay() === 0) {
+                                sundayIndices.add(idx);
+                            }
+                        }
+                    }
+                });
+
+                workLogChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Total Calls',
+                                data: totalCounts,
+                                backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                                borderColor: 'rgba(37, 99, 235, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Counters',
+                                data: counterCounts,
+                                backgroundColor: 'rgba(16, 185, 129, 0.6)',
+                                borderColor: 'rgba(5, 150, 105, 1)',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Doctors',
+                                data: doctorCounts,
+                                backgroundColor: 'rgba(249, 115, 22, 0.6)',
+                                borderColor: 'rgba(194, 65, 12, 1)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: (context) => (sundayIndices.has(context.index) ? '#dc2626' : '#374151')
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Entries'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
+                    }
+                });
+            }
+
+            function resetDoctorDisplay() {
+                selectedDoctorId = null;
+                currentDoctorList = [];
+                if (doctorSelect) {
+                    doctorSelect.innerHTML = '<option value="">Select a representative first…</option>';
+                    doctorSelect.value = '';
+                    doctorSelect.disabled = true;
+                }
+                if (doctorSearchInput) {
+                    doctorSearchInput.value = '';
+                    doctorSearchInput.disabled = true;
+                }
+                if (doctorSearchWrapper) {
+                    doctorSearchWrapper.classList.add('hidden');
+                }
+                if (doctorSelectSection) {
+                    doctorSelectSection.classList.add('hidden');
+                }
+                if (doctorSelectHelper) {
+                    doctorSelectHelper.textContent = 'Choose a doctor to log a visit.';
+                    doctorSelectHelper.classList.remove('text-red-600');
+                    doctorSelectHelper.classList.add('text-gray-500');
+                }
+            }
+
+            function setDoctorLoading() {
+                selectedDoctorId = null;
+                if (doctorSelectSection) {
+                    doctorSelectSection.classList.remove('hidden');
+                }
+                if (doctorSearchWrapper) {
+                    doctorSearchWrapper.classList.remove('hidden');
+                }
+                if (doctorSearchInput) {
+                    doctorSearchInput.value = '';
+                    doctorSearchInput.disabled = true;
+                }
+                if (doctorSelect) {
+                    doctorSelect.disabled = true;
+                    doctorSelect.innerHTML = '<option value="">Loading doctors…</option>';
+                    doctorSelect.value = '';
+                }
+                if (doctorSelectHelper) {
+                    doctorSelectHelper.textContent = 'Loading doctors…';
+                    doctorSelectHelper.classList.remove('text-red-600');
+                    doctorSelectHelper.classList.add('text-gray-500');
+                }
+            }
+
+            function renderDoctorOptions(doctors, searchTerm = '', preserveSelection = null) {
+                if (!doctorSelect) return;
+                const normalizedSelection = preserveSelection ? normalizeId(preserveSelection) : null;
+                const normalizedTerm = searchTerm.trim().toLowerCase();
+                const baseList = Array.isArray(doctors) ? doctors.slice() : [];
+
+                baseList.sort((a, b) => {
+                    const nameA = (getDoctorDisplayName(a) || '').toLowerCase();
+                    const nameB = (getDoctorDisplayName(b) || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+
+                const filteredList = normalizedTerm
+                    ? baseList.filter((doctor, index) => {
+                        const displayName = (getDoctorDisplayName(doctor) || '').toLowerCase();
+                        const speciality = (doctor?.specialityName || doctor?.specialityLabel || doctor?.speciality || doctor?.speciality_name || '').toString().toLowerCase();
+                        const city = (doctor?.cityName || doctor?.city || '').toString().toLowerCase();
+                        const state = (doctor?.state || doctor?.stateName || '').toString().toLowerCase();
+                        const haystack = `${displayName} ${speciality} ${city} ${state}`;
+                        return haystack.includes(normalizedTerm);
+                    })
+                    : baseList;
+
+                if (!filteredList.length) {
+                    doctorSelect.disabled = true;
+                    doctorSelect.innerHTML = '<option value="">No doctors match search</option>';
+                    if (doctorSelectHelper) {
+                        doctorSelectHelper.textContent = 'No doctors match the search. Adjust your keywords.';
+                        doctorSelectHelper.classList.remove('text-gray-500');
+                        doctorSelectHelper.classList.add('text-red-600');
+                    }
+                    return;
+                }
+
+                const options = ['<option value="">-- Select Doctor --</option>'];
+                filteredList.forEach((doctor, index) => {
+                    const docId = getDoctorIdentifier(doctor) || `doctor-${index}`;
+                    const displayName = getDoctorDisplayName(doctor) || 'Doctor';
+                    const upperName = displayName.toUpperCase();
+                    const speciality = (doctor?.specialityName || doctor?.specialityLabel || doctor?.speciality || doctor?.speciality_name || '').toString().trim();
+                    const city = (doctor?.cityName || doctor?.city || '').toString().trim();
+                    const state = (doctor?.state || doctor?.stateName || '').toString().trim();
+                    const location = [city, state].filter(Boolean).join(', ');
+                    const metaParts = [];
+                    if (speciality) metaParts.push(speciality);
+                    if (location) metaParts.push(location);
+                    const label = metaParts.length ? `${upperName} — ${metaParts.join(' • ')}` : upperName;
+                    options.push(`<option value="${escapeHtml(docId)}">${escapeHtml(label)}</option>`);
+                });
+
+                doctorSelect.disabled = false;
+                doctorSelect.innerHTML = options.join('');
+
+                if (doctorSelectHelper) {
+                    doctorSelectHelper.textContent = 'Choose a doctor to log a visit.';
+                    doctorSelectHelper.classList.remove('text-red-600');
+                    doctorSelectHelper.classList.add('text-gray-500');
+                }
+
+                if (normalizedSelection) {
+                    const hasSelected = filteredList.some((doctor, index) => {
+                        const docId = getDoctorIdentifier(doctor) || `doctor-${index}`;
+                        return normalizeId(docId) === normalizedSelection;
+                    });
+                    doctorSelect.value = hasSelected ? normalizedSelection : '';
+                } else {
+                    doctorSelect.value = '';
+                }
+            }
+
+            function updateDoctorDropdown(doctors) {
+                if (!doctorSelect) return;
+                currentDoctorList = Array.isArray(doctors) ? doctors.filter(Boolean) : [];
+
+                if (!currentDoctorList.length) {
+                    if (doctorSelectSection) {
+                        doctorSelectSection.classList.add('hidden');
+                    }
+                    if (doctorSearchWrapper) {
+                        doctorSearchWrapper.classList.add('hidden');
+                    }
+                    if (doctorSearchInput) {
+                        doctorSearchInput.value = '';
+                        doctorSearchInput.disabled = true;
+                    }
+                    doctorSelect.disabled = true;
+                    doctorSelect.innerHTML = '<option value="">No doctors available</option>';
+                    doctorSelect.value = '';
+                    selectedDoctorId = null;
+                    if (doctorSelectHelper) {
+                        doctorSelectHelper.textContent = 'No doctors linked to this representative yet.';
+                        doctorSelectHelper.classList.remove('text-red-600');
+                        doctorSelectHelper.classList.add('text-gray-500');
+                    }
+                    return;
+                }
+
+                if (doctorSelectSection) {
+                    doctorSelectSection.classList.remove('hidden');
+                }
+                if (doctorSearchWrapper) {
+                    doctorSearchWrapper.classList.remove('hidden');
+                }
+                if (doctorSearchInput) {
+                    doctorSearchInput.disabled = false;
+                    doctorSearchInput.value = '';
+                }
+
+                renderDoctorOptions(currentDoctorList, '', selectedDoctorId);
+            }
+
+            function findDoctorById(repId, doctorId) {
+                const normalizedRepId = normalizeId(repId);
+                if (!normalizedRepId) return null;
+                const normalizedDoctorId = normalizeId(doctorId);
+                if (!normalizedDoctorId) return null;
+                const doctors = doctorsCacheByRep.get(normalizedRepId);
+                if (!Array.isArray(doctors)) return null;
+                return doctors.find((doctor, index) => {
+                    const candidate = getDoctorIdentifier(doctor) || `doctor-${index}`;
+                    return normalizeId(candidate) === normalizedDoctorId;
+                }) || null;
+            }
+
+            function showDoctorError(message) {
+                selectedDoctorId = null;
+                currentDoctorList = [];
+                if (doctorSelectSection) {
+                    doctorSelectSection.classList.remove('hidden');
+                }
+                if (doctorSearchWrapper) {
+                    doctorSearchWrapper.classList.remove('hidden');
+                }
+                if (doctorSearchInput) {
+                    doctorSearchInput.value = '';
+                    doctorSearchInput.disabled = true;
+                }
+                if (doctorSelect) {
+                    doctorSelect.disabled = true;
+                    doctorSelect.innerHTML = '<option value="">Unable to load doctors</option>';
+                    doctorSelect.value = '';
+                }
+                if (doctorSelectHelper) {
+                    doctorSelectHelper.textContent = message || 'Unable to load doctors.';
+                    doctorSelectHelper.classList.remove('text-gray-500');
+                    doctorSelectHelper.classList.add('text-red-600');
+                }
+            }
+
+            async function loadDoctorsForRepresentative(repId, { force = false } = {}) {
+                const normalized = normalizeId(repId);
+                if (!normalized) {
+                    resetDoctorDisplay();
+                    return { count: 0 };
+                }
+
+                if (!force && doctorsCacheByRep.has(normalized)) {
+                    const cached = doctorsCacheByRep.get(normalized);
+                    const list = Array.isArray(cached) ? cached : [];
+                    updateDoctorDropdown(list);
+                    return { count: list.length };
+                }
+
+                setDoctorLoading();
+                const requestId = ++doctorsRequestToken;
+                try {
+                    const params = new URLSearchParams({ representativeId: normalized });
+                    const res = await fetch(`/api/doctor-calls?${params.toString()}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    if (!res.ok) {
+                        const message = await res.text();
+                        throw new Error(message || `HTTP ${res.status}`);
+                    }
+                    const payload = await res.json();
+                    const doctors = Array.isArray(payload?.data?.doctors)
+                        ? payload.data.doctors
+                        : Array.isArray(payload?.data)
+                            ? payload.data
+                            : Array.isArray(payload?.doctors)
+                                ? payload.doctors
+                                : [];
+
+                    if (requestId !== doctorsRequestToken) {
+                        return {};
+                    }
+
+                    doctorsCacheByRep.set(normalized, doctors);
+                    updateDoctorDropdown(doctors);
+                    return { count: doctors.length };
+                } catch (error) {
+                    if (requestId !== doctorsRequestToken) {
+                        return {};
+                    }
+                    console.error('Failed to load doctors', error);
+                    showDoctorError(error.message || 'Unable to load doctors.');
+                    return { error: error.message || 'Unable to load doctors.' };
+                }
+            }
+
+            async function ensureCountersLoaded() {
+                if (countersLoaded) return;
+                setStatus('Loading counters…');
+                try {
+                    const res = await fetch('/api/counters', {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const json = await res.json();
+                    const data = Array.isArray(json.data) ? json.data : Array.isArray(json.counters) ? json.counters : json;
+                    countersCache = Array.isArray(data) ? data : [];
+                    countersCache.forEach(counter => {
+                        const id = getCounterId(counter);
+                        if (id != null) {
+                            countersById.set(id, counter);
+                        }
+                    });
+                    countersLoaded = true;
+                    clearStatus();
+                } catch (err) {
+                    console.error('Failed to load counters', err);
+                    setStatus('Unable to load counters. Please try again later.', 'error');
+                }
+            }
+
+            function getCountersForRep(repId) {
+                if (!repId) return [];
+                const target = normalizeId(repId);
+                return countersCache.filter(counter => getCounterRepId(counter) === target);
+            }
+
+            function updateRepSummary(name) {
+                if (!repSummary || !selectedRepLabel) return;
+                if (!name) {
+                    repSummary.classList.add('hidden');
+                    selectedRepLabel.textContent = '';
+                    return;
+                }
+                selectedRepLabel.textContent = name;
+                repSummary.classList.remove('hidden');
+            }
+
+            function removeEmptyState() {
+                const emptyRow = document.getElementById('emptyStateRow');
+                if (emptyRow && emptyRow.parentElement) {
+                    emptyRow.remove();
+                }
+            }
+
+            function resetLog() {
+                logEntries.clear();
+                logTbody.innerHTML = '';
+                logTbody.insertAdjacentHTML('beforeend', '<tr id="emptyStateRow"><td colspan="7" class="px-4 py-6 text-center text-gray-500">No entries yet. Select a counter to log your visit.</td></tr>');
+                entryCounter = 0;
+                logSection.classList.add('hidden');
+                clearLogBtn.classList.add('hidden');
+            }
+
+            function resetDoctorLog() {
+                doctorLogEntries.clear();
+                doctorLogTbody.innerHTML = '';
+                doctorLogTbody.insertAdjacentHTML('beforeend', '<tr id="doctorEmptyStateRow"><td colspan="8" class="px-4 py-6 text-center text-gray-500">No entries yet. Select a doctor to log your visit.</td></tr>');
+                doctorEntryCounter = 0;
+                if (doctorLogSection) {
+                    doctorLogSection.classList.add('hidden');
+                }
+                if (clearDoctorLogBtn) {
+                    clearDoctorLogBtn.classList.add('hidden');
+                }
+            }
+
+            function removeDoctorEmptyState() {
+                const emptyRow = document.getElementById('doctorEmptyStateRow');
+                if (emptyRow && emptyRow.parentElement) {
+                    emptyRow.remove();
+                }
+            }
+
+            function addLogRow(counter, locationInfo, timestamp) {
+                removeEmptyState();
+                entryCounter += 1;
+
+                const counterIdRaw = getCounterId(counter);
+                const counterIdNum = counterIdRaw != null && counterIdRaw !== '' ? Number(counterIdRaw) : null;
+                const counterName = safeText(getCounterName(counter), 'Counter');
+                const dateStr = timestamp.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+                const timeStr = timestamp.toLocaleTimeString('en-IN', { hour12: false });
+
+                const latNum = typeof locationInfo.latitude === 'number' ? locationInfo.latitude : null;
+                const lonNum = typeof locationInfo.longitude === 'number' ? locationInfo.longitude : null;
+                const hasCoords = Number.isFinite(latNum) && Number.isFinite(lonNum);
+                const canSubmit = hasCoords && Number.isFinite(counterIdNum);
+
+                const entryId = `worklog-${Date.now()}-${entryCounter}-${Math.random().toString(16).slice(2, 8)}`;
+                const addressDisplay = typeof locationInfo.display === 'string' && locationInfo.display.trim().length
+                    ? locationInfo.display.trim()
+                    : (hasCoords ? `Lat ${latNum?.toFixed(5)}, Lon ${lonNum?.toFixed(5)}` : 'Location unavailable');
+                const detailValue = typeof locationInfo.detail === 'string' ? locationInfo.detail.trim() : '';
+                const addressForStorage = detailValue ? `${addressDisplay} | ${detailValue}` : addressDisplay;
+                const accuracyMeters = Number.isFinite(locationInfo.accuracy) ? Math.max(0, Math.round(locationInfo.accuracy)) : null;
+
+                const entry = {
+                    id: entryId,
+                    counterId: counterIdNum,
+                    counterIdRaw,
+                    timestamp,
+                    latitude: hasCoords ? Number(latNum.toFixed(7)) : null,
+                    longitude: hasCoords ? Number(lonNum.toFixed(7)) : null,
+                    addressDisplay,
+                    addressDetail: detailValue,
+                    addressForStorage,
+                    accuracy: accuracyMeters,
+                    canSubmit,
+                    status: canSubmit ? 'pending' : 'blocked'
+                };
+                logEntries.set(entryId, entry);
+
+                const detailHtml = detailValue ? `<div class="text-xs text-gray-500">${safeText(detailValue, detailValue)}</div>` : '';
+                const accuracyBadge = Number.isFinite(accuracyMeters)
+                    ? `<span class="inline-flex items-center rounded bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">±${accuracyMeters} m</span>`
+                    : '';
+                const locationHtml = locationInfo.success
+                    ? `<div class="flex flex-wrap items-center gap-2 text-gray-900">${safeText(addressDisplay, addressDisplay)}${accuracyBadge}</div>${detailHtml}`
+                    : `<div class="text-red-600">${safeText(addressDisplay, addressDisplay)}</div>${detailHtml}`;
+
+                const commentPlaceholder = canSubmit ? 'Add comments (optional)' : 'Location required to submit';
+                const buttonDisabledAttr = canSubmit ? '' : 'disabled';
+                const commentDisabledAttr = canSubmit ? '' : 'disabled';
+                const buttonClasses = canSubmit
+                    ? 'submit-log-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200'
+                    : 'submit-log-btn bg-blue-500 text-white px-3 py-1.5 rounded-md text-sm font-medium opacity-60 cursor-not-allowed';
+                const statusText = canSubmit
+                    ? (accuracyMeters != null ? `Pending submission · ±${accuracyMeters} m` : 'Pending submission')
+                    : 'Location unavailable; cannot submit';
+                const statusClass = canSubmit ? 'text-gray-500' : 'text-red-600';
+
+                const rowHtml = `
+                    <tr data-entry-id="${entryId}">
+                        <td class="px-4 py-2 text-sm text-gray-900">${entryCounter}</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">${counterName}</td>
+                        <td class="px-4 py-2 text-sm">${locationHtml}</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">${dateStr}</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">${timeStr}</td>
+                        <td class="px-4 py-2 text-sm">
+                            <input type="text" class="log-comment-input w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${canSubmit ? '' : 'opacity-60 cursor-not-allowed'}" placeholder="${commentPlaceholder}" maxlength="255" ${commentDisabledAttr}>
+                        </td>
+                        <td class="px-4 py-2 text-sm">
+                            <div class="flex flex-col gap-1">
+                                <button type="button" class="${buttonClasses}" ${buttonDisabledAttr}>Submit</button>
+                                <span class="log-status text-xs ${statusClass}">${statusText}</span>
+                            </div>
+                        </td>
+                    </tr>`;
+
+                logTbody.insertAdjacentHTML('afterbegin', rowHtml);
+                logSection.classList.remove('hidden');
+                clearLogBtn.classList.remove('hidden');
+            }
+
+            function addDoctorLogRow(doctor, locationInfo, timestamp) {
+                if (!doctorLogTbody) return;
+                removeDoctorEmptyState();
+                doctorEntryCounter += 1;
+
+                const doctorIdRaw = getDoctorIdentifier(doctor);
+                const doctorIdNum = doctorIdRaw != null && doctorIdRaw !== '' ? Number(doctorIdRaw) : null;
+                const doctorName = getDoctorDisplayName(doctor);
+                const speciality = safeText(doctor?.specialityName || doctor?.specialityLabel || doctor?.speciality || doctor?.speciality_name, '—');
+                const city = safeText(doctor?.cityName || doctor?.city, '');
+                const state = safeText(doctor?.state || doctor?.stateName, '');
+                const address = safeText(doctor?.address, '—');
+                const locationMeta = [city, state].filter(Boolean).join(', ');
+                const timestampDate = timestamp instanceof Date ? timestamp : new Date();
+                const dateStr = timestampDate.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+                const timeStr = timestampDate.toLocaleTimeString('en-IN', { hour12: false });
+
+                const latNum = typeof locationInfo.latitude === 'number' ? locationInfo.latitude : null;
+                const lonNum = typeof locationInfo.longitude === 'number' ? locationInfo.longitude : null;
+                const hasCoords = Number.isFinite(latNum) && Number.isFinite(lonNum);
+                const canSubmit = hasCoords && Number.isFinite(doctorIdNum);
+
+                const normalizedDoctorId = normalizeId(doctorIdRaw);
+                const entryId = normalizedDoctorId
+                    ? `doctor-${normalizedDoctorId}`
+                    : `drworklog-${Date.now()}-${doctorEntryCounter}-${Math.random().toString(16).slice(2, 8)}`;
+
+                if (doctorLogEntries.has(entryId) && doctorLogTbody) {
+                    const existingRow = doctorLogTbody.querySelector(`[data-doctor-entry-id="${entryId}"]`);
+                    if (existingRow) {
+                        existingRow.remove();
+                    }
+                }
+                const addressDisplay = typeof locationInfo.display === 'string' && locationInfo.display.trim().length
+                    ? locationInfo.display.trim()
+                    : (hasCoords ? `Lat ${latNum?.toFixed(5)}, Lon ${lonNum?.toFixed(5)}` : 'Location unavailable');
+                const detailValue = typeof locationInfo.detail === 'string' ? locationInfo.detail.trim() : '';
+                const addressForStorage = detailValue ? `${addressDisplay} | ${detailValue}` : addressDisplay;
+                const accuracyMeters = Number.isFinite(locationInfo.accuracy) ? Math.max(0, Math.round(locationInfo.accuracy)) : null;
+
+                const entry = {
+                    id: entryId,
+                    doctorId: doctorIdNum,
+                    doctorIdRaw,
+                    timestamp: timestampDate,
+                    latitude: hasCoords ? Number(latNum.toFixed(6)) : null,
+                    longitude: hasCoords ? Number(lonNum.toFixed(6)) : null,
+                    addressDisplay,
+                    addressDetail: detailValue,
+                    addressForStorage,
+                    accuracy: accuracyMeters,
+                    canSubmit,
+                    status: canSubmit ? 'pending' : 'blocked'
+                };
+
+                doctorLogEntries.set(entryId, entry);
+
+                const detailHtmlParts = [];
+                if (speciality && speciality !== '—') {
+                    detailHtmlParts.push(`<span class="font-medium text-gray-900">${escapeHtml(speciality)}</span>`);
+                }
+                if (locationMeta) {
+                    detailHtmlParts.push(`<span class="text-gray-500">${escapeHtml(locationMeta)}</span>`);
+                }
+
+                const accuracyBadge = Number.isFinite(accuracyMeters)
+                    ? `<span class="inline-flex items-center rounded bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">±${accuracyMeters} m</span>`
+                    : '';
+                const detailHtml = detailHtmlParts.length
+                    ? `<div class="flex flex-wrap items-center gap-2 text-xs">${detailHtmlParts.join('<span class="text-gray-300">•</span>')}</div>`
+                    : '<div class="text-xs text-gray-400">No additional details</div>';
+
+                const doctorAddressHtml = address && address !== '—'
+                    ? `<div class="text-xs text-gray-500 leading-snug mt-1">${escapeHtml(address)}</div>`
+                    : '';
+
+                const locationStatusHtml = locationInfo.success
+                    ? `<div class="flex flex-wrap items-center gap-2 text-gray-900">${escapeHtml(addressDisplay)}${accuracyBadge}</div>${detailValue ? `<div class="text-xs text-gray-500">${escapeHtml(detailValue)}</div>` : ''}`
+                    : `<div class="text-red-600">${escapeHtml(addressDisplay)}</div>${detailValue ? `<div class="text-xs text-gray-500">${escapeHtml(detailValue)}</div>` : ''}`;
+
+                const commentPlaceholder = canSubmit ? 'Add comments (optional)' : 'Location required to submit';
+                const buttonDisabledAttr = canSubmit ? '' : 'disabled';
+                const commentDisabledAttr = canSubmit ? '' : 'disabled';
+                const buttonClasses = canSubmit
+                    ? 'submit-doctor-log-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200'
+                    : 'submit-doctor-log-btn bg-blue-500 text-white px-3 py-1.5 rounded-md text-sm font-medium opacity-60 cursor-not-allowed';
+                const statusText = canSubmit
+                    ? (accuracyMeters != null ? `Pending submission · ±${accuracyMeters} m` : 'Pending submission')
+                    : 'Location unavailable; cannot submit';
+                const statusClass = canSubmit ? 'text-gray-500' : 'text-red-600';
+
+                const rowHtml = `
+                    <tr data-doctor-entry-id="${entryId}">
+                        <td class="px-4 py-2 text-sm text-gray-900">${doctorEntryCounter}</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">
+                            <div class="font-semibold">${escapeHtml(doctorName)}</div>
+                            ${detailHtml}
+                            ${doctorAddressHtml}
+                        </td>
+                        <td class="px-4 py-2 text-sm text-gray-900">
+                            <div class="text-xs text-gray-500">Doctor ID: ${escapeHtml(String(doctorIdRaw ?? '—'))}</div>
+                            ${locationMeta ? `<div class="text-xs text-gray-500">${escapeHtml(locationMeta)}</div>` : ''}
+                        </td>
+                        <td class="px-4 py-2 text-sm">${locationStatusHtml}</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">${dateStr}</td>
+                        <td class="px-4 py-2 text-sm text-gray-900">${timeStr}</td>
+                        <td class="px-4 py-2 text-sm">
+                            <input type="text" class="doctor-log-comment-input w-full px-2 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${canSubmit ? '' : 'opacity-60 cursor-not-allowed'}" placeholder="${commentPlaceholder}" maxlength="255" ${commentDisabledAttr}>
+                        </td>
+                        <td class="px-4 py-2 text-sm">
+                            <div class="flex flex-col gap-1">
+                                <button type="button" class="${buttonClasses}" ${buttonDisabledAttr}>Submit</button>
+                                <span class="doctor-log-status text-xs ${statusClass}">${statusText}</span>
+                            </div>
+                        </td>
+                    </tr>`;
+
+                doctorLogTbody.insertAdjacentHTML('afterbegin', rowHtml);
+                if (doctorLogSection) {
+                    doctorLogSection.classList.remove('hidden');
+                }
+                if (clearDoctorLogBtn) {
+                    clearDoctorLogBtn.classList.remove('hidden');
+                }
+            }
+
+            function setDoctorRowStatus(row, message, tone = 'info') {
+                if (!row) return;
+                const statusEl = row.querySelector('.doctor-log-status');
+                if (!statusEl) return;
+                statusEl.textContent = message;
+                statusEl.classList.remove('text-gray-500', 'text-green-600', 'text-red-600');
+                const toneClass = tone === 'success' ? 'text-green-600' : tone === 'error' ? 'text-red-600' : 'text-gray-500';
+                statusEl.classList.add(toneClass);
+            }
+
+            async function submitDoctorLogEntry(row) {
+                if (!row) return;
+                const entryId = row.getAttribute('data-doctor-entry-id');
+                if (!entryId) return;
+                const entry = doctorLogEntries.get(entryId);
+                if (!entry) {
+                    setDoctorRowStatus(row, 'Unable to locate log data for submission.', 'error');
+                    return;
+                }
+                if (!entry.canSubmit) {
+                    setDoctorRowStatus(row, 'Location unavailable; cannot submit', 'error');
+                    return;
+                }
+                if (entry.status === 'submitted' || entry.submitting) {
+                    return;
+                }
+                if (!Number.isFinite(entry.doctorId)) {
+                    setDoctorRowStatus(row, 'Invalid doctor reference.', 'error');
+                    return;
+                }
+                if (!Number.isFinite(entry.latitude) || !Number.isFinite(entry.longitude)) {
+                    setDoctorRowStatus(row, 'Missing coordinates for submission.', 'error');
+                    return;
+                }
+                const button = row.querySelector('.submit-doctor-log-btn');
+                const commentInput = row.querySelector('.doctor-log-comment-input');
+                const commentsRaw = commentInput ? commentInput.value.trim() : '';
+                const addressToSend = (entry.addressForStorage || entry.addressDisplay || '').toString().slice(0, 255);
+                const commentsToSend = commentsRaw ? commentsRaw.slice(0, 255) : null;
+                if (commentInput && commentsToSend !== commentsRaw) {
+                    commentInput.value = commentsToSend || '';
+                }
+                entry.addressForStorage = addressToSend;
+
+                entry.submitting = true;
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Submitting…';
+                    button.classList.add('opacity-60', 'cursor-not-allowed');
+                }
+                setDoctorRowStatus(row, 'Submitting…', 'info');
+
+                try {
+                    const response = await fetch('/api/doctor-work-log', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            doctorID: entry.doctorId,
+                            latitude: entry.latitude,
+                            longitude: entry.longitude,
+                            address: addressToSend,
+                            comments: commentsToSend
+                        })
+                    });
+
+                    let payload = {};
+                    try {
+                        payload = await response.json();
+                    } catch (_) {
+                        payload = {};
+                    }
+
+                    if (!response.ok || payload.success === false) {
+                        throw new Error(payload.message || 'Failed to submit doctor work log');
+                    }
+
+                    entry.status = 'submitted';
+                    entry.submitting = false;
+                    entry.comment = commentsToSend;
+                    if (button) {
+                        button.textContent = 'Submitted';
+                        button.disabled = true;
+                        button.classList.add('opacity-60', 'cursor-not-allowed');
+                    }
+                    if (commentInput) {
+                        commentInput.disabled = true;
+                        commentInput.classList.add('opacity-60', 'cursor-not-allowed');
+                    }
+                    setDoctorRowStatus(row, 'Submitted', 'success');
+                    setStatus('Doctor work log saved successfully.', 'success');
+                } catch (error) {
+                    entry.submitting = false;
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = 'Submit';
+                        button.classList.remove('opacity-60', 'cursor-not-allowed');
+                    }
+                    setDoctorRowStatus(row, error.message || 'Failed to submit doctor work log.', 'error');
+                    setStatus(error.message || 'Failed to submit doctor work log.', 'error');
+                }
+            }
+
+            function setRowStatus(row, message, tone = 'info') {
+                if (!row) return;
+                const statusEl = row.querySelector('.log-status');
+                if (!statusEl) return;
+                statusEl.textContent = message;
+                statusEl.classList.remove('text-gray-500', 'text-green-600', 'text-red-600');
+                const toneClass = tone === 'success' ? 'text-green-600' : tone === 'error' ? 'text-red-600' : 'text-gray-500';
+                statusEl.classList.add(toneClass);
+            }
+
+            async function submitLogEntry(row) {
+                if (!row) return;
+                const entryId = row.getAttribute('data-entry-id');
+                if (!entryId) return;
+                const entry = logEntries.get(entryId);
+                if (!entry) {
+                    setRowStatus(row, 'Unable to locate log data for submission.', 'error');
+                    return;
+                }
+                if (!entry.canSubmit) {
+                    setRowStatus(row, 'Location unavailable; cannot submit', 'error');
+                    return;
+                }
+                if (entry.status === 'submitted' || entry.submitting) {
+                    return;
+                }
+                if (!Number.isFinite(entry.counterId)) {
+                    setRowStatus(row, 'Invalid counter reference.', 'error');
+                    return;
+                }
+                if (!Number.isFinite(entry.latitude) || !Number.isFinite(entry.longitude)) {
+                    setRowStatus(row, 'Missing coordinates for submission.', 'error');
+                    return;
+                }
+                if (!Number.isFinite(currentUserId)) {
+                    setRowStatus(row, 'Unable to determine logged in user.', 'error');
+                    setStatus('Unable to determine logged in user. Please refresh and sign in again.', 'error');
+                    return;
+                }
+
+                const button = row.querySelector('.submit-log-btn');
+                const commentInput = row.querySelector('.log-comment-input');
+                const commentsRaw = commentInput ? commentInput.value.trim() : '';
+                const addressToSend = (entry.addressForStorage || entry.addressDisplay || '').toString().slice(0, 255);
+                const commentsToSend = commentsRaw ? commentsRaw.slice(0, 255) : null;
+                if (commentInput && commentsToSend !== commentsRaw) {
+                    commentInput.value = commentsToSend || '';
+                }
+                entry.addressForStorage = addressToSend;
+                const submittingUserId = Number(currentUserId);
+                entry.userId = submittingUserId;
+
+                entry.submitting = true;
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Submitting…';
+                    button.classList.add('opacity-60', 'cursor-not-allowed');
+                }
+                setRowStatus(row, 'Submitting…', 'info');
+
+                try {
+                    const response = await fetch('/api/work-log', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            counterID: entry.counterId,
+                            latitude: entry.latitude,
+                            longitude: entry.longitude,
+                            address: addressToSend,
+                            comments: commentsToSend,
+                            userID: submittingUserId
+                        })
+                    });
+
+                    let payload = {};
+                    try {
+                        payload = await response.json();
+                    } catch (_) {
+                        payload = {};
+                    }
+
+                    if (!response.ok || payload.success === false) {
+                        throw new Error(payload.message || 'Failed to submit work log');
+                    }
+
+                    entry.status = 'submitted';
+                    entry.submitting = false;
+                    entry.comment = commentsToSend;
+                    if (button) {
+                        button.textContent = 'Submitted';
+                        button.disabled = true;
+                        button.classList.add('opacity-60', 'cursor-not-allowed');
+                    }
+                    if (commentInput) {
+                        commentInput.disabled = true;
+                        commentInput.classList.add('opacity-60', 'cursor-not-allowed');
+                    }
+                    setRowStatus(row, 'Submitted', 'success');
+                    setStatus('Work log saved successfully.', 'success');
+                } catch (error) {
+                    entry.submitting = false;
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = 'Submit';
+                        button.classList.remove('opacity-60', 'cursor-not-allowed');
+                    }
+                    setRowStatus(row, error.message || 'Failed to submit work log.', 'error');
+                    setStatus(error.message || 'Failed to submit work log.', 'error');
+                }
+            }
+
+            function getLocationDisplayFromPosition(position) {
+                const { latitude, longitude, accuracy } = position.coords || {};
+                const latNum = typeof latitude === 'number' ? latitude : null;
+                const lonNum = typeof longitude === 'number' ? longitude : null;
+                if (latNum == null || lonNum == null) {
+                    return {
+                        success: false,
+                        display: 'Location unavailable',
+                        detail: '',
+                        latitude: null,
+                        longitude: null
+                    };
+                }
+                const detail = typeof accuracy === 'number' ? `Accuracy ±${Math.round(accuracy)} m` : '';
+                return {
+                    success: true,
+                    display: `Lat ${latNum.toFixed(5)}, Lon ${lonNum.toFixed(5)}`,
+                    detail,
+                    latitude: latNum,
+                    longitude: lonNum,
+                    accuracy: typeof accuracy === 'number' ? accuracy : null
+                };
+            }
+
+            function getLocationErrorDisplay(error) {
+                if (!error) return 'Unable to retrieve location';
+                if (typeof error.code === 'number') {
+                    switch (error.code) {
+                        case error.PERMISSION_DENIED:
+                            return 'Location permission denied';
+                        case error.POSITION_UNAVAILABLE:
+                            return 'Location information is unavailable';
+                        case error.TIMEOUT:
+                            return 'Location request timed out';
+                        default:
+                            return error.message || 'Failed to retrieve location';
+                    }
+                }
+                return error.message || 'Failed to retrieve location';
+            }
+
+            function getCurrentPosition(options = { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }) {
+                return new Promise((resolve, reject) => {
+                    if (!navigator.geolocation) {
+                        reject(new Error('Geolocation is not supported by this browser'));
+                        return;
+                    }
+                    navigator.geolocation.getCurrentPosition(resolve, reject, options);
+                });
+            }
+
+            async function obtainPrecisePosition({
+                maxAttempts = 2,
+                accuracyThreshold = 40,
+                initialTimeout = 6000,
+                timeoutIncrement = 3000,
+                onAttemptStart = null
+            } = {}) {
+                if (!navigator.geolocation) {
+                    throw new Error('Geolocation is not supported by this browser');
+                }
+
+                let lastError = null;
+                let lastPosition = null;
+
+                for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+                    const attemptTimeout = initialTimeout + (attempt - 1) * timeoutIncrement;
+                    if (typeof onAttemptStart === 'function') {
+                        try {
+                            onAttemptStart({ attempt, maxAttempts, attemptTimeout, highAccuracy: true });
+                        } catch (_) {}
+                    }
+                    try {
+                        const position = await getCurrentPosition({
+                            enableHighAccuracy: true,
+                            timeout: attemptTimeout,
+                            maximumAge: 0
+                        });
+
+                        lastPosition = position;
+                        const accuracy = Number(position?.coords?.accuracy);
+                        if (Number.isFinite(accuracy) && accuracy <= accuracyThreshold) {
+                            return {
+                                position,
+                                accuracy,
+                                attempts: attempt,
+                                satisfied: true,
+                                usedFallback: false
+                            };
+                        }
+                    } catch (error) {
+                        lastError = error;
+                        if (attempt === maxAttempts) {
+                            break;
+                        }
+                    }
+                }
+
+                if (lastPosition) {
+                    const accuracy = Number(lastPosition?.coords?.accuracy);
+                    return {
+                        position: lastPosition,
+                        accuracy: Number.isFinite(accuracy) ? accuracy : null,
+                        attempts: maxAttempts,
+                        satisfied: false,
+                        usedFallback: false,
+                        lastError
+                    };
+                }
+
+                try {
+                    const fallbackAttempt = maxAttempts + 1;
+                    const fallbackTimeout = initialTimeout + maxAttempts * timeoutIncrement;
+                    if (typeof onAttemptStart === 'function') {
+                        try {
+                            onAttemptStart({ attempt: fallbackAttempt, maxAttempts: fallbackAttempt, attemptTimeout: fallbackTimeout, highAccuracy: false });
+                        } catch (_) {}
+                    }
+                    const fallbackPosition = await getCurrentPosition({
+                        enableHighAccuracy: false,
+                        timeout: fallbackTimeout,
+                        maximumAge: 10000
+                    });
+                    const fallbackAccuracy = Number(fallbackPosition?.coords?.accuracy);
+                    return {
+                        position: fallbackPosition,
+                        accuracy: Number.isFinite(fallbackAccuracy) ? fallbackAccuracy : null,
+                        attempts: maxAttempts + 1,
+                        satisfied: false,
+                        usedFallback: true,
+                        lastError
+                    };
+                } catch (fallbackError) {
+                    throw fallbackError || lastError || new Error('Unable to retrieve location');
+                }
+            }
+
+
+                    async function fetchAddressFromCoordinates(lat, lon) {
+                        const endpoint = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(lat)}&longitude=${encodeURIComponent(lon)}&localityLanguage=en`;
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 8000);
+                        try {
+                            const response = await fetch(endpoint, {
+                                headers: { 'Accept': 'application/json' },
+                                signal: controller.signal
+                            });
+                            clearTimeout(timeoutId);
+                            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                            return await response.json();
+                        } catch (error) {
+                            clearTimeout(timeoutId);
+                            throw error;
+                        }
+                    }
+
+                    function formatAddressFromGeocode(data) {
+                        if (!data || typeof data !== 'object') return null;
+                        const admin = Array.isArray(data.localityInfo?.administrative) ? data.localityInfo.administrative : [];
+                        const informative = Array.isArray(data.localityInfo?.informative) ? data.localityInfo.informative : [];
+
+                        const areaCandidates = [];
+                        if (data.locality) areaCandidates.push(data.locality);
+                        informative.forEach(item => {
+                            if (['Suburb', 'Neighbourhood', 'Neighborhood', 'Quarter'].includes(item.description) && item.name) {
+                                areaCandidates.push(item.name);
+                            }
+                        });
+                        admin.forEach(item => {
+                            if (['District', 'County'].includes(item.description) && item.name) {
+                                areaCandidates.push(item.name);
+                            }
+                        });
+
+                        const area = areaCandidates.find(Boolean);
+                        const city = data.city || admin.find(item => item.description === 'City')?.name || data.locality || '';
+                        const state = data.principalSubdivision || admin.find(item => item.description === 'State')?.name || '';
+                        const country = data.countryName || '';
+
+                        const mainParts = [];
+                        if (area) mainParts.push(area);
+                        if (city && city !== area) mainParts.push(city);
+                        if (!mainParts.length && city) mainParts.push(city);
+                        if (!mainParts.length && state) mainParts.push(state);
+                        if (!mainParts.length && country) mainParts.push(country);
+
+                        const detailParts = [];
+                        if (state && !mainParts.includes(state)) detailParts.push(state);
+                        if (country) detailParts.push(country);
+
+                        const dedupe = (arr) => Array.from(new Set(arr.filter(Boolean)));
+                        return {
+                            main: dedupe(mainParts).join(', ') || null,
+                            detail: dedupe(detailParts).join(', ') || null
+                        };
+                    }
+
+                    async function buildLocationInfo(position, options = {}) {
+                        const base = getLocationDisplayFromPosition(position);
+                        if (!base.success) return base;
+
+                        const latNum = typeof base.latitude === 'number' ? base.latitude : null;
+                        const lonNum = typeof base.longitude === 'number' ? base.longitude : null;
+                        if (latNum == null || lonNum == null) return base;
+
+                        const providedAccuracy = Number(options.accuracy);
+                        if (Number.isFinite(providedAccuracy)) {
+                            base.accuracy = providedAccuracy;
+                        }
+
+                        const coordText = `Lat ${latNum.toFixed(5)}, Lon ${lonNum.toFixed(5)}`;
+                        const detailParts = [coordText];
+                        if (typeof base.accuracy === 'number') {
+                            detailParts.push(`Accuracy ±${Math.round(base.accuracy)} m`);
+                        }
+                        if (base.detail && !detailParts.includes(base.detail)) {
+                            detailParts.push(base.detail);
+                        }
+
+                        try {
+                            const geoData = await fetchAddressFromCoordinates(latNum, lonNum);
+                            const formatted = formatAddressFromGeocode(geoData);
+                            if (formatted?.main) {
+                                const combinedDetail = [formatted.detail, ...detailParts].filter(Boolean).join(' • ');
+                                return {
+                                    success: true,
+                                    display: formatted.main,
+                                    detail: combinedDetail,
+                                    latitude: latNum,
+                                    longitude: lonNum,
+                                    accuracy: typeof base.accuracy === 'number' ? base.accuracy : null
+                                };
+                            }
+                        } catch (error) {
+                            console.warn('Reverse geocoding failed', error);
+                        }
+
+                        return {
+                            success: true,
+                            display: coordText,
+                            detail: detailParts.join(' • '),
+                            latitude: latNum,
+                            longitude: lonNum,
+                            accuracy: typeof base.accuracy === 'number' ? base.accuracy : null
+                        };
+                    }
+            async function handleCounterSelection(counterId) {
+                const counter = countersById.get(counterId);
+                if (!counter) {
+                    setStatus('Unable to find the selected counter.', 'error');
+                    return;
+                }
+                setStatus('Capturing current location…');
+                const timestamp = new Date();
+                try {
+                    const geoResult = await obtainPrecisePosition({
+                        maxAttempts: 2,
+                        accuracyThreshold: 40,
+                        initialTimeout: 6000,
+                        timeoutIncrement: 3000,
+                        onAttemptStart: ({ attempt, maxAttempts: totalAttempts, highAccuracy }) => {
+                            const modeLabel = highAccuracy ? 'high accuracy' : 'quick fallback';
+                            const prefix = highAccuracy
+                                ? `Capturing location (${modeLabel}, attempt ${attempt}/${totalAttempts})…`
+                                : 'High accuracy taking too long. Trying a quick location fix…';
+                            setStatus(prefix, 'info');
+                        }
+                    });
+                    const locationInfo = await buildLocationInfo(geoResult.position, { accuracy: geoResult.accuracy });
+                    locationInfo.accuracy = geoResult.accuracy;
+                    locationInfo.accuracySatisfied = geoResult.satisfied;
+                    locationInfo.accuracyAttempts = geoResult.attempts;
+                    locationInfo.usedFallback = geoResult.usedFallback;
+                    addLogRow(counter, locationInfo, timestamp);
+                    if (Number.isFinite(locationInfo.accuracy)) {
+                        const rounded = Math.max(1, Math.round(locationInfo.accuracy));
+                        const tone = locationInfo.accuracySatisfied || rounded <= 50 ? 'success' : 'info';
+                        const suffix = locationInfo.accuracySatisfied
+                            ? ''
+                            : ' • For better accuracy, ensure GPS is enabled and move to an open area before capturing again.';
+                        const fallbackNote = locationInfo.usedFallback ? ' • High-accuracy signal was unavailable, so a coarse reading was used.' : '';
+                        setStatus(`Location captured (±${rounded} m).${suffix}${fallbackNote}`, tone);
+                    } else {
+                        setStatus('Location captured and log entry created.', 'success');
+                    }
+                } catch (error) {
+                    console.warn('Geolocation error', error);
+                    const message = getLocationErrorDisplay(error);
+                    addLogRow(counter, { success: false, display: message, detail: '' }, timestamp);
+                    const timeoutGuidance = 'Enable GPS/high-accuracy mode, move to an open area, then reselect the counter to retry.';
+                    const finalMessage = (typeof error?.code === 'number' && error.code === error.TIMEOUT)
+                        ? `${message}. ${timeoutGuidance}`
+                        : message;
+                    setStatus(finalMessage, 'error');
+                }
+            }
+
+            async function handleDoctorSelection(doctorId) {
+                const doctor = findDoctorById(selectedRepId, doctorId);
+                if (!doctor) {
+                    setStatus('Unable to find the selected doctor.', 'error');
+                    return;
+                }
+
+                setStatus('Capturing current location for doctor visit…');
+                const timestamp = new Date();
+                try {
+                    const geoResult = await obtainPrecisePosition({
+                        maxAttempts: 2,
+                        accuracyThreshold: 40,
+                        initialTimeout: 6000,
+                        timeoutIncrement: 3000,
+                        onAttemptStart: ({ attempt, maxAttempts: totalAttempts, highAccuracy }) => {
+                            const modeLabel = highAccuracy ? 'high accuracy' : 'quick fallback';
+                            const prefix = highAccuracy
+                                ? `Capturing location (${modeLabel}, attempt ${attempt}/${totalAttempts})…`
+                                : 'High accuracy taking too long. Trying a quick location fix…';
+                            setStatus(prefix, 'info');
+                        }
+                    });
+                    const locationInfo = await buildLocationInfo(geoResult.position, { accuracy: geoResult.accuracy });
+                    locationInfo.accuracy = geoResult.accuracy;
+                    locationInfo.accuracySatisfied = geoResult.satisfied;
+                    locationInfo.accuracyAttempts = geoResult.attempts;
+                    locationInfo.usedFallback = geoResult.usedFallback;
+                    addDoctorLogRow(doctor, locationInfo, timestamp);
+                    if (Number.isFinite(locationInfo.accuracy)) {
+                        const rounded = Math.max(1, Math.round(locationInfo.accuracy));
+                        const tone = locationInfo.accuracySatisfied || rounded <= 50 ? 'success' : 'info';
+                        const suffix = locationInfo.accuracySatisfied
+                            ? ''
+                            : ' • For better accuracy, ensure GPS is enabled and move to an open area before capturing again.';
+                        const fallbackNote = locationInfo.usedFallback ? ' • High-accuracy signal was unavailable, so a coarse reading was used.' : '';
+                        setStatus(`Location captured for doctor visit (±${rounded} m).${suffix}${fallbackNote}`, tone);
+                    } else {
+                        setStatus('Location captured and doctor log entry created.', 'success');
+                    }
+                } catch (error) {
+                    console.warn('Geolocation error (doctor)', error);
+                    const message = getLocationErrorDisplay(error);
+                    addDoctorLogRow(doctor, { success: false, display: message, detail: '' }, timestamp);
+                    const timeoutGuidance = 'Enable GPS/high-accuracy mode, move to an open area, then reselect the doctor to retry.';
+                    const finalMessage = (typeof error?.code === 'number' && error.code === error.TIMEOUT)
+                        ? `${message}. ${timeoutGuidance}`
+                        : message;
+                    setStatus(finalMessage, 'error');
+                }
+            }
+
+            async function applyRepresentativeSelection(repId, repName) {
+                selectedRepId = repId ? normalizeId(repId) : null;
+                selectedRepName = repName ? repName.trim() : '';
+                updateRepSummary(selectedRepName || '');
+                counterSelect.value = '';
+                counterSelectSection.classList.add('hidden');
+                clearStatus();
+                resetReportSections();
+                resetDoctorDisplay();
+                resetDoctorLog();
+
+                if (!selectedRepId) {
+                    setStatus('Pick a representative to load counters.');
+                    return;
+                }
+
+                await ensureCountersLoaded();
+                const counters = getCountersForRep(selectedRepId);
+                populateCounterOptions(counters);
+
+                const [summaryResult, doctorResult] = await Promise.all([
+                    loadMonthlySummary(selectedRepId),
+                    loadDoctorsForRepresentative(selectedRepId)
+                ]);
+
+                const doctorCount = Number.isFinite(doctorResult?.count) ? doctorResult.count : 0;
+                const doctorMessage = doctorResult?.error
+                    ? `Doctor list unavailable${doctorResult.error ? ` (${doctorResult.error})` : ''}.`
+                    : doctorCount
+                        ? `${doctorCount} doctor${doctorCount === 1 ? ' is' : 's are'} linked to this representative.`
+                        : 'No doctors are linked to this representative yet.';
+
+                const counterSummaryInfo = summaryResult?.counters || {};
+                const doctorSummaryInfo = summaryResult?.doctors || {};
+                const counterSummaryError = counterSummaryInfo.error || null;
+                const doctorSummaryError = doctorSummaryInfo.error || null;
+                const counterTotalEntries = Number(counterSummaryInfo.totalEntries) || 0;
+                const doctorTotalEntries = Number(doctorSummaryInfo.totalEntries) || 0;
+                const hasHistoricalEntries = (counterTotalEntries + doctorTotalEntries) > 0;
+                const summaryErrorNotes = [];
+                if (counterSummaryError) summaryErrorNotes.push(`Counter summary error: ${counterSummaryError}`);
+                if (doctorSummaryError) summaryErrorNotes.push(`Doctor summary error: ${doctorSummaryError}`);
+                const totalsMessage = `Monthly totals — Counters: ${counterTotalEntries}, Doctors: ${doctorTotalEntries}.`;
+
+                const summaryErrorDetail = summaryErrorNotes.join(' ');
+
+                if (counters.length) {
+                    const parts = [
+                        'Counters loaded.',
+                        doctorMessage
+                    ];
+
+                    let tone = 'info';
+                    if (hasHistoricalEntries) {
+                        parts.push('You can log a visit or review recent work log entries below.');
+                        parts.push(totalsMessage);
+                        tone = 'success';
+                    } else {
+                        parts.push('No prior counter or doctor logs recorded yet. Select a counter or doctor to capture a new entry.');
+                    }
+
+                    if (summaryErrorDetail) {
+                        parts.push(summaryErrorDetail);
+                        tone = 'error';
+                    }
+
+                    setStatus(parts.join(' '), tone);
+                } else {
+                    const parts = [
+                        'No counters linked to this representative yet.',
+                        doctorMessage
+                    ];
+
+                    if (hasHistoricalEntries) {
+                        parts.push(totalsMessage);
+                    }
+
+                    let tone = doctorResult?.error || summaryErrorDetail ? 'error' : 'info';
+                    if (summaryErrorDetail) {
+                        parts.push(summaryErrorDetail);
+                    }
+
+                    setStatus(parts.join(' '), tone);
+                }
+            }
+
+            function handleClearLog() {
+                resetLog();
+                setStatus('Log cleared.', 'info');
+            }
+
+            repSelect.addEventListener('change', async () => {
+                const option = repSelect.selectedOptions[0];
+                const repId = repSelect.value;
+                const name = option?.dataset.name || option?.textContent || '';
+                await applyRepresentativeSelection(repId, name);
+            });
+
+            counterSelect.addEventListener('change', async () => {
+                const counterId = counterSelect.value;
+                if (!counterId) return;
+                await handleCounterSelection(counterId);
+                counterSelect.value = '';
+            });
+
+            if (doctorSearchInput) {
+                doctorSearchInput.addEventListener('input', () => {
+                    const term = doctorSearchInput.value || '';
+                    renderDoctorOptions(currentDoctorList, term, selectedDoctorId);
+                });
+            }
+
+            if (doctorSelect) {
+                doctorSelect.addEventListener('change', async () => {
+                    selectedDoctorId = normalizeId(doctorSelect.value);
+                    if (selectedDoctorId) {
+                        await handleDoctorSelection(selectedDoctorId);
+                        doctorSelect.value = '';
+                        selectedDoctorId = null;
+                        if (doctorSelectHelper) {
+                            doctorSelectHelper.textContent = 'Choose a doctor to log a visit.';
+                            doctorSelectHelper.classList.remove('text-red-600');
+                            doctorSelectHelper.classList.add('text-gray-500');
+                        }
+                    }
+                });
+            }
+
+            logTbody.addEventListener('click', async (event) => {
+                const button = event.target.closest('.submit-log-btn');
+                if (!button) return;
+                const row = button.closest('tr[data-entry-id]');
+                if (!row) return;
+                await submitLogEntry(row);
+            });
+
+            if (doctorLogTbody) {
+                doctorLogTbody.addEventListener('click', async (event) => {
+                    const button = event.target.closest('.submit-doctor-log-btn');
+                    if (!button) return;
+                    const row = button.closest('tr[data-doctor-entry-id]');
+                    if (!row) return;
+                    await submitDoctorLogEntry(row);
+                });
+            }
+
+            clearLogBtn.addEventListener('click', handleClearLog);
+
+            if (clearDoctorLogBtn) {
+                clearDoctorLogBtn.addEventListener('click', () => {
+                    resetDoctorLog();
+                    setStatus('Doctor log cleared.', 'info');
+                });
+            }
+
+            if (monthlyCardsContainer) {
+                monthlyCardsContainer.addEventListener('click', async (event) => {
+                    const card = event.target.closest('[data-month-key]');
+                    if (!card) return;
+                    const monthKey = card.getAttribute('data-month-key');
+                    if (!monthKey) return;
+                    await selectMonth(monthKey);
+                });
+            }
+
+            const userContext = await fetchUserContext(token);
+            currentUserId = userContext.userId != null ? Number(userContext.userId) : null;
+            designationId = userContext.designationId != null ? Number(userContext.designationId) : null;
+            const userName = userContext.name || '';
+
+            isAdmin = designationId === 4;
+            isManager = designationId === 1;
+            isViewer = designationId === 3;
+            isRepresentative = designationId === 2;
+
+            setRepHelperText();
+
+            try {
+                const res = await fetch('/api/users/designation/2', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const json = await res.json();
+                const repsRaw = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : (json.users || json.results || []);
+                availableReps = filterRepresentatives(repsRaw);
+            } catch (err) {
+                console.error('Failed to load representatives', err);
+                availableReps = [];
+            }
+
+            if (isRepresentative) {
+                repSelectSection.classList.add('hidden');
+                const repId = normalizeId(currentUserId);
+                const repName = userName || 'You';
+                if (repSelect) {
+                    repSelect.value = repId || '';
+                }
+                await applyRepresentativeSelection(repId, repName);
+            } else {
+                resetReportSections();
+                resetDoctorDisplay();
+                repSelectSection.classList.remove('hidden');
+                populateRepOptions(availableReps);
+                setStatus('Pick a representative to load counters.');
+            }
+        });
+    </script>
+</body>
+</html>

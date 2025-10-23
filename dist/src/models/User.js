@@ -123,6 +123,19 @@ class User {
         }
     }
 
+    static async logLogin(userId) {
+        try {
+            const [result] = await pool.execute(
+                `INSERT INTO ${TABLES.USER_LOG} (userID) VALUES (?)`,
+                [userId]
+            );
+            return result.insertId;
+        } catch (error) {
+            console.error('Error logging user login:', error);
+            throw error;
+        }
+    }
+
     // Additional methods for user management
     static async getAll() {
         try {

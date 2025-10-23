@@ -148,29 +148,34 @@ class NavigationLoader {
                     const links = container.querySelectorAll('.nav-link');
                     links.forEach(l => l.classList.remove('active'));
                     const path = window.location.pathname;
-                    const pageKey = (p => {
-                        if (p.includes('dashboard.html')) return 'dashboard';
-                        if (p.includes('user.html')) return 'users';
-                        if (p.includes('product.html')) return 'products';
-                        if (p.includes('counter.html')) return 'counters';
-                        // Group these under Transactions for highlighting
-                        if (p.includes('order.html')) return 'transactions';
-                        if (p.includes('myOrders.html')) return 'my-orders';
-                        if (p.includes('user.html') || p.includes('page-access.html')) return 'others';
-                        if (p.includes('collections.html')) return 'transactions';
-                        if (p.includes('payments.html')) return 'transactions';
-                        if (p.includes('page-access.html')) return 'page-access';
-                        if (p.includes('RepSalesReport.html')) return 'reports';
-                        if (p.includes('newCounters.html')) return 'reports';
-                        if (p.includes('countersdue.html')) return 'counters-due';
-                        return null;
-                    })(path);
-                    if (pageKey) {
+                    const pageKeys = [];
+                    const pushKey = (key) => {
+                        if (key && !pageKeys.includes(key)) pageKeys.push(key);
+                    };
+
+                    if (path.includes('dashboard.html')) pushKey('dashboard');
+                    if (path.includes('product.html')) pushKey('products');
+                    if (path.includes('counter.html')) pushKey('counters');
+                    if (path.includes('order.html')) { pushKey('orders'); pushKey('transactions'); }
+                    if (path.includes('collections.html')) { pushKey('collections'); pushKey('transactions'); }
+                    if (path.includes('payments.html')) { pushKey('payments'); pushKey('transactions'); }
+                    if (path.includes('myOrders.html')) pushKey('my-orders');
+                    if (path.includes('countersdue.html')) pushKey('counters-due');
+                    if (path.includes('RepSalesReport.html')) { pushKey('rep-sales-report'); pushKey('reports'); }
+                    if (path.includes('SalesVsExpReport.html')) { pushKey('sales-vs-exp-report'); pushKey('reports'); }
+                    if (path.includes('newCounters.html')) { pushKey('new-counters-report'); pushKey('reports'); }
+                    if (path.includes('WorkLog.html')) { pushKey('work-log-report'); pushKey('reports'); }
+                    if (path.includes('createdoctorslist.html')) { pushKey('doctor-calls'); pushKey('reports'); }
+                    if (path.includes('logs.html')) { pushKey('user-logs'); pushKey('reports'); }
+                    if (path.includes('page-access.html')) { pushKey('page-access'); pushKey('others'); }
+                    if (path.includes('user.html')) { pushKey('users'); pushKey('others'); }
+
+                    pageKeys.forEach(pageKey => {
                         const activeLink = container.querySelector(`.nav-link[data-page="${pageKey}"]`);
                         if (activeLink && activeLink.style.display !== 'none') {
                             activeLink.classList.add('active');
                         }
-                    }
+                    });
                 })();
 
                 // Representatives submenu removed per request

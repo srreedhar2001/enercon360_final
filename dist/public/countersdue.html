@@ -10,6 +10,8 @@
     <!-- PDF export libraries -->
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"></script>
+    <!-- Chart.js for bar chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <meta name="robots" content="noindex, nofollow" />
     <style>
         .number-cell { font-variant-numeric: tabular-nums; }
@@ -38,7 +40,7 @@
             </div>
 
             <div class="bg-white rounded-lg shadow p-4 mb-4">
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-center">
                     <div class="p-3 rounded border">
                         <div class="text-xs text-gray-500">Counters</div>
                         <div id="statCounters" class="text-xl font-semibold number-cell">0</div>
@@ -55,6 +57,53 @@
                         <div class="text-xs text-gray-500">Total Due</div>
                         <div id="statDue" class="text-xl font-semibold text-amber-700 number-cell">₹0.00</div>
                     </div>
+                    <div class="p-3 rounded border">
+                        <div class="text-xs text-gray-500">Monthly Target</div>
+                        <div id="statMonthlyTarget" class="text-xl font-semibold number-cell">₹0.00</div>
+                    </div>
+                    <div class="p-3 rounded border">
+                        <div class="text-xs text-gray-500">Monthly Collected</div>
+                        <div id="statMonthlyCollected" class="text-xl font-semibold text-green-700 number-cell">₹0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Totals Bar Chart -->
+            <div class="bg-white rounded-lg shadow p-4 mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-medium text-gray-900">Totals</h3>
+                    <span class="text-xs text-gray-500">Opening Balance vs Target vs Collected</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                    <div class="md:col-span-1">
+                        <div class="relative h-48">
+                            <canvas id="totalsBarChart" aria-label="Totals bar chart" role="img"></canvas>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Metric</th>
+                                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Amount (₹)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="totalsTableBody" class="divide-y divide-gray-100">
+                                <tr><td class="px-4 py-2 text-gray-500" colspan="2">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Last 12 Months Collections -->
+            <div class="bg-white rounded-lg shadow p-4 mb-4">
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-lg font-medium text-gray-900">Last 12 Months Collections</h3>
+                    <span id="monthsCollectionsTotal" class="text-xs text-gray-500">Loading…</span>
+                </div>
+                <div id="monthsCollectionsRow" class="flex gap-3 overflow-x-auto pb-2" style="scrollbar-width: thin;">
+                    <!-- Month cards injected here -->
                 </div>
             </div>
 
@@ -65,23 +114,25 @@
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
+            <thead class="bg-gray-50">
                             <tr>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Counter</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Representative</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Orders</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Collected</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Collection Target</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Monthly Collection</th>
                                 <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Due</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Latest Order</th>
                             </tr>
                         </thead>
                         <tbody id="duesBody" class="bg-white divide-y divide-gray-200">
                             <tr>
-                                <td colspan="7" class="px-6 py-8 text-center text-gray-500">Loading…</td>
+                                <td colspan="5" class="px-6 py-8 text-center text-gray-500">Loading…</td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div class="px-6 py-3 border-t border-gray-200 flex justify-end gap-3">
+                    <button id="setCollectionTargetBtn" class="hidden bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-60 disabled:cursor-not-allowed">Set Target</button>
+                    <button id="setOpeningBalanceBtn" class="hidden bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded disabled:opacity-60 disabled:cursor-not-allowed">Set Opening Balance</button>
                 </div>
             </div>
         </div>
@@ -91,7 +142,7 @@
         function getAuthToken(){ return localStorage.getItem('authToken') || null; }
         function getAuthHeaders(){ const t = getAuthToken(); return { 'Content-Type': 'application/json', 'Authorization': t ? 'Bearer '+t : '' }; }
 
-        // Export current grid to PDF using jsPDF + autoTable
+    // Export current grid to PDF using jsPDF + autoTable
         window.exportCountersDuePDF = function(){
             try {
                 const page = window.__countersDuePage;
@@ -107,7 +158,8 @@
                 // Header
                 line(40, 'Counters Due', 18, true);
                 const when = new Date().toLocaleString('en-IN');
-                const scope = isRep ? 'Scope: Representative (self)' : (repName ? `Scope: Representative - ${repName}` : 'Scope: All Representatives');
+                const selectedMonth = page?.selectedMonthYMLabel ? ` | Month: ${page.selectedMonthYMLabel}` : '';
+                const scope = (isRep ? 'Scope: Representative (self)' : (repName ? `Scope: Representative - ${repName}` : 'Scope: All Representatives')) + selectedMonth;
                 line(60, scope, 11);
                 line(76, `Generated: ${when}`, 10);
 
@@ -119,17 +171,18 @@
                 const fmt = n => (Number(n||0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 line(96, `Counters: ${counters}    Orders: ${orders}    Collected: ₹${fmt(collected)}    Total Due: ₹${fmt(due)}`, 10, true);
 
-                // Table
-                const head = [['Counter', 'Representative', 'Orders', 'Total (₹)', 'Collected (₹)', 'Due (₹)', 'Latest Order']];
-                const body = rows.map(r => [
-                    String(r.counterName || ''),
-                    String(r.repName || ''),
-                    String(r.orderCount || 0),
-                    fmt(r.totalGrand),
-                    fmt(r.totalCollected),
-                    fmt(r.totalDue),
-                    r.latestOrderDate ? new Date(r.latestOrderDate).toLocaleDateString('en-IN') : ''
-                ]);
+                // Table (match visible columns)
+        const head = [['Counter', 'Representative', 'Collection Target (₹)', 'Monthly Collection (₹)', 'Due (₹)']];
+                const body = rows.map(r => {
+                    const ct = Number(r.collectionTarget ?? r.collection_target ?? 0);
+                    return [
+                        String(r.counterName || ''),
+                        String(r.repName || ''),
+                        fmt(ct),
+            fmt(Number(r.monthlyCollected ?? 0)),
+                        fmt(r.totalDue)
+                    ];
+                });
                 const startY = 116;
                 doc.autoTable({
                     head,
@@ -138,10 +191,9 @@
                     styles: { fontSize: 9, cellPadding: 6 },
                     headStyles: { fillColor: [37, 99, 235], textColor: 255, halign: 'center' },
                     columnStyles: {
-                        2: { halign: 'right' },
-                        3: { halign: 'right' },
-                        4: { halign: 'right' },
-                        5: { halign: 'right' }
+            2: { halign: 'right' },
+            3: { halign: 'right' },
+            4: { halign: 'right' }
                     },
                     margin: { left: margin, right: margin }
                 });
@@ -162,15 +214,56 @@
             }
         };
 
+        // Save Collection Target for a counter from Counters Due grid
+        window.saveCollectionTarget = async function(counterId){
+            try {
+                const input = document.querySelector(`input[data-ct-input="${counterId}"]`);
+                if (!input) return;
+                const raw = input.value;
+                const payload = { collectionTarget: raw === '' ? null : Number(raw) };
+                const res = await fetch(`/api/counters/${counterId}/finance`, {
+                    method: 'PATCH',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) throw new Error('HTTP '+res.status);
+                const json = await res.json();
+                // Update local rows
+                const page = window.__countersDuePage;
+                if (page) {
+                    const apply = (arr) => {
+                        if (!Array.isArray(arr)) return;
+                        const idx = arr.findIndex(r => Number(r.counterId) === Number(counterId));
+                        if (idx >= 0) {
+                            arr[idx].collectionTarget = json?.data?.collectionTarget ?? payload.collectionTarget;
+                        }
+                    };
+                    apply(page.rows);
+                    apply(page.filtered);
+                    page.render();
+                }
+                // Toast
+                console.log('Collection Target saved');
+            } catch (e) {
+                console.error('Failed to save Collection Target', e);
+                alert('Failed to save Collection Target');
+            }
+        };
+
         class CountersDuePage {
             constructor(user){
                 this.user = user;
                 this.isRep = Number(user?.designation_id) === 2;
+                this.isAdmin = Number(user?.designation_id) === 4;
                 this.repId = this.isRep ? user?.id : null;
+                this.monthlySeries = [];
                 this.selectedRepId = null;
+                this.selectedMonthYM = null;
+                this.selectedMonthYMLabel = '';
                 this.selectedRepName = '';
                 this.rows = [];
                 this.filtered = [];
+                this.chart = null;
                 this.init();
             }
 
@@ -180,13 +273,28 @@
                 if (this.isRep) subtitle.textContent = 'Your counters with outstanding dues';
                 else subtitle.textContent = 'Outstanding dues by counter (filterable by representative)';
                 if (!this.isRep) this.setupRepDropdown();
+                this.updateBulkActionsVisibility();
                 this.loadData();
+                this.loadLast12MonthsCollections();
             }
 
             bind(){
                 document.getElementById('refreshBtn')?.addEventListener('click', ()=> this.loadData());
                 document.getElementById('searchBox')?.addEventListener('input', (e)=> this.applyFilter(e.target.value));
                 document.getElementById('exportPdfBtn')?.addEventListener('click', ()=> window.exportCountersDuePDF());
+                // Hide Opening Balance bulk button permanently
+                const obBtn = document.getElementById('setOpeningBalanceBtn');
+                if (obBtn) obBtn.classList.add('hidden');
+                document.getElementById('setCollectionTargetBtn')?.addEventListener('click', ()=> window.setCollectionTargetForAll());
+            }
+
+            updateBulkActionsVisibility(){
+                const show = !!this.isAdmin;
+                const obBtn = document.getElementById('setOpeningBalanceBtn');
+                const ctBtn = document.getElementById('setCollectionTargetBtn');
+                // Keep Opening Balance button hidden regardless of role
+                if (obBtn) obBtn.classList.add('hidden');
+                if (ctBtn) ctBtn.classList.toggle('hidden', !show);
             }
 
             async setupRepDropdown(){
@@ -222,9 +330,12 @@
             async loadData(){
                 const base = '/api/orders/stats/dues-by-counter';
                 const effectiveRepId = this.isRep ? this.repId : (this.selectedRepId || '');
-                const url = effectiveRepId ? `${base}?repId=${encodeURIComponent(effectiveRepId)}` : base;
+                const params = new URLSearchParams();
+                if (effectiveRepId) params.append('repId', effectiveRepId);
+                if (this.selectedMonthYM) params.append('month', this.selectedMonthYM);
+                const url = params.toString() ? `${base}?${params.toString()}` : base;
                 const body = document.getElementById('duesBody');
-                body.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">Loading…</td></tr>';
+                body.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">Loading…</td></tr>';
                 try {
                     const res = await fetch(url, { headers: getAuthHeaders() });
                     if (!res.ok) throw new Error('HTTP '+res.status);
@@ -232,9 +343,75 @@
                     this.rows = Array.isArray(json.data) ? json.data : [];
                     this.filtered = this.rows;
                     this.render();
+                    // refresh percentages dependent components
                 } catch(e){
-                    body.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-red-500">Failed to load</td></tr>';
+                    body.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-red-500">Failed to load</td></tr>';
                 }
+            }
+
+            async loadLast12MonthsCollections(){
+                const row = document.getElementById('monthsCollectionsRow');
+                const totalEl = document.getElementById('monthsCollectionsTotal');
+                if (row) row.innerHTML = '<div class="text-gray-500 text-sm">Loading…</div>';
+                try {
+                    // reuse payments monthly endpoint for collections slice
+                    const res = await fetch('/api/payments/monthly', { headers: getAuthHeaders() });
+                    if (!res.ok) throw new Error('HTTP '+res.status);
+                    const json = await res.json();
+                    const series = Array.isArray(json.data) ? json.data : [];
+                    // Map to collection totals only
+                    this.monthlySeries = series.map(m => ({ ym: m.ym, label: m.label, collectionsTotal: Number(m.collectionsTotal || 0) }));
+                    const grand = this.monthlySeries.reduce((s,m)=> s + m.collectionsTotal, 0);
+                    if (totalEl) totalEl.textContent = '12-mo Total: ₹' + this.fmt(grand);
+                    if (row) {
+                        if (!this.monthlySeries.length) {
+                            row.innerHTML = '<div class="text-gray-500 text-sm">No data</div>';
+                        } else {
+                            row.innerHTML = this.monthlySeries.map(m => `
+                                <button type=\"button\" data-ym=\"${m.ym}\" class=\"month-card min-w-[110px] flex-shrink-0 border rounded-md p-2 text-center bg-white hover:shadow focus:ring-2 focus:ring-blue-500 outline-none transition\">
+                                    <div class=\"text-[10px] uppercase tracking-wide text-gray-500\">${m.label}</div>
+                                    <div class=\"text-sm font-semibold text-green-700 number-cell\">₹${this.fmt(m.collectionsTotal)}</div>
+                                </button>
+                            `).join('');
+                            row.addEventListener('click', (e)=> this.onMonthCardClick(e));
+                        }
+                    }
+                } catch(e){
+                    console.error('Failed monthly collections series', e);
+                    if (totalEl) totalEl.textContent = 'Failed';
+                    if (row) row.innerHTML = '<div class="text-red-500 text-sm">Failed to load</div>';
+                }
+            }
+
+            onMonthCardClick(e){
+                const btn = e.target.closest('button.month-card[data-ym]');
+                if (!btn) return;
+                const already = btn.classList.contains('ring-2');
+                // clear all selections
+                document.querySelectorAll('#monthsCollectionsRow button.month-card').forEach(el => {
+                    el.classList.remove('ring-2','ring-blue-500','bg-blue-50');
+                });
+                if (already){
+                    // deselected -> restore total label
+                    const totalEl = document.getElementById('monthsCollectionsTotal');
+                    const grand = this.monthlySeries.reduce((s,m)=> s + m.collectionsTotal, 0);
+                    if (totalEl) totalEl.textContent = '12-mo Total: ₹' + this.fmt(grand);
+                    this.selectedMonthYM = null;
+                    this.selectedMonthYMLabel = '';
+                    this.loadData();
+                    return;
+                }
+                // select
+                btn.classList.add('ring-2','ring-blue-500','bg-blue-50');
+                const ym = btn.getAttribute('data-ym');
+                const found = this.monthlySeries.find(m => m.ym === ym);
+                const totalEl = document.getElementById('monthsCollectionsTotal');
+                if (found && totalEl){
+                    totalEl.textContent = `${found.label}: ₹${this.fmt(found.collectionsTotal)}`;
+                }
+                this.selectedMonthYM = ym;
+                this.selectedMonthYMLabel = found ? found.label : ym;
+                this.loadData();
             }
 
             applyFilter(q){
@@ -250,17 +427,19 @@
             render(){
                 const body = document.getElementById('duesBody');
                 if (!this.filtered.length){
-                    body.innerHTML = '<tr><td colspan="7" class="px-6 py-8 text-center text-gray-500">No counters with dues</td></tr>';
+                    body.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No counters with dues</td></tr>';
                 } else {
                     body.innerHTML = this.filtered.map(r => `
-                        <tr class="hover:bg-gray-50">
+                        <tr class="hover:bg-gray-50 ${String(r.counterStatus)==='0' || String(r.counterStatus).toLowerCase()==='false' ? 'border border-red-400' : ''}">
                             <td class="px-6 py-4 text-sm text-gray-900">${r.counterName || 'Unknown'}</td>
                             <td class="px-6 py-4 text-sm text-gray-700">${r.repName ? `${r.repName}` : '<span class="text-gray-400">N/A</span>'}</td>
-                            <td class="px-6 py-4 text-sm text-right number-cell">${r.orderCount || 0}</td>
-                            <td class="px-6 py-4 text-sm text-right number-cell">₹${this.fmt(r.totalGrand)}</td>
-                            <td class="px-6 py-4 text-sm text-right number-cell text-green-700">₹${this.fmt(r.totalCollected)}</td>
+                            <td class="px-6 py-4 text-sm text-right number-cell">
+                                <div class="flex items-center gap-2 justify-end">
+                                    <input type="number" step="0.01" min="0" value="${(() => { const v = Number(r.collectionTarget ?? r.collection_target); return Number.isFinite(v) ? v : '' })()}" class="w-28 px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500" data-ct-input="${r.counterId}">
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-right number-cell">₹${this.fmt(Number(r.monthlyCollected ?? 0))}</td>
                             <td class="px-6 py-4 text-sm text-right number-cell text-amber-700">₹${this.fmt(r.totalDue)}</td>
-                            <td class="px-6 py-4 text-sm text-gray-600">${r.latestOrderDate ? new Date(r.latestOrderDate).toLocaleDateString('en-IN') : '—'}</td>
                         </tr>
                     `).join('');
                 }
@@ -270,13 +449,88 @@
                 const orders = this.filtered.reduce((s, r) => s + Number(r.orderCount || 0), 0);
                 const collected = this.filtered.reduce((s, r) => s + Number(r.totalCollected || 0), 0);
                 const due = this.filtered.reduce((s, r) => s + Number(r.totalDue || 0), 0);
+                const monthlyTarget = this.filtered.reduce((s, r) => s + Number(r.collectionTarget ?? r.collection_target ?? 0), 0);
+                const monthlyCollected = this.filtered.reduce((s, r) => s + Number(r.monthlyCollected ?? 0), 0);
                 document.getElementById('statCounters').textContent = counters;
                 document.getElementById('statOrders').textContent = orders;
                 document.getElementById('statCollected').textContent = '₹' + this.fmt(collected);
                 document.getElementById('statDue').textContent = '₹' + this.fmt(due);
+                const mc = document.getElementById('statMonthlyCollected');
+                if (mc) mc.textContent = '₹' + this.fmt(monthlyCollected);
+                const mt = document.getElementById('statMonthlyTarget');
+                if (mt) mt.textContent = '₹' + this.fmt(monthlyTarget);
+
+                // Compute chart totals
+                const totalTarget = this.filtered.reduce((s, r) => s + Number(r.collectionTarget ?? r.collection_target ?? 0), 0);
+                const totalMonthlyCollected = this.filtered.reduce((s, r) => s + Number(r.monthlyCollected ?? 0), 0);
+                this.renderTotalsChart(due, totalTarget, totalMonthlyCollected);
+                this.renderTotalsTable(totalTarget, totalMonthlyCollected, due, orders, counters);
             }
 
             fmt(n){ return Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+            renderTotalsChart(totalDue, totalTarget, totalMonthlyCollected){
+                try {
+                    const ctx = document.getElementById('totalsBarChart');
+                    if (!ctx || !window.Chart) return;
+                    const data = {
+                        labels: ['Total Due', 'Collection Target', 'Monthly Collection'],
+                        datasets: [{
+                            label: 'Amount (₹)',
+                            data: [totalDue, totalTarget, totalMonthlyCollected],
+                            backgroundColor: ['#b45309', '#2563eb', '#059669'],
+                            borderRadius: 6,
+                            maxBarThickness: 64
+                        }]
+                    };
+                    const options = {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                ticks: { callback: (v) => Number(v).toLocaleString('en-IN') },
+                                grid: { color: 'rgba(0,0,0,0.05)' }
+                            },
+                            x: { grid: { display: false } }
+                        },
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    label: (ctx) => ' ₹' + Number(ctx.parsed.y).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                                }
+                            }
+                        }
+                    };
+                    if (this.chart) {
+                        this.chart.data = data;
+                        this.chart.options = options;
+                        this.chart.update();
+                    } else {
+                        this.chart = new Chart(ctx, { type: 'bar', data, options });
+                    }
+                } catch (e) { console.warn('Chart render skipped', e); }
+            }
+
+            renderTotalsTable(totalTarget, totalMonthlyCollected, totalDue, totalOrders, counterCount){
+                const el = document.getElementById('totalsTableBody');
+                if (!el) return;
+                const fmt = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                el.innerHTML = `
+                    <tr>
+                        <td class="px-4 py-2">Collection Target</td>
+                        <td class="px-4 py-2 text-right font-medium">₹${fmt(totalTarget)}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-2">Monthly Collection</td>
+                        <td class="px-4 py-2 text-right font-medium text-green-700">₹${fmt(totalMonthlyCollected)}${(Number(totalTarget) > 0 ? ` (${Math.round((totalMonthlyCollected / totalTarget) * 100)}%)` : '')}</td>
+                    </tr>
+                    <tr>
+                        <td class="px-4 py-2">Total Due</td>
+                        <td class="px-4 py-2 text-right font-medium text-amber-700">₹${fmt(totalDue)}</td>
+                    </tr>
+                `;
+            }
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
@@ -294,10 +548,99 @@
                 const user = json?.data?.user;
                 if (!user) throw new Error('no-user');
                 window.__countersDuePage = new CountersDuePage(user);
+                // Expose action depending on role (optional - currently visible to all)
             } catch(e) {
                 window.location.href = '/login.html';
             }
         });
+
+        // Bulk action: Set Opening Balance = Due for all counters in current grid (filtered set)
+        window.setOpeningBalanceFromDueForAll = async function(){
+            // Guard: only Admins can run this
+            const page = window.__countersDuePage;
+            if (!page?.isAdmin) { alert('This action is restricted to Admins.'); return; }
+            if (!page || !Array.isArray(page.filtered)) return;
+            const rows = page.filtered;
+            const count = rows.length;
+            if (!count) { alert('No counters to update'); return; }
+            if (!confirm(`This will set Opening Balance = current Due for ${count} counter(s). Continue?`)) return;
+            const btn = document.getElementById('setOpeningBalanceBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+            let ok = 0, fail = 0;
+            for (const r of rows){
+                try {
+                    const counterId = r.counterId;
+                    const due = Number(r.totalDue || 0);
+                    const res = await fetch(`/api/counters/${counterId}/finance`, {
+                        method: 'PATCH',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({ openingBalance: due })
+                    });
+                    if (!res.ok) throw new Error('HTTP '+res.status);
+                    const json = await res.json();
+                    // Update local models
+                    const apply = (arr) => {
+                        if (!Array.isArray(arr)) return;
+                        const idx = arr.findIndex(x => Number(x.counterId) === Number(counterId));
+                        if (idx >= 0) arr[idx].openingBalance = json?.data?.openingBalance ?? due;
+                    };
+                    apply(page.rows);
+                    apply(page.filtered);
+                    ok++;
+                } catch(e){
+                    console.error('Failed to set OB for counter', r.counterId, e);
+                    fail++;
+                }
+            }
+            page.render();
+            if (btn) { btn.disabled = false; btn.textContent = 'Set Opening Balance'; }
+            alert(`Opening Balance updated. Success: ${ok}${fail ? `, Failed: ${fail}` : ''}`);
+        };
+
+        // Bulk action: Set Collection Target for all counters in current grid using the input values
+        window.setCollectionTargetForAll = async function(){
+            // Guard: only Admins can run this
+            const page = window.__countersDuePage;
+            if (!page?.isAdmin) { alert('This action is restricted to Admins.'); return; }
+            if (!page || !Array.isArray(page.filtered)) return;
+            const rows = page.filtered;
+            const count = rows.length;
+            if (!count) { alert('No counters to update'); return; }
+            if (!confirm(`This will set Collection Target for ${count} counter(s) using the entered values. Continue?`)) return;
+            const btn = document.getElementById('setCollectionTargetBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+            let ok = 0, fail = 0;
+            for (const r of rows){
+                try {
+                    const counterId = r.counterId;
+                    const input = document.querySelector(`input[data-ct-input="${counterId}"]`);
+                    if (!input) continue;
+                    const raw = input.value;
+                    const value = raw === '' ? null : Number(raw);
+                    const res = await fetch(`/api/counters/${counterId}/finance`, {
+                        method: 'PATCH',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({ collectionTarget: value })
+                    });
+                    if (!res.ok) throw new Error('HTTP '+res.status);
+                    const json = await res.json();
+                    const apply = (arr) => {
+                        if (!Array.isArray(arr)) return;
+                        const idx = arr.findIndex(x => Number(x.counterId) === Number(counterId));
+                        if (idx >= 0) arr[idx].collectionTarget = json?.data?.collectionTarget ?? value;
+                    };
+                    apply(page.rows);
+                    apply(page.filtered);
+                    ok++;
+                } catch(e){
+                    console.error('Failed to set target for counter', r.counterId, e);
+                    fail++;
+                }
+            }
+            page.render();
+            if (btn) { btn.disabled = false; btn.textContent = 'Set Target'; }
+            alert(`Collection Target updated. Success: ${ok}${fail ? `, Failed: ${fail}` : ''}`);
+        };
     </script>
 </body>
 </html>

@@ -430,7 +430,7 @@
                     body.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-gray-500">No counters with dues</td></tr>';
                 } else {
                     body.innerHTML = this.filtered.map(r => `
-                        <tr class="hover:bg-gray-50">
+                        <tr class="hover:bg-gray-50 ${String(r.counterStatus)==='0' || String(r.counterStatus).toLowerCase()==='false' ? 'border border-red-400' : ''}">
                             <td class="px-6 py-4 text-sm text-gray-900">${r.counterName || 'Unknown'}</td>
                             <td class="px-6 py-4 text-sm text-gray-700">${r.repName ? `${r.repName}` : '<span class="text-gray-400">N/A</span>'}</td>
                             <td class="px-6 py-4 text-sm text-right number-cell">

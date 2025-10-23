@@ -252,8 +252,8 @@
           });
           selectedYM = ym;
           resultsTitle.textContent = `Counters created in ${label || ym}`;
-      countersTbody.innerHTML = rows.length ? rows.map((r, i) => `
-            <tr>
+  countersTbody.innerHTML = rows.length ? rows.map((r, i) => `
+    <tr class="${String(r.counterStatus)==='0' || String(r.counterStatus).toLowerCase()==='false' ? 'border border-red-400' : ''}">
               <td class="px-4 py-2 text-sm text-gray-700">${i + 1}</td>
               <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(r.CounterName)}</td>
               <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(r.cityName || '')}</td>
