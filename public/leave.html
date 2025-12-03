@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/navigation.js"></script>
+    <link rel="icon" href="/favicon.ico">
+    <meta name="robots" content="noindex, nofollow">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="navigation-container"></div>
+
+    <main class="container mx-auto px-4 py-8 pt-24">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header -->
+            <div class="mb-6">
+                <h1 class="text-3xl font-bold text-gray-800">Leave Management</h1>
+                <p class="text-gray-600 mt-2">Manage your leave requests and balances</p>
+            </div>
+
+            <!-- Leave Summary Cards -->
+            <div id="leaveSummarySection" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
+                    <div class="text-sm font-semibold text-gray-600 uppercase">Total Allowed</div>
+                    <div id="totalAllowedDays" class="text-3xl font-bold text-blue-600 mt-2">0</div>
+                    <div class="text-xs text-gray-500 mt-1">Days per year</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6 border-l-4 border-red-500">
+                    <div class="text-sm font-semibold text-gray-600 uppercase">Used</div>
+                    <div id="totalUsedDays" class="text-3xl font-bold text-red-600 mt-2">0</div>
+                    <div class="text-xs text-gray-500 mt-1">Days taken</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
+                    <div class="text-sm font-semibold text-gray-600 uppercase">Remaining</div>
+                    <div id="totalRemainingDays" class="text-3xl font-bold text-green-600 mt-2">0</div>
+                    <div class="text-xs text-gray-500 mt-1">Days available</div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6 border-l-4 border-purple-500">
+                    <div class="text-sm font-semibold text-gray-600 uppercase">Total Requests</div>
+                    <div id="totalRequests" class="text-3xl font-bold text-purple-600 mt-2">0</div>
+                    <div class="text-xs text-gray-500 mt-1">This year</div>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="bg-white rounded-lg shadow mb-6">
+                <div class="border-b border-gray-200">
+                    <nav class="flex -mb-px">
+                        <button id="balanceTab" class="tab-btn py-4 px-6 text-sm font-medium border-b-2 border-blue-500 text-blue-600">
+                            Leave Balance
+                        </button>
+                        <button id="requestsTab" class="tab-btn py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                            My Requests
+                        </button>
+                        <button id="applyTab" class="tab-btn py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">
+                            Apply Leave
+                        </button>
+                        <button id="adminTab" class="tab-btn py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hidden">
+                            All Requests
+                        </button>
+                        <button id="typesTab" class="tab-btn py-4 px-6 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 hidden">
+                            Leave Types
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Leave Balance Tab Content -->
+                <div id="balanceContent" class="tab-content p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Leave Balance</h2>
+                        <select id="balanceYearSelect" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <!-- Years will be populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Yearly Limit</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Used</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining</th>
+                                </tr>
+                            </thead>
+                            <tbody id="balanceTableBody" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="5" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- My Requests Tab Content -->
+                <div id="requestsContent" class="tab-content p-6 hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">My Leave Requests</h2>
+                        <select id="requestsYearSelect" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <!-- Years will be populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Days</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied On</th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="requestsTableBody" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="7" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Apply Leave Tab Content -->
+                <div id="applyContent" class="tab-content p-6 hidden">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Apply for Leave</h2>
+                    <form id="leaveRequestForm" class="max-w-2xl">
+                        <div class="space-y-4">
+                            <div>
+                                <label for="leaveTypeSelect" class="block text-sm font-medium text-gray-700 mb-1">Leave Type *</label>
+                                <select id="leaveTypeSelect" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Select leave type</option>
+                                </select>
+                                <p id="leaveTypeBalance" class="text-xs text-gray-500 mt-1"></p>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="startDate" class="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
+                                    <input type="date" id="startDate" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label for="endDate" class="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
+                                    <input type="date" id="endDate" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="totalDays" class="block text-sm font-medium text-gray-700 mb-1">Total Days *</label>
+                                <input type="number" id="totalDays" step="0.5" min="0.5" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="e.g., 1 or 0.5 for half day">
+                            </div>
+
+                            <div>
+                                <label for="reason" class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                                <textarea id="reason" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Enter reason for leave (optional)"></textarea>
+                            </div>
+
+                            <div class="flex gap-3">
+                                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">
+                                    Submit Request
+                                </button>
+                                <button type="reset" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- All Requests Tab Content (Admin/Manager) -->
+                <div id="adminContent" class="tab-content p-6 hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">All Leave Requests</h2>
+                        <div class="flex gap-2">
+                            <select id="adminYearSelect" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <!-- Years will be populated dynamically -->
+                            </select>
+                            <select id="adminLeaveTypeFilter" class="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                <option value="">All Leave Types</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">End Date</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied On</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminRequestsTableBody" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="7" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Leave Types Tab Content (Admin) -->
+                <div id="typesContent" class="tab-content p-6 hidden">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-semibold text-gray-800">Leave Types</h2>
+                        <button id="addLeaveTypeBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Add Leave Type
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Yearly Limit</th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="typesTableBody" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="5" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add/Edit Leave Type Modal -->
+    <div id="leaveTypeModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 id="modalTitle" class="text-xl font-semibold text-gray-800 mb-4">Add Leave Type</h3>
+            <form id="leaveTypeForm">
+                <div class="space-y-4">
+                    <div>
+                        <label for="leaveTypeName" class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                        <input type="text" id="leaveTypeName" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label for="leaveTypeDescription" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <textarea id="leaveTypeDescription" rows="2" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+                    <div>
+                        <label for="leaveTypeLimit" class="block text-sm font-medium text-gray-700 mb-1">Yearly Limit (Days) *</label>
+                        <input type="number" id="leaveTypeLimit" step="0.5" min="0" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="submit" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                            Save
+                        </button>
+                        <button type="button" id="cancelLeaveTypeBtn" class="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            try { await NavigationLoader.loadNavigation(); } catch (_) {}
+
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = '/login.html';
+                return;
+            }
+
+            let currentUserId = null;
+            let isAdmin = false;
+            let currentYear = new Date().getFullYear();
+            let leaveTypes = [];
+            let leaveBalances = [];
+
+            // Fetch user context
+            async function fetchUserContext() {
+                try {
+                    const res = await fetch('/api/access/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        currentUserId = data.data.userId || data.data.id;
+                        isAdmin = data.data.designation_id === 4;
+                        
+                        if (isAdmin) {
+                            document.getElementById('adminTab').classList.remove('hidden');
+                            // Leave Types tab is hidden for all users
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error fetching user context:', err);
+                }
+            }
+
+            await fetchUserContext();
+
+            // Populate year selects
+            function populateYearSelects() {
+                const years = [];
+                for (let i = currentYear - 2; i <= currentYear + 1; i++) {
+                    years.push(i);
+                }
+
+                const selects = ['balanceYearSelect', 'requestsYearSelect', 'adminYearSelect'];
+                selects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    if (select) {
+                        select.innerHTML = years.map(year => 
+                            `<option value="${year}" ${year === currentYear ? 'selected' : ''}>${year}</option>`
+                        ).join('');
+                    }
+                });
+            }
+
+            populateYearSelects();
+
+            // Tab switching
+            const tabButtons = document.querySelectorAll('.tab-btn');
+            const tabContents = document.querySelectorAll('.tab-content');
+
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    tabButtons.forEach(btn => {
+                        btn.classList.remove('border-blue-500', 'text-blue-600');
+                        btn.classList.add('border-transparent', 'text-gray-500');
+                    });
+                    button.classList.remove('border-transparent', 'text-gray-500');
+                    button.classList.add('border-blue-500', 'text-blue-600');
+
+                    tabContents.forEach(content => content.classList.add('hidden'));
+
+                    const tabMap = {
+                        'balanceTab': 'balanceContent',
+                        'requestsTab': 'requestsContent',
+                        'applyTab': 'applyContent',
+                        'adminTab': 'adminContent',
+                        'typesTab': 'typesContent'
+                    };
+
+                    const contentId = tabMap[button.id];
+                    if (contentId) {
+                        document.getElementById(contentId).classList.remove('hidden');
+                        
+                        if (button.id === 'balanceTab') loadLeaveBalance();
+                        else if (button.id === 'requestsTab') loadMyRequests();
+                        else if (button.id === 'adminTab') loadAllRequests();
+                        else if (button.id === 'typesTab') loadLeaveTypes();
+                    }
+                });
+            });
+
+            // Load leave summary
+            async function loadLeaveSummary() {
+                try {
+                    const res = await fetch(`/api/leave/summary?year=${currentYear}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const summary = data.data;
+                        
+                        document.getElementById('totalAllowedDays').textContent = summary.totalAllowedDays || 0;
+                        document.getElementById('totalUsedDays').textContent = summary.totalUsedDays || 0;
+                        document.getElementById('totalRemainingDays').textContent = summary.totalRemainingDays || 0;
+                        document.getElementById('totalRequests').textContent = summary.totalRequests || 0;
+                    }
+                } catch (err) {
+                    console.error('Error loading leave summary:', err);
+                }
+            }
+
+            // Load leave types
+            async function loadLeaveTypes() {
+                try {
+                    const res = await fetch('/api/leave/types', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        leaveTypes = data.data;
+
+                        // Populate leave type select in apply form
+                        const leaveTypeSelect = document.getElementById('leaveTypeSelect');
+                        leaveTypeSelect.innerHTML = '<option value="">Select leave type</option>' +
+                            leaveTypes.map(lt => `<option value="${lt.id}">${lt.name} (${lt.yearlyLimit} days/year)</option>`).join('');
+
+                        // Populate admin filter
+                        const adminFilter = document.getElementById('adminLeaveTypeFilter');
+                        if (adminFilter) {
+                            adminFilter.innerHTML = '<option value="">All Leave Types</option>' +
+                                leaveTypes.map(lt => `<option value="${lt.id}">${lt.name}</option>`).join('');
+                        }
+
+                        // Populate types table (admin only)
+                        const tbody = document.getElementById('typesTableBody');
+                        if (tbody && isAdmin) {
+                            if (leaveTypes.length === 0) {
+                                tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No leave types found</td></tr>';
+                            } else {
+                                tbody.innerHTML = leaveTypes.map(lt => `
+                                    <tr>
+                                        <td class="px-6 py-4 text-sm font-medium text-gray-900">${lt.name}</td>
+                                        <td class="px-6 py-4 text-sm text-gray-500">${lt.description || '—'}</td>
+                                        <td class="px-6 py-4 text-sm text-gray-900 text-right">${lt.yearlyLimit}</td>
+                                        <td class="px-6 py-4 text-center">
+                                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${lt.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                                ${lt.isActive ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 text-center">
+                                            <button onclick="editLeaveType(${lt.id})" class="text-blue-600 hover:text-blue-800 mr-2">Edit</button>
+                                            <button onclick="toggleLeaveType(${lt.id}, ${lt.isActive})" class="text-${lt.isActive ? 'red' : 'green'}-600 hover:text-${lt.isActive ? 'red' : 'green'}-800">
+                                                ${lt.isActive ? 'Deactivate' : 'Activate'}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('');
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error loading leave types:', err);
+                }
+            }
+
+            // Load leave balance
+            async function loadLeaveBalance() {
+                const year = document.getElementById('balanceYearSelect').value;
+                try {
+                    const res = await fetch(`/api/leave/balance?year=${year}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        leaveBalances = data.data;
+                        const tbody = document.getElementById('balanceTableBody');
+
+                        if (leaveBalances.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No leave balance found for this year</td></tr>';
+                        } else {
+                            tbody.innerHTML = leaveBalances.map(lb => `
+                                <tr>
+                                    <td class="px-6 py-4 text-sm font-medium text-gray-900">${lb.leaveTypeName}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">${lb.description || '—'}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900 text-right">${lb.yearlyLimit}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900 text-right">${lb.used}</td>
+                                    <td class="px-6 py-4 text-sm font-semibold text-right ${lb.remaining > 0 ? 'text-green-600' : 'text-red-600'}">
+                                        ${lb.remaining}
+                                    </td>
+                                </tr>
+                            `).join('');
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error loading leave balance:', err);
+                }
+            }
+
+            // Load my requests
+            async function loadMyRequests() {
+                const year = document.getElementById('requestsYearSelect').value;
+                try {
+                    const res = await fetch(`/api/leave/requests?year=${year}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const requests = data.data;
+                        const tbody = document.getElementById('requestsTableBody');
+
+                        if (requests.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No leave requests found</td></tr>';
+                        } else {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0); // Reset time to start of day for accurate comparison
+                            
+                            tbody.innerHTML = requests.map(req => {
+                                const endDate = new Date(req.endDate);
+                                endDate.setHours(0, 0, 0, 0);
+                                const isPastLeave = endDate < today;
+                                
+                                return `
+                                <tr>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${req.leaveTypeName}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${new Date(req.startDate).toLocaleDateString('en-IN')}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${new Date(req.endDate).toLocaleDateString('en-IN')}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900 text-right">${req.totalDays}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">${req.reason || '—'}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">${new Date(req.createdAt).toLocaleDateString('en-IN')}</td>
+                                    <td class="px-6 py-4 text-center">
+                                        ${!isPastLeave ? `
+                                        <button onclick="cancelLeave(${req.id})" class="text-red-600 hover:text-red-800 text-sm font-medium">
+                                            Cancel
+                                        </button>
+                                        ` : '<span class="text-gray-400 text-sm">—</span>'}
+                                    </td>
+                                </tr>
+                                `;
+                            }).join('');
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error loading requests:', err);
+                }
+            }
+
+            // Load all requests (admin)
+            async function loadAllRequests() {
+                const year = document.getElementById('adminYearSelect').value;
+                const leaveTypeId = document.getElementById('adminLeaveTypeFilter').value;
+                
+                try {
+                    let url = `/api/leave/requests/all/list?year=${year}`;
+                    if (leaveTypeId) url += `&leaveTypeId=${leaveTypeId}`;
+
+                    const res = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        const requests = data.data;
+                        const tbody = document.getElementById('adminRequestsTableBody');
+
+                        if (requests.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No leave requests found</td></tr>';
+                        } else {
+                            tbody.innerHTML = requests.map(req => `
+                                <tr>
+                                    <td class="px-6 py-4 text-sm text-gray-900">
+                                        ${req.userName}<br>
+                                        <span class="text-xs text-gray-500">${req.userPhone}</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${req.leaveTypeName}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${new Date(req.startDate).toLocaleDateString('en-IN')}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900">${new Date(req.endDate).toLocaleDateString('en-IN')}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-900 text-right">${req.totalDays}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">${req.reason || '—'}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">${new Date(req.createdAt).toLocaleDateString('en-IN')}</td>
+                                </tr>
+                            `).join('');
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error loading all requests:', err);
+                }
+            }
+
+            // Update leave balance display when leave type is selected
+            document.getElementById('leaveTypeSelect').addEventListener('change', function() {
+                const leaveTypeId = parseInt(this.value);
+                const balance = leaveBalances.find(lb => lb.leaveTypeId === leaveTypeId);
+                const balanceText = document.getElementById('leaveTypeBalance');
+                
+                if (balance) {
+                    balanceText.textContent = `Available: ${balance.remaining} days (Used: ${balance.used}/${balance.yearlyLimit})`;
+                    balanceText.className = balance.remaining > 0 ? 'text-xs text-green-600 mt-1' : 'text-xs text-red-600 mt-1';
+                } else {
+                    balanceText.textContent = '';
+                }
+            });
+
+            // Calculate total days when dates change
+            function calculateDays() {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                
+                if (startDate && endDate) {
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    const diffTime = Math.abs(end - start);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+                    document.getElementById('totalDays').value = diffDays;
+                }
+            }
+
+            document.getElementById('startDate').addEventListener('change', calculateDays);
+            document.getElementById('endDate').addEventListener('change', calculateDays);
+
+            // Submit leave request
+            document.getElementById('leaveRequestForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const formData = {
+                    leaveTypeId: parseInt(document.getElementById('leaveTypeSelect').value),
+                    startDate: document.getElementById('startDate').value,
+                    endDate: document.getElementById('endDate').value,
+                    totalDays: parseFloat(document.getElementById('totalDays').value),
+                    reason: document.getElementById('reason').value.trim() || null
+                };
+
+                try {
+                    const res = await fetch('/api/leave/requests', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        alert('Leave request submitted successfully!');
+                        this.reset();
+                        document.getElementById('leaveTypeBalance').textContent = '';
+                        loadLeaveSummary();
+                        loadLeaveBalance();
+                    } else {
+                        alert(data.message || 'Failed to submit leave request');
+                    }
+                } catch (err) {
+                    console.error('Error submitting leave request:', err);
+                    alert('Failed to submit leave request');
+                }
+            });
+
+            // Cancel leave
+            window.cancelLeave = async function(id) {
+                if (!confirm('Are you sure you want to cancel this leave request?')) return;
+
+                try {
+                    const res = await fetch(`/api/leave/requests/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (res.ok) {
+                        alert('Leave request cancelled successfully');
+                        loadMyRequests();
+                        loadLeaveSummary();
+                        loadLeaveBalance();
+                    } else {
+                        const data = await res.json();
+                        alert(data.message || 'Failed to cancel leave request');
+                    }
+                } catch (err) {
+                    console.error('Error cancelling leave:', err);
+                    alert('Failed to cancel leave request');
+                }
+            };
+
+            // Leave type modal functions
+            const leaveTypeModal = document.getElementById('leaveTypeModal');
+            let editingLeaveTypeId = null;
+
+            document.getElementById('addLeaveTypeBtn').addEventListener('click', () => {
+                editingLeaveTypeId = null;
+                document.getElementById('modalTitle').textContent = 'Add Leave Type';
+                document.getElementById('leaveTypeForm').reset();
+                leaveTypeModal.classList.remove('hidden');
+                leaveTypeModal.classList.add('flex');
+            });
+
+            document.getElementById('cancelLeaveTypeBtn').addEventListener('click', () => {
+                leaveTypeModal.classList.add('hidden');
+                leaveTypeModal.classList.remove('flex');
+            });
+
+            window.editLeaveType = function(id) {
+                const leaveType = leaveTypes.find(lt => lt.id === id);
+                if (!leaveType) return;
+
+                editingLeaveTypeId = id;
+                document.getElementById('modalTitle').textContent = 'Edit Leave Type';
+                document.getElementById('leaveTypeName').value = leaveType.name;
+                document.getElementById('leaveTypeDescription').value = leaveType.description || '';
+                document.getElementById('leaveTypeLimit').value = leaveType.yearlyLimit;
+                
+                leaveTypeModal.classList.remove('hidden');
+                leaveTypeModal.classList.add('flex');
+            };
+
+            window.toggleLeaveType = async function(id, currentStatus) {
+                const action = currentStatus ? 'deactivate' : 'activate';
+                if (!confirm(`Are you sure you want to ${action} this leave type?`)) return;
+
+                try {
+                    const res = await fetch(`/api/leave/types/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ isActive: currentStatus ? 0 : 1 })
+                    });
+
+                    if (res.ok) {
+                        alert(`Leave type ${action}d successfully`);
+                        loadLeaveTypes();
+                    } else {
+                        alert('Failed to update leave type');
+                    }
+                } catch (err) {
+                    console.error('Error toggling leave type:', err);
+                    alert('Failed to update leave type');
+                }
+            };
+
+            document.getElementById('leaveTypeForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const formData = {
+                    name: document.getElementById('leaveTypeName').value,
+                    description: document.getElementById('leaveTypeDescription').value || null,
+                    yearlyLimit: parseFloat(document.getElementById('leaveTypeLimit').value)
+                };
+
+                try {
+                    const url = editingLeaveTypeId ? `/api/leave/types/${editingLeaveTypeId}` : '/api/leave/types';
+                    const method = editingLeaveTypeId ? 'PUT' : 'POST';
+
+                    const res = await fetch(url, {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(formData)
+                    });
+
+                    if (res.ok) {
+                        alert(`Leave type ${editingLeaveTypeId ? 'updated' : 'created'} successfully`);
+                        leaveTypeModal.classList.add('hidden');
+                        leaveTypeModal.classList.remove('flex');
+                        loadLeaveTypes();
+                    } else {
+                        const data = await res.json();
+                        alert(data.message || 'Failed to save leave type');
+                    }
+                } catch (err) {
+                    console.error('Error saving leave type:', err);
+                    alert('Failed to save leave type');
+                }
+            });
+
+            // Event listeners for year changes
+            document.getElementById('balanceYearSelect').addEventListener('change', loadLeaveBalance);
+            document.getElementById('requestsYearSelect').addEventListener('change', loadMyRequests);
+            document.getElementById('adminYearSelect')?.addEventListener('change', loadAllRequests);
+            document.getElementById('adminLeaveTypeFilter')?.addEventListener('change', loadAllRequests);
+
+            // Initial load
+            await loadLeaveTypes();
+            await loadLeaveSummary();
+            await loadLeaveBalance();
+        });
+    </script>
+</body>
+</html>
+

@@ -11,6 +11,11 @@ router.get(
 );
 
 router.get(
+  '/representative/:repId/doctors',
+  drWorkLogController.getRepresentativeDoctorLogs.bind(drWorkLogController)
+);
+
+router.get(
   '/representative/:repId/month/:yearMonth',
   drWorkLogController.getRepresentativeMonthLogs.bind(drWorkLogController)
 );

@@ -57,6 +57,7 @@
                                 <a href="/WorkLog.html" class="nav-link block w-full text-left" data-page="work-log-report" role="menuitem" tabindex="-1">Work Log</a>
                                 <a href="/createdoctorslist.html" class="nav-link block w-full text-left" data-page="doctor-calls" role="menuitem" tabindex="-1">Doctor Management</a>
                                 <a href="/logs.html" class="nav-link block w-full text-left" data-page="user-logs" role="menuitem" tabindex="-1">User Logs</a>
+                                <a href="/leave.html" class="nav-link block w-full text-left" data-page="leave" role="menuitem" tabindex="-1">Leave Management</a>
                             </div>
                         </div>
                     </div>
@@ -120,6 +121,7 @@
                     <a href="/WorkLog.html" class="nav-link block" data-page="work-log-report">Work Log</a>
                     <a href="/createdoctorslist.html" class="nav-link block" data-page="doctor-calls">Doctor Management</a>
                     <a href="/logs.html" class="nav-link block" data-page="user-logs">User Logs</a>
+                    <a href="/leave.html" class="nav-link block" data-page="leave">Leave Management</a>
                 </div>
                 <!-- Others collapsible -->
                 <button type="button" class="w-full text-left nav-link flex items-center justify-between mobile-collapse" data-toggle-target="#mm-others" onclick="toggleCollapse('#mm-others')">
@@ -230,6 +232,7 @@
         if (path.includes('newCounters.html')) { pushKey('new-counters-report'); pushKey('reports'); }
         if (path.includes('WorkLog.html')) { pushKey('work-log-report'); pushKey('reports'); }
         if (path.includes('createdoctorslist.html')) { pushKey('doctor-calls'); pushKey('reports'); }
+        if (path.includes('leave.html')) { pushKey('leave'); pushKey('reports'); }
         if (path.includes('page-access.html')) { pushKey('page-access'); pushKey('others'); }
         if (path.includes('user.html')) { pushKey('users'); pushKey('others'); }
         if (path.includes('features')) pushKey('features');

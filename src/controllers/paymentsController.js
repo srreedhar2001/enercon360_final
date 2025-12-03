@@ -146,7 +146,8 @@ const getMonthlyExpenses = async (req, res) => {
             SELECT 
                 DATE_FORMAT(p.paymentDate, '%Y-%m') AS ym,
                 DATE_FORMAT(p.paymentDate, '%b %Y') AS label,
-                COALESCE(SUM(p.amount), 0) AS total
+                COALESCE(SUM(CASE WHEN LOWER(pt.serviceTypeName) <> 'product purchase' THEN p.amount ELSE 0 END), 0) AS total,
+                COALESCE(SUM(CASE WHEN LOWER(pt.serviceTypeName) = 'product purchase' THEN p.amount ELSE 0 END), 0) AS productPurchaseTotal
             FROM payments p
             INNER JOIN paymenttype pt ON p.serviceTypeId = pt.id
             ${where}
@@ -170,13 +171,22 @@ const getMonthlyExpenses = async (req, res) => {
             startDate = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth() - 11, 1));
         }
 
-        const map = Object.fromEntries(rows.map(r => [r.ym, Number(r.total) || 0]));
+        const map = Object.fromEntries(rows.map(r => [r.ym, {
+            total: Number(r.total) || 0,
+            productPurchaseTotal: Number(r.productPurchaseTotal) || 0
+        }]));
         const data = [];
         const cur = new Date(startDate);
         while (cur <= endDate) {
             const ym = `${cur.getUTCFullYear()}-${String(cur.getUTCMonth() + 1).padStart(2, '0')}`;
             const label = cur.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-            data.push({ ym, label, total: Math.round(map[ym] || 0) });
+            const monthTotals = map[ym] || { total: 0, productPurchaseTotal: 0 };
+            data.push({
+                ym,
+                label,
+                total: Math.round(monthTotals.total),
+                productPurchaseTotal: Math.round(monthTotals.productPurchaseTotal)
+            });
             cur.setUTCMonth(cur.getUTCMonth() + 1);
         }
 
@@ -566,7 +576,7 @@ module.exports = {
                 FROM payments p
                 INNER JOIN paymenttype pt ON p.serviceTypeId = pt.id
                 LEFT JOIN users u ON p.userId = u.id
-                ${where}
+                ${where} AND LOWER(pt.serviceTypeName) <> 'product purchase'
                 ORDER BY p.paymentDate DESC, p.id DESC
             `;
 
@@ -579,29 +589,52 @@ module.exports = {
     },
     getMonthlyPaymentsTotals: async (req, res) => {
         try {
+            const repIdRaw = req.query?.repId;
+            const repIdNum = repIdRaw !== undefined && repIdRaw !== null && String(repIdRaw).trim().length
+                ? Number(repIdRaw)
+                : null;
+            const hasRepFilter = Number.isFinite(repIdNum);
+
             // Build last 12-month timeline (including current month)
             const now = new Date();
             const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
             const start = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - 11, 1));
 
             // Query payments and collections grouped by month
-            const paymentsRows = await dbQuery(`
-                SELECT DATE_FORMAT(p.paymentDate, '%Y-%m') AS ym,
-                       DATE_FORMAT(p.paymentDate, '%b %Y') AS label,
-                       COALESCE(SUM(p.amount), 0) AS total
-                FROM payments p
-                WHERE p.paymentDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
-                GROUP BY ym, label
-                ORDER BY ym ASC
-            `);
-            const collectionsRows = await dbQuery(`
-                SELECT DATE_FORMAT(c.transactionDate, '%Y-%m') AS ym,
-                       COALESCE(SUM(c.amount), 0) AS total
-                FROM collections c
-                WHERE c.transactionDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)
-                GROUP BY ym
-                ORDER BY ym ASC
-            `);
+            const paymentsParams = [];
+            let paymentsWhere = 'WHERE p.paymentDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)';
+            if (hasRepFilter) {
+                paymentsWhere += ' AND p.userId = ?';
+                paymentsParams.push(repIdNum);
+            }
+            const paymentsRows = await dbQuery(
+                `SELECT DATE_FORMAT(p.paymentDate, '%Y-%m') AS ym,
+                        DATE_FORMAT(p.paymentDate, '%b %Y') AS label,
+                        COALESCE(SUM(p.amount), 0) AS total
+                 FROM payments p
+                 ${paymentsWhere}
+                 GROUP BY ym, label
+                 ORDER BY ym ASC`,
+                paymentsParams
+            );
+
+            const collectionsParams = [];
+            let collectionsWhere = 'WHERE col.transactionDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH)';
+            if (hasRepFilter) {
+                collectionsWhere += ' AND cnt.RepID = ?';
+                collectionsParams.push(repIdNum);
+            }
+            const collectionsRows = await dbQuery(
+                `SELECT DATE_FORMAT(col.transactionDate, '%Y-%m') AS ym,
+                        COALESCE(SUM(col.amount), 0) AS total
+                 FROM collections col
+                 INNER JOIN orders ord ON col.orderID = ord.id
+                 INNER JOIN counters cnt ON ord.counterID = cnt.id
+                 ${collectionsWhere}
+                 GROUP BY ym
+                 ORDER BY ym ASC`,
+                collectionsParams
+            );
 
             const payMap = Object.fromEntries(paymentsRows.map(r => [r.ym, { label: r.label, total: Number(r.total) || 0 }]));
             const colMap = Object.fromEntries(collectionsRows.map(r => [r.ym, Number(r.total) || 0]));
@@ -621,7 +654,14 @@ module.exports = {
                 cur.setUTCMonth(cur.getUTCMonth() + 1);
             }
 
-            return res.status(200).json({ success: true, message: 'Monthly payments totals fetched', data });
+            return res.status(200).json({
+                success: true,
+                message: 'Monthly payments totals fetched',
+                data,
+                meta: {
+                    repId: hasRepFilter ? repIdNum : null
+                }
+            });
         } catch (error) {
             console.error('Error fetching monthly payments totals:', error);
             return res.status(500).json({ success: false, message: 'Failed to fetch monthly payments totals', error: error.message });

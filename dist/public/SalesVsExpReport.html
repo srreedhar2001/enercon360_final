@@ -165,7 +165,10 @@
         // Fetch monthly collections (company-wide last 12 months) and map to ym
         let colMap = {};
         try {
-          const rc = await fetch('/api/payments/monthly', { headers: { 'Authorization': `Bearer ${token}` } });
+          const colParams = new URLSearchParams();
+          if (repId) colParams.set('repId', repId);
+          const colUrl = `/api/payments/monthly${colParams.toString() ? `?${colParams.toString()}` : ''}`;
+          const rc = await fetch(colUrl, { headers: { 'Authorization': `Bearer ${token}` } });
           const jc = await rc.json();
           const cols = Array.isArray(jc.data) ? jc.data : [];
           colMap = Object.fromEntries(cols.map(c => [c.ym, Number(c.collectionsTotal||0)]));

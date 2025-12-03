@@ -147,9 +147,9 @@
           "delete": false
         },
         "doctor-calls": {
-          "view": true,
-          "edit": true,
-          "delete": true
+          "view": false,
+          "edit": false,
+          "delete": false
         },
         "new-counters-report": {
           "view": false,

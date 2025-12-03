@@ -2,13 +2,15 @@
 -- NOTE: This table already exists in production; run only if you need to recreate it in a fresh environment.
 
 CREATE TABLE IF NOT EXISTS `drworklog` (
+  `id` INT NOT NULL AUTO_INCREMENT,
   `callId` INT(11) NOT NULL,
   `longitude` DECIMAL(10,6) DEFAULT NULL,
   `latitude` DECIMAL(10,6) DEFAULT NULL,
   `address` VARCHAR(255) DEFAULT NULL,
   `comments` TEXT DEFAULT NULL,
   `createdDate` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`callId`),
+  PRIMARY KEY (`id`),
+  KEY `idx_drworklog_callId` (`callId`),
   CONSTRAINT `drworklog_ibfk_1` FOREIGN KEY (`callId`) REFERENCES `drcalls` (`id`)
     ON DELETE CASCADE
     ON UPDATE CASCADE

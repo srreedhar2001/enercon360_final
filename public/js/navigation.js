@@ -167,6 +167,7 @@ class NavigationLoader {
                     if (path.includes('WorkLog.html')) { pushKey('work-log-report'); pushKey('reports'); }
                     if (path.includes('createdoctorslist.html')) { pushKey('doctor-calls'); pushKey('reports'); }
                     if (path.includes('logs.html')) { pushKey('user-logs'); pushKey('reports'); }
+                    if (path.includes('leave.html')) { pushKey('leave'); pushKey('reports'); }
                     if (path.includes('page-access.html')) { pushKey('page-access'); pushKey('others'); }
                     if (path.includes('user.html')) { pushKey('users'); pushKey('others'); }
 

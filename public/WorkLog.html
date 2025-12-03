@@ -6,10 +6,31 @@
     <title>Work Log</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
     <script src="/js/navigation.js"></script>
     <link rel="icon" href="/favicon.ico">
     <meta name="robots" content="noindex, nofollow">
     <meta name="description" content="Capture representative visit logs with location, date, and time.">
+    <style>
+        /* Color coding for user roles in dropdown */
+        #repSelect option.rep-representative {
+            color: #2563eb; /* Blue for Representatives */
+            font-weight: 500;
+        }
+        #repSelect option.rep-manager {
+            color: #16a34a; /* Green for Managers */
+            font-weight: 500;
+        }
+        #repSelect option.rep-admin {
+            color: #dc2626; /* Red for Admins */
+            font-weight: 500;
+        }
+        #repSelect option.rep-viewer {
+            color: #9333ea; /* Purple for Viewers */
+            font-weight: 500;
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex flex-col">
     <div id="navigation-container"></div>
@@ -81,7 +102,7 @@
                         </thead>
                         <tbody id="logTbody" class="bg-white divide-y divide-gray-200">
                             <tr id="emptyStateRow">
-                                <td colspan="7" class="px-4 py-6 text-center text-gray-500">No entries yet. Select a counter to log your visit.</td>
+                                <td colspan="8" class="px-4 py-6 text-center text-gray-500">No entries yet. Select a counter to log your visit.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -109,10 +130,82 @@
                         </thead>
                         <tbody id="doctorLogTbody" class="bg-white divide-y divide-gray-200">
                             <tr id="doctorEmptyStateRow">
-                                <td colspan="8" class="px-4 py-6 text-center text-gray-500">No entries yet. Select a doctor to log your visit.</td>
+                                <td colspan="9" class="px-4 py-6 text-center text-gray-500">No entries yet. Select a doctor to log your visit.</td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                </section>
+
+                <section id="doctorOverviewSection" class="bg-white rounded-lg shadow p-6 hidden">
+                <div class="flex flex-col gap-4">
+                    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">Doctor Activity Overview</h2>
+                            <p id="doctorOverviewHelper" class="text-sm text-gray-500">Adjust the date range to review doctor visits for the selected representative.</p>
+                        </div>
+                        <div class="flex flex-wrap items-end gap-2">
+                            <div>
+                                <label for="doctorLogFrom" class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">From</label>
+                                <input type="date" id="doctorLogFrom" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label for="doctorLogTo" class="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">To</label>
+                                <input type="date" id="doctorLogTo" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <button type="button" id="doctorLogApplyBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Apply</button>
+                            <button type="button" id="exportDoctorOverviewPdfBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 hidden">
+                                <span class="flex items-center gap-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Export PDF
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="rounded-lg border border-blue-100 bg-blue-50 p-4">
+                            <div class="text-xs font-semibold uppercase tracking-wide text-blue-700">Linked Doctors</div>
+                            <div id="doctorOverviewDoctorCount" class="mt-1 text-2xl font-semibold text-blue-900">0</div>
+                        </div>
+                        <div class="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+                            <div class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Doctor Visits</div>
+                            <div id="doctorOverviewVisitCount" class="mt-1 text-2xl font-semibold text-emerald-900">0</div>
+                        </div>
+                        <div class="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                            <div class="text-xs font-semibold uppercase tracking-wide text-gray-600">Selected Range</div>
+                            <div id="doctorOverviewRangeLabel" class="mt-1 text-sm font-medium text-gray-900">—</div>
+                        </div>
+                    </div>
+                    <div id="doctorOverviewLoading" class="text-sm text-gray-500 hidden">Loading doctor visits…</div>
+                    <div id="doctorOverviewEmpty" class="text-sm text-gray-500 hidden">No doctor visits recorded for this range.</div>
+                    <div id="doctorOverviewChartContainer" class="mt-4 hidden">
+                        <div class="relative h-60">
+                            <canvas id="doctorOverviewChart" class="w-full h-full"></canvas>
+                        </div>
+                        <p id="doctorOverviewChartEmpty" class="mt-2 text-sm text-gray-500 hidden">No doctor visits to display on the chart.</p>
+                    </div>
+                    <div id="doctorOverviewTableWrapper" class="bg-white border border-gray-200 rounded-lg overflow-x-auto hidden">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Speciality</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none" id="sortLastVisitDate" title="Click to sort">
+                                        Last Visit Date <span id="sortIconLastVisit" class="ml-1">↓</span>
+                                    </th>
+                                    <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none" id="sortTotalVisits" title="Click to sort">
+                                        Total Visits <span id="sortIconTotalVisits" class="ml-1">↕</span>
+                                    </th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Visits</th>
+                                </tr>
+                            </thead>
+                            <tbody id="doctorOverviewTbody" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
                 </div>
                 </section>
 
@@ -215,10 +308,26 @@
             const doctorSearchWrapper = document.getElementById('doctorSearchWrapper');
             const doctorSearchInput = document.getElementById('doctorSearchInput');
             const doctorSelectHelper = document.getElementById('doctorSelectHelper');
+            
             const workLogChartSection = document.getElementById('workLogChartSection');
             const workLogChartCanvas = document.getElementById('workLogChart');
             const workLogChartSubtitle = document.getElementById('workLogChartSubtitle');
             const workLogChartEmpty = document.getElementById('workLogChartEmpty');
+            const doctorOverviewSection = document.getElementById('doctorOverviewSection');
+            const doctorOverviewHelper = document.getElementById('doctorOverviewHelper');
+            const doctorOverviewFromInput = document.getElementById('doctorLogFrom');
+            const doctorOverviewToInput = document.getElementById('doctorLogTo');
+            const doctorOverviewApplyBtn = document.getElementById('doctorLogApplyBtn');
+            const doctorOverviewDoctorCount = document.getElementById('doctorOverviewDoctorCount');
+            const doctorOverviewVisitCount = document.getElementById('doctorOverviewVisitCount');
+            const doctorOverviewRangeLabel = document.getElementById('doctorOverviewRangeLabel');
+            const doctorOverviewLoading = document.getElementById('doctorOverviewLoading');
+            const doctorOverviewEmpty = document.getElementById('doctorOverviewEmpty');
+            const doctorOverviewTableWrapper = document.getElementById('doctorOverviewTableWrapper');
+            const doctorOverviewTbody = document.getElementById('doctorOverviewTbody');
+            const doctorOverviewChartContainer = document.getElementById('doctorOverviewChartContainer');
+            const doctorOverviewChartEmpty = document.getElementById('doctorOverviewChartEmpty');
+            const doctorOverviewChartCanvas = document.getElementById('doctorOverviewChart');
 
             const doctorLogSection = document.getElementById('doctorLogSection');
             const doctorLogTbody = document.getElementById('doctorLogTbody');
@@ -241,6 +350,8 @@
 
             const logEntries = new Map();
             const doctorLogEntries = new Map();
+            const doctorVisitEntriesMap = new Map();
+            let visitDistancePopover = null;
 
             let currentUserId = null;
             let designationId = null;
@@ -252,7 +363,7 @@
             let availableReps = [];
             let selectedRepId = null;
             let entryCounter = 0;
-
+            
             let countersLoaded = false;
             let countersCache = [];
             const countersById = new Map();
@@ -274,6 +385,11 @@
 
             resetReportSections();
             resetDoctorDisplay();
+            let doctorOverviewChart = null;
+            let doctorOverviewRange = { from: null, to: null };
+            let doctorOverviewSortColumn = 'lastVisitDate'; // 'lastVisitDate' or 'totalVisits'
+            let doctorOverviewSortOrder = 'desc'; // 'asc' or 'desc'
+            let doctorOverviewData = []; // Store the current doctor data for re-sorting
             resetDoctorLog();
 
             function setStatus(message, tone = 'info') {
@@ -344,6 +460,29 @@
                 );
                 if (primary) return primary;
 
+                                if (isLastVisitTrigger) {
+                                    const visitCoordinates = entries
+                                        .map((entry, index) => {
+                                            if (!entry?.hasCoords) return null;
+                                            const latitude = Number(entry.latitude);
+                                            const longitude = Number(entry.longitude);
+                                            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+                                            return {
+                                                index,
+                                                label: entry.label || `Visit ${index + 1}`,
+                                                latitude,
+                                                longitude
+                                            };
+                                        })
+                                        .filter(Boolean);
+
+                                    console.log('Doctor visit coordinates', {
+                                        doctorKey,
+                                        baseVisitLabel: rawLabel,
+                                        coordinates: visitCoordinates
+                                    });
+                                }
+
                 const fallbackCandidates = [
                     doctor.doctorName,
                     doctor.drName,
@@ -382,6 +521,106 @@
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;')
                     .replace(/'/g, '&#39;');
+            }
+
+            function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
+                const coordinates = [lat1, lon1, lat2, lon2];
+                const allFinite = coordinates.every((coord) => typeof coord === 'number' && Number.isFinite(coord));
+                if (!allFinite) return null;
+                const toRadians = (degrees) => (degrees * Math.PI) / 180;
+                const R = 6371000; // Earth radius in meters
+                const phi1 = toRadians(lat1);
+                const phi2 = toRadians(lat2);
+                const deltaPhi = toRadians(lat2 - lat1);
+                const deltaLambda = toRadians(lon2 - lon1);
+                const sinDeltaPhi = Math.sin(deltaPhi / 2);
+                const sinDeltaLambda = Math.sin(deltaLambda / 2);
+                const a = sinDeltaPhi * sinDeltaPhi + Math.cos(phi1) * Math.cos(phi2) * sinDeltaLambda * sinDeltaLambda;
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                return Math.round(R * c);
+            }
+
+            function formatDistanceMeters(distance) {
+                if (typeof distance !== 'number' || Number.isNaN(distance) || distance < 0) return null;
+                return `${Math.round(distance)} meters`;
+            }
+
+            function ensureVisitDistancePopover() {
+                if (visitDistancePopover) return visitDistancePopover;
+                const popover = document.createElement('div');
+                popover.id = 'doctorVisitDistancePopover';
+                popover.className = 'fixed z-50 max-w-xs rounded-lg shadow-lg border border-gray-200 bg-white text-xs text-gray-700 p-3 space-y-2 hidden';
+                document.body.appendChild(popover);
+                visitDistancePopover = popover;
+                return popover;
+            }
+
+            function hideVisitDistancePopover() {
+                if (!visitDistancePopover) return;
+                visitDistancePopover.classList.add('hidden');
+                visitDistancePopover.style.top = '';
+                visitDistancePopover.style.left = '';
+                visitDistancePopover.style.visibility = '';
+            }
+
+            function renderVisitDistancePopover(anchor, headingLabel, distanceItems, options = {}) {
+                const popover = ensureVisitDistancePopover();
+                const heading = headingLabel ? String(headingLabel).trim() : '';
+                const headingHtml = heading
+                    ? `<div class="text-xs font-semibold text-gray-900">${escapeHtml(heading)}</div>`
+                    : '<div class="text-xs font-semibold text-gray-900">Selected visit</div>';
+                const baseLatCandidate = Number(options?.baseLatitude);
+                const baseLonCandidate = Number(options?.baseLongitude);
+                const baseLatitude = Number.isFinite(baseLatCandidate) ? baseLatCandidate : null;
+                const baseLongitude = Number.isFinite(baseLonCandidate) ? baseLonCandidate : null;
+                const baseLatLabel = Number.isFinite(baseLatitude) ? baseLatitude.toFixed(6) : null;
+                const baseLonLabel = Number.isFinite(baseLongitude) ? baseLongitude.toFixed(6) : null;
+                const baseHtml = baseLatLabel && baseLonLabel
+                    ? `<div class="text-[10px] text-gray-500">Base coordinates: <span class="font-medium text-gray-700">${escapeHtml(baseLatLabel)}</span>, <span class="font-medium text-gray-700">${escapeHtml(baseLonLabel)}</span></div>`
+                    : '';
+                const itemsHtml = Array.isArray(distanceItems) && distanceItems.length
+                    ? distanceItems.map((item) => {
+                          const label = item?.label ? String(item.label).trim() : '';
+                          const tooltip = item?.tooltip ? String(item.tooltip).trim() : '';
+                          const distanceLabel = formatDistanceMeters(item?.distance);
+                          const labelHtml = label ? escapeHtml(label) : 'Visit';
+                          const distanceHtml = distanceLabel ? escapeHtml(distanceLabel) : '—';
+                          const tooltipAttr = tooltip ? ` title="${escapeHtml(tooltip)}"` : '';
+                          const otherLat = Number.isFinite(item?.latitude) ? Number(item.latitude).toFixed(6) : null;
+                          const otherLon = Number.isFinite(item?.longitude) ? Number(item.longitude).toFixed(6) : null;
+                          const coordinatesLine = otherLat && otherLon
+                              ? `<div class="text-[10px] text-gray-500">Coords: <span class="font-medium text-gray-700">${escapeHtml(otherLat)}</span>, <span class="font-medium text-gray-700">${escapeHtml(otherLon)}</span></div>`
+                              : '';
+                          return `<div class="space-y-0.5"${tooltipAttr}><div class="flex items-center justify-between gap-2"><span class="text-[11px] text-gray-600">${labelHtml}</span><span class="text-[11px] font-semibold text-gray-900">${distanceHtml}</span></div>${coordinatesLine}</div>`;
+                      }).join('')
+                    : '<div class="text-xs text-gray-500">No other visits with coordinates.</div>';
+
+                popover.innerHTML = `${headingHtml}${baseHtml}<div class="space-y-1">${itemsHtml}</div>`;
+                popover.classList.remove('hidden');
+                popover.style.visibility = 'hidden';
+                popover.style.top = '0px';
+                popover.style.left = '0px';
+
+                const anchorRect = anchor.getBoundingClientRect();
+                const popoverRect = popover.getBoundingClientRect();
+                const viewportWidth = document.documentElement?.clientWidth || window.innerWidth || 0;
+                const scrollX = window.scrollX || window.pageXOffset || 0;
+                const scrollY = window.scrollY || window.pageYOffset || 0;
+                const spacing = 8;
+
+                let left = scrollX + anchorRect.left;
+                const maxLeft = scrollX + Math.max(0, viewportWidth - popoverRect.width - 16);
+                if (left > maxLeft) {
+                    left = maxLeft;
+                } else if (left < scrollX + 16) {
+                    left = scrollX + 16;
+                }
+
+                const top = scrollY + anchorRect.bottom + spacing;
+
+                popover.style.left = `${left}px`;
+                popover.style.top = `${top}px`;
+                popover.style.visibility = 'visible';
             }
 
             function generateRecentMonths() {
@@ -1024,7 +1263,33 @@
 
             function populateRepOptions(reps) {
                 if (!repSelect) return;
-                const list = Array.isArray(reps) ? reps : [];
+                // Filter for active users and only Representatives (designationId = 2)
+                const activeReps = Array.isArray(reps)
+                    ? reps.filter((rep) => {
+                        if (!rep) return false;
+                        const status = rep.status;
+                        if (status === undefined) return true;
+                        if (typeof status === 'boolean') return status;
+                        if (typeof status === 'number') return status === 1;
+                        const normalized = String(status).trim().toLowerCase();
+                        if (!normalized.length) return false;
+                        const isActive = normalized === '1' || normalized === 'true' || normalized === 'active';
+                        
+                        // Only include Representatives (designationId = 2)
+                        if (!isActive) return false;
+                        const designationId = rep.designationId ?? rep.designation_id ?? rep.designation ?? null;
+                        return designationId === 2 || designationId === '2';
+                    })
+                    : [];
+                
+                // Sort by name in ascending order
+                const sortedReps = activeReps.slice().sort((a, b) => {
+                    const nameA = (a.name ?? a.fullName ?? a.username ?? '').toString().toLowerCase();
+                    const nameB = (b.name ?? b.fullName ?? b.username ?? '').toString().toLowerCase();
+                    return nameA.localeCompare(nameB);
+                });
+                
+                const list = sortedReps;
                 if (!list.length) {
                     repSelect.innerHTML = '<option value="">No representatives available</option>';
                     counterSelectSection.classList.add('hidden');
@@ -1035,7 +1300,21 @@
                 repSelect.innerHTML = '<option value="">-- Select Representative --</option>' + list.map(rep => {
                     const id = getRepIdentifier(rep);
                     const name = safeText(rep.name ?? rep.fullName ?? rep.username ?? rep.phone ?? rep.mobile ?? `Rep ${id}`);
-                    return `<option value="${id}" data-name="${name}">${name}</option>`;
+                    const designationId = rep.designationId ?? rep.designation_id ?? rep.designation ?? null;
+                    
+                    // Add CSS class based on designation
+                    let cssClass = '';
+                    if (designationId === 2 || designationId === '2') {
+                        cssClass = 'rep-representative'; // Blue for Representatives
+                    } else if (designationId === 1 || designationId === '1') {
+                        cssClass = 'rep-manager'; // Green for Managers
+                    } else if (designationId === 4 || designationId === '4') {
+                        cssClass = 'rep-admin'; // Red for Admins
+                    } else if (designationId === 3 || designationId === '3') {
+                        cssClass = 'rep-viewer'; // Purple for Viewers
+                    }
+                    
+                    return `<option value="${id}" data-name="${name}" class="${cssClass}">${name}</option>`;
                 }).join('');
 
                 if ((isManager || isRepresentative) && list.length === 1) {
@@ -1421,7 +1700,18 @@
 
             function updateDoctorDropdown(doctors) {
                 if (!doctorSelect) return;
-                currentDoctorList = Array.isArray(doctors) ? doctors.filter(Boolean) : [];
+                currentDoctorList = Array.isArray(doctors)
+                    ? doctors.filter((doctor) => {
+                        if (!doctor) return false;
+                        const status = doctor.status;
+                        if (status === undefined) return true;
+                        if (typeof status === 'boolean') return status;
+                        if (typeof status === 'number') return status === 1;
+                        const normalized = String(status).trim().toLowerCase();
+                        if (!normalized.length) return false;
+                        return normalized === '1' || normalized === 'true' || normalized === 'active';
+                    })
+                    : [];
 
                 if (!currentDoctorList.length) {
                     if (doctorSelectSection) {
@@ -1458,6 +1748,871 @@
                 }
 
                 renderDoctorOptions(currentDoctorList, '', selectedDoctorId);
+            }
+
+            function formatDateInputValue(date) {
+                if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+                    return null;
+                }
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function getDefaultDoctorDateRange() {
+                const today = new Date();
+                const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const start = new Date(end);
+                start.setDate(start.getDate() - 29);
+                return {
+                    from: formatDateInputValue(start),
+                    to: formatDateInputValue(end)
+                };
+            }
+
+            function normalizeDateInputValue(value) {
+                if (!value) return null;
+                if (value instanceof Date) {
+                    return formatDateInputValue(value);
+                }
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                        return null;
+                    }
+                    const parsed = new Date(`${trimmed}T00:00:00`);
+                    if (Number.isNaN(parsed.getTime())) {
+                        return null;
+                    }
+                    return formatDateInputValue(parsed);
+                }
+                return null;
+            }
+
+            function ensureDoctorRange(range) {
+                const defaults = getDefaultDoctorDateRange();
+                let from = normalizeDateInputValue(range?.from) || defaults.from;
+                let to = normalizeDateInputValue(range?.to) || defaults.to;
+                if (from && to && from > to) {
+                    const swap = from;
+                    from = to;
+                    to = swap;
+                }
+                return { from, to };
+            }
+
+            function formatDoctorDisplayDate(value) {
+                const normalized = normalizeDateInputValue(value);
+                if (!normalized) return null;
+                const parts = normalized.split('-').map((segment) => Number(segment));
+                if (parts.length !== 3 || parts.some((segment) => Number.isNaN(segment))) {
+                    return normalized;
+                }
+                const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+                if (Number.isNaN(date.getTime())) {
+                    return normalized;
+                }
+                const formatter = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                return formatter.format(date);
+            }
+
+            function parseDoctorDateTime(value) {
+                if (!value) return null;
+                if (value instanceof Date && !Number.isNaN(value.getTime())) {
+                    return value;
+                }
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    if (!trimmed.length) return null;
+                    const normalized = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T');
+                    let parsed = new Date(normalized);
+                    if (!Number.isNaN(parsed.getTime())) {
+                        return parsed;
+                    }
+                    parsed = new Date(`${normalized}Z`);
+                    if (!Number.isNaN(parsed.getTime())) {
+                        return parsed;
+                    }
+                }
+                return null;
+            }
+
+            function formatDoctorDisplayDateTime(date) {
+                if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+                const formatter = new Intl.DateTimeFormat('en-IN', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                return formatter.format(date);
+            }
+
+            function formatDoctorRangeLabel(from, to) {
+                const normalizedFrom = normalizeDateInputValue(from);
+                const normalizedTo = normalizeDateInputValue(to);
+                if (!normalizedFrom || !normalizedTo) return '—';
+                const fromDate = new Date(`${normalizedFrom}T00:00:00`);
+                const toDate = new Date(`${normalizedTo}T00:00:00`);
+                const formatter = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                const fromLabel = formatter.format(fromDate);
+                const toLabel = formatter.format(toDate);
+                return normalizedFrom === normalizedTo ? fromLabel : `${fromLabel} → ${toLabel}`;
+            }
+
+            function buildDoctorDateSeries(from, to) {
+                const normalizedFrom = normalizeDateInputValue(from);
+                const normalizedTo = normalizeDateInputValue(to);
+                if (!normalizedFrom || !normalizedTo) return [];
+                const start = new Date(`${normalizedFrom}T00:00:00`);
+                const end = new Date(`${normalizedTo}T00:00:00`);
+                if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) {
+                    return [];
+                }
+                const series = [];
+                const cursor = new Date(start);
+                while (cursor <= end) {
+                    series.push(formatDateInputValue(cursor));
+                    cursor.setDate(cursor.getDate() + 1);
+                }
+                return series;
+            }
+
+            function resetDoctorOverview({ hideSection = true } = {}) {
+                doctorOverviewRange = { from: null, to: null };
+                if (doctorOverviewDoctorCount) doctorOverviewDoctorCount.textContent = '0';
+                if (doctorOverviewVisitCount) doctorOverviewVisitCount.textContent = '0';
+                if (doctorOverviewRangeLabel) doctorOverviewRangeLabel.textContent = '—';
+                if (doctorOverviewLoading) doctorOverviewLoading.classList.add('hidden');
+                if (doctorOverviewEmpty) doctorOverviewEmpty.classList.add('hidden');
+                if (doctorOverviewTableWrapper) doctorOverviewTableWrapper.classList.add('hidden');
+                if (doctorOverviewTbody) doctorOverviewTbody.innerHTML = '';
+                if (doctorOverviewChart) {
+                    doctorOverviewChart.destroy();
+                    doctorOverviewChart = null;
+                }
+                if (doctorOverviewChartContainer) doctorOverviewChartContainer.classList.add('hidden');
+                if (doctorOverviewChartEmpty) doctorOverviewChartEmpty.classList.add('hidden');
+                if (doctorOverviewHelper) {
+                    doctorOverviewHelper.textContent = 'Adjust the date range to review doctor visits for the selected representative.';
+                }
+                
+                // Hide export PDF button
+                const exportBtn = document.getElementById('exportDoctorOverviewPdfBtn');
+                if (exportBtn) exportBtn.classList.add('hidden');
+                
+                if (hideSection && doctorOverviewSection) {
+                    doctorOverviewSection.classList.add('hidden');
+                }
+            }
+
+            function setDoctorOverviewDefaults() {
+                const defaults = getDefaultDoctorDateRange();
+                doctorOverviewRange = { ...defaults };
+                const todayIso = defaults.to;
+                if (doctorOverviewFromInput) {
+                    doctorOverviewFromInput.value = defaults.from || '';
+                    doctorOverviewFromInput.max = todayIso || '';
+                }
+                if (doctorOverviewToInput) {
+                    doctorOverviewToInput.value = defaults.to || '';
+                    doctorOverviewToInput.max = todayIso || '';
+                }
+                updateDoctorOverviewSummary({ doctorCount: 0, visitCount: 0, range: defaults });
+            }
+
+            function setDoctorOverviewLoading() {
+                if (doctorOverviewSection) {
+                    doctorOverviewSection.classList.remove('hidden');
+                }
+                if (doctorOverviewLoading) {
+                    doctorOverviewLoading.textContent = 'Loading doctor visits…';
+                    doctorOverviewLoading.classList.remove('hidden');
+                }
+                if (doctorOverviewEmpty) doctorOverviewEmpty.classList.add('hidden');
+                if (doctorOverviewTableWrapper) doctorOverviewTableWrapper.classList.add('hidden');
+                if (doctorOverviewChart) {
+                    doctorOverviewChart.destroy();
+                    doctorOverviewChart = null;
+                }
+                if (doctorOverviewChartContainer) doctorOverviewChartContainer.classList.add('hidden');
+                if (doctorOverviewChartEmpty) doctorOverviewChartEmpty.classList.add('hidden');
+            }
+
+            function renderDoctorOverviewTable(doctors) {
+                if (!doctorOverviewTbody) return;
+                hideVisitDistancePopover();
+                doctorVisitEntriesMap.clear();
+                
+                const exportBtn = document.getElementById('exportDoctorOverviewPdfBtn');
+                
+                if (!Array.isArray(doctors) || !doctors.length) {
+                    doctorOverviewTbody.innerHTML = '';
+                    if (doctorOverviewTableWrapper) doctorOverviewTableWrapper.classList.add('hidden');
+                    if (exportBtn) exportBtn.classList.add('hidden');
+                    doctorOverviewData = [];
+                    return;
+                }
+
+                // Store the data for re-sorting
+                doctorOverviewData = doctors.slice();
+
+                // Apply sorting based on current sort column and order
+                const sortedDoctors = doctors.slice().sort((a, b) => {
+                    let compareResult = 0;
+                    
+                    if (doctorOverviewSortColumn === 'lastVisitDate') {
+                        // Sort by last visit date
+                        const dateA = a?.lastLogDate ? new Date(a.lastLogDate).getTime() : 0;
+                        const dateB = b?.lastLogDate ? new Date(b.lastLogDate).getTime() : 0;
+                        compareResult = dateB - dateA;
+                    } else if (doctorOverviewSortColumn === 'totalVisits') {
+                        // Sort by total visits
+                        const countA = Number(a?.logCount) || 0;
+                        const countB = Number(b?.logCount) || 0;
+                        compareResult = countB - countA;
+                    }
+                    
+                    // Apply sort order (asc or desc)
+                    if (doctorOverviewSortOrder === 'asc') {
+                        compareResult = -compareResult;
+                    }
+                    
+                    // Secondary sort by doctor name if primary values are equal
+                    if (compareResult === 0) {
+                        const nameA = (a?.doctorName || '').toString().toLowerCase();
+                        const nameB = (b?.doctorName || '').toString().toLowerCase();
+                        compareResult = nameA.localeCompare(nameB);
+                    }
+                    
+                    return compareResult;
+                });
+
+                const rows = sortedDoctors.map((doctor, doctorIndex) => {
+                    const rawName = doctor?.doctorName || (doctor?.doctorId ? `Doctor #${doctor.doctorId}` : 'Doctor');
+                    const displayName = rawName ? String(rawName).trim().toUpperCase() : 'DOCTOR';
+                    const speciality = (doctor?.specialityName || doctor?.speciality || '—').toString().trim() || '—';
+                    const city = (doctor?.cityName || '').toString().trim();
+                    const state = (doctor?.stateName || '').toString().trim();
+                    const locationParts = [city, state].filter(Boolean);
+                    const locationText = locationParts.length ? locationParts.join(', ') : '—';
+                    const visitCount = Number(doctor?.logCount) || 0;
+                    const rawVisitEntries = Array.isArray(doctor?.visitEntries) ? doctor.visitEntries : [];
+                    const fallbackVisitDates = Array.isArray(doctor?.visitDates) ? doctor.visitDates : [];
+                    const doctorKey = doctor?.doctorId != null ? `doc-${doctor.doctorId}` : `doc-index-${doctorIndex}`;
+                    let lastDisplay = '—';
+                    if (doctor?.lastLogDate) {
+                        const parsed = new Date(doctor.lastLogDate);
+                        if (!Number.isNaN(parsed.getTime())) {
+                            lastDisplay = parsed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                        }
+                    }
+                    const visitEntries = (rawVisitEntries.length
+                        ? rawVisitEntries
+                        : fallbackVisitDates.map((value) => ({ iso: value }))
+                    ).map((entry) => {
+                        const isoSource = entry && typeof entry === 'object' && entry !== null ? (entry.iso ?? entry.date ?? entry.timestamp ?? entry.time ?? entry) : entry;
+                        const parsedDate = parseDoctorDateTime(isoSource);
+                        let label = null;
+                        let tooltip = null;
+                        if (parsedDate) {
+                            label = formatDoctorDisplayDateTime(parsedDate) || parsedDate.toLocaleString('en-IN');
+                            tooltip = parsedDate.toISOString();
+                        } else {
+                            const normalized = normalizeDateInputValue(isoSource);
+                            if (normalized) {
+                                label = formatDoctorDisplayDate(normalized) || normalized;
+                                tooltip = normalized;
+                            }
+                        }
+                        if (!label) {
+                            const fallback = typeof isoSource === 'string' ? isoSource.trim() : '';
+                            if (!fallback) return null;
+                            label = fallback;
+                            tooltip = fallback;
+                        }
+
+                        const latRaw = entry && typeof entry === 'object' ? (entry.latitude ?? entry.lat ?? null) : null;
+                        const lonRaw = entry && typeof entry === 'object' ? (entry.longitude ?? entry.lon ?? entry.lng ?? null) : null;
+                        let latitude = null;
+                        let longitude = null;
+                        if (typeof latRaw === 'number' && Number.isFinite(latRaw)) {
+                            latitude = latRaw;
+                        } else if (typeof latRaw === 'string') {
+                            const trimmed = latRaw.trim();
+                            if (trimmed.length) {
+                                const parsedLat = Number(trimmed);
+                                if (Number.isFinite(parsedLat)) {
+                                    latitude = parsedLat;
+                                }
+                            }
+                        }
+                        if (typeof lonRaw === 'number' && Number.isFinite(lonRaw)) {
+                            longitude = lonRaw;
+                        } else if (typeof lonRaw === 'string') {
+                            const trimmed = lonRaw.trim();
+                            if (trimmed.length) {
+                                const parsedLon = Number(trimmed);
+                                if (Number.isFinite(parsedLon)) {
+                                    longitude = parsedLon;
+                                }
+                            }
+                        }
+
+                        return {
+                            label,
+                            tooltip,
+                            date: parsedDate || null,
+                            latitude,
+                            longitude,
+                            hasCoords: Number.isFinite(latitude) && Number.isFinite(longitude)
+                        };
+                    }).filter(Boolean);
+                    doctorVisitEntriesMap.set(doctorKey, visitEntries.length ? visitEntries : []);
+                    const fallbackLatestLabel = visitEntries.length ? visitEntries[0].label : null;
+                    const latestVisitLabel = lastDisplay !== '—' ? lastDisplay : fallbackLatestLabel;
+                    const latestEntry = visitEntries.length ? visitEntries[0] : null;
+                    
+                    // Get base coordinates from the latest (first) visit for distance calculations
+                    const baseLatitude = latestEntry?.hasCoords ? Number(latestEntry.latitude) : null;
+                    const baseLongitude = latestEntry?.hasCoords ? Number(latestEntry.longitude) : null;
+                    
+                    const latestDateHtml = latestVisitLabel && latestEntry && latestEntry.hasCoords
+                        ? (() => {
+                              const latVal = Number.isFinite(latestEntry.latitude) ? latestEntry.latitude.toFixed(6) : '';
+                              const lonVal = Number.isFinite(latestEntry.longitude) ? latestEntry.longitude.toFixed(6) : '';
+                              const tooltipParts = [latestEntry.tooltip];
+                              if (latestEntry.hasCoords) {
+                                  tooltipParts.push(latVal ? `Lat: ${latVal}` : '');
+                                  tooltipParts.push(lonVal ? `Lon: ${lonVal}` : '');
+                              }
+                              const tooltipText = tooltipParts.filter(Boolean).join(' | ');
+                              const tooltipAttr = tooltipText ? ` title="${escapeHtml(tooltipText)}"` : '';
+                              return `<button type="button" class="text-sm font-medium text-blue-700 hover:text-blue-900 underline" data-last-visit-entry="true" data-doctor-key="${escapeHtml(doctorKey)}" data-entry-index="0" data-label="${escapeHtml(latestVisitLabel)}" data-lat="${escapeHtml(latVal)}" data-lon="${escapeHtml(lonVal)}"${tooltipAttr}>${escapeHtml(latestVisitLabel)}</button>`;
+                          })()
+                        : latestVisitLabel
+                            ? `<div class="text-sm font-medium text-gray-900">${escapeHtml(latestVisitLabel)}</div>`
+                            : '<span class="text-xs text-gray-400">—</span>';
+                    
+                    const visitDatesHtmlParts = visitEntries.map((item, visitIndex) => {
+                        const latValue = typeof item.latitude === 'number' ? item.latitude : Number(item.latitude);
+                        const lonValue = typeof item.longitude === 'number' ? item.longitude : Number(item.longitude);
+                        const latStr = Number.isFinite(latValue) ? latValue.toFixed(6) : '';
+                        const lonStr = Number.isFinite(lonValue) ? lonValue.toFixed(6) : '';
+                        const tooltipParts = [item.tooltip];
+                        if (item.hasCoords) {
+                            tooltipParts.push(latStr ? `Lat: ${latStr}` : '');
+                            tooltipParts.push(lonStr ? `Lon: ${lonStr}` : '');
+                        }
+                        const tooltipText = tooltipParts.filter(Boolean).join(' | ');
+                        const tooltipAttr = tooltipText ? ` title="${escapeHtml(tooltipText)}"` : '';
+                        
+                        // Calculate distance from the latest (first) visit
+                        let distanceText = '';
+                        let chipColorClass = 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100';
+                        
+                        if (item.hasCoords && latStr && lonStr && visitIndex > 0 && Number.isFinite(baseLatitude) && Number.isFinite(baseLongitude)) {
+                            const distance = calculateDistanceMeters(baseLatitude, baseLongitude, latValue, lonValue);
+                            if (distance !== null) {
+                                const distanceFormatted = formatDistanceMeters(distance) || `${Math.round(distance)} meters`;
+                                distanceText = ` (${distanceFormatted})`;
+                                
+                                // Change color to red if distance > 300 meters
+                                if (distance > 300) {
+                                    chipColorClass = 'bg-red-50 text-red-700 hover:bg-red-100';
+                                }
+                            }
+                        }
+                        
+                        if (item.hasCoords && latStr && lonStr) {
+                            return `<button type="button" class="inline-flex items-center rounded ${chipColorClass} px-2 py-0.5 text-xs font-medium" data-distance-entry="true" data-doctor-key="${escapeHtml(doctorKey)}" data-entry-index="${escapeHtml(String(visitIndex))}" data-lat="${escapeHtml(latStr)}" data-lon="${escapeHtml(lonStr)}" data-label="${escapeHtml(item.label)}"${tooltipAttr}>${escapeHtml(item.label)}${escapeHtml(distanceText)}</button>`;
+                        }
+                        return `<span class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500"${tooltipAttr}>${escapeHtml(item.label)}</span>`;
+                    });
+                    const visitDatesHtml = visitDatesHtmlParts.length
+                        ? `<div class="flex flex-wrap gap-1">${visitDatesHtmlParts.join('')}</div>`
+                        : '<span class="text-xs text-gray-400">—</span>';
+                    const visitLabel = visitCount === 1 ? 'visit' : 'visits';
+                    const visitCountHtml = visitCount > 0
+                        ? `<div class="flex items-center justify-end gap-1"><span class="text-base font-semibold text-emerald-700">${escapeHtml(String(visitCount))}</span><span class="text-[10px] uppercase tracking-wide text-emerald-600">${escapeHtml(visitLabel)}</span></div>`
+                        : '<span class="text-xs text-gray-400">No visits</span>';
+                    const address = doctor?.address ? String(doctor.address).trim() : '';
+                    const addressLine = address ? `<div class="text-xs text-gray-500">${escapeHtml(address)}</div>` : '';
+                    return `
+                        <tr>
+                            <td class="px-4 py-2 text-sm text-gray-900">${doctorIndex + 1}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">
+                                <div class="font-semibold tracking-wide">${escapeHtml(displayName)}</div>
+                                ${addressLine}
+                            </td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${escapeHtml(speciality)}</td>
+                            <td class="px-4 py-2 text-sm text-gray-700">${escapeHtml(locationText)}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900">${latestDateHtml}</td>
+                            <td class="px-4 py-2 text-sm text-right text-gray-900">${visitCountHtml}</td>
+                            <td class="px-4 py-2 text-sm text-gray-600">${visitDatesHtml}</td>
+                        </tr>`;
+                }).join('');
+
+                doctorOverviewTbody.innerHTML = rows;
+                if (doctorOverviewTableWrapper) {
+                    doctorOverviewTableWrapper.classList.remove('hidden');
+                }
+                
+                // Show export PDF button when data is available
+                if (exportBtn) {
+                    exportBtn.classList.remove('hidden');
+                }
+            }
+
+            function handleDoctorDistanceClick(event) {
+                const trigger = event?.target?.closest?.('[data-distance-entry="true"],[data-last-visit-entry="true"]');
+                if (!trigger) return;
+                event.preventDefault();
+
+                const doctorKey = trigger.getAttribute('data-doctor-key');
+                const entryIndexRaw = trigger.getAttribute('data-entry-index');
+                const entryIndex = Number(entryIndexRaw);
+                const isLastVisitTrigger = trigger.hasAttribute('data-last-visit-entry');
+                
+                // If clicking on a visit date chip (not last visit), open map in new tab
+                if (trigger.hasAttribute('data-distance-entry')) {
+                    const lat = trigger.getAttribute('data-lat');
+                    const lon = trigger.getAttribute('data-lon');
+                    if (lat && lon) {
+                        const mapUrl = `https://www.google.com/maps?q=${encodeURIComponent(lat)},${encodeURIComponent(lon)}`;
+                        window.open(mapUrl, '_blank', 'noopener,noreferrer');
+                        return;
+                    }
+                }
+                
+                if (!doctorKey || entryIndexRaw == null || !Number.isInteger(entryIndex) || entryIndex < 0) {
+                    hideVisitDistancePopover();
+                    return;
+                }
+
+                const entries = doctorVisitEntriesMap.get(doctorKey);
+                if (!Array.isArray(entries) || !entries.length) {
+                    hideVisitDistancePopover();
+                    return;
+                }
+
+                const baseEntry = entries[entryIndex];
+                const baseLat = baseEntry ? Number(baseEntry.latitude) : NaN;
+                const baseLon = baseEntry ? Number(baseEntry.longitude) : NaN;
+                if (!Number.isFinite(baseLat) || !Number.isFinite(baseLon)) {
+                    hideVisitDistancePopover();
+                    return;
+                }
+
+                const distances = entries
+                    .map((entry, index) => {
+                        if (!entry || index === entryIndex || !entry.hasCoords) return null;
+                        const otherLat = typeof entry.latitude === 'number' ? entry.latitude : Number(entry.latitude);
+                        const otherLon = typeof entry.longitude === 'number' ? entry.longitude : Number(entry.longitude);
+                        if (!Number.isFinite(otherLat) || !Number.isFinite(otherLon)) return null;
+                        const distance = calculateDistanceMeters(baseLat, baseLon, otherLat, otherLon);
+                        if (distance == null) return null;
+                        return {
+                            label: entry.label || `Visit ${index + 1}`,
+                            distance,
+                            tooltip: entry.tooltip || '',
+                            latitude: otherLat,
+                            longitude: otherLon
+                        };
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => a.distance - b.distance);
+
+                const rawLabel = trigger.getAttribute('data-label') || 'selected visit';
+
+                // Console log all visit coordinates and distances when Last Visit Date is clicked
+                // Also update chip colors based on distance
+                if (isLastVisitTrigger) {
+                    const visitDataWithDistances = entries
+                        .map((entry, index) => {
+                            if (!entry?.hasCoords) return null;
+                            const latitude = Number(entry.latitude);
+                            const longitude = Number(entry.longitude);
+                            if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+                            
+                            // Calculate distance from the clicked visit to this visit
+                            let distanceFromClicked = null;
+                            let distanceFormatted = '—';
+                            if (index !== entryIndex) {
+                                const dist = calculateDistanceMeters(baseLat, baseLon, latitude, longitude);
+                                if (dist !== null) {
+                                    distanceFromClicked = dist;
+                                    distanceFormatted = formatDistanceMeters(dist) || `${Math.round(dist)} meters`;
+                                }
+                            } else {
+                                distanceFormatted = '(Clicked Visit)';
+                            }
+                            
+                            return {
+                                visitNumber: index + 1,
+                                label: entry.label || `Visit ${index + 1}`,
+                                latitude,
+                                longitude,
+                                distanceFromClicked: distanceFormatted,
+                                distanceValue: distanceFromClicked
+                            };
+                        })
+                        .filter(Boolean);
+
+                    console.log('=== Last Visit Date Clicked ===');
+                    console.log('Doctor Key:', doctorKey);
+                    console.log('Clicked Visit:', rawLabel);
+                    console.log('Clicked Visit Coordinates:', { latitude: baseLat, longitude: baseLon });
+                    console.log('\nAll Visits with Distances from Clicked Visit:');
+                    console.table(visitDataWithDistances);
+                    console.log('===============================');
+
+                    // Update visit chip colors based on distance (>50m = red)
+                    const visitsRow = trigger.closest('tr');
+                    if (visitsRow) {
+                        const visitChips = visitsRow.querySelectorAll('[data-distance-entry="true"]');
+                        visitChips.forEach((chip, chipIndex) => {
+                            const chipEntryIndex = Number(chip.getAttribute('data-entry-index'));
+                            if (!Number.isInteger(chipEntryIndex) || chipEntryIndex < 0) return;
+
+                            // Reset to default colors first
+                            chip.classList.remove('bg-red-50', 'text-red-700', 'hover:bg-red-100');
+                            chip.classList.add('bg-indigo-50', 'text-indigo-700', 'hover:bg-indigo-100');
+
+                            // If this is not the clicked visit, calculate distance and apply red if >50m
+                            if (chipEntryIndex !== entryIndex) {
+                                const chipEntry = entries[chipEntryIndex];
+                                if (chipEntry?.hasCoords) {
+                                    const chipLat = Number(chipEntry.latitude);
+                                    const chipLon = Number(chipEntry.longitude);
+                                    if (Number.isFinite(chipLat) && Number.isFinite(chipLon)) {
+                                        const dist = calculateDistanceMeters(baseLat, baseLon, chipLat, chipLon);
+                                        if (dist !== null && dist > 50) {
+                                            chip.classList.remove('bg-indigo-50', 'text-indigo-700', 'hover:bg-indigo-100');
+                                            chip.classList.add('bg-red-50', 'text-red-700', 'hover:bg-red-100');
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+
+                const baseLabel = `Distances from ${rawLabel}`;
+                renderVisitDistancePopover(trigger, baseLabel, distances, {
+                    baseLatitude: baseLat,
+                    baseLongitude: baseLon
+                });
+            }
+
+            function handleVisitPopoverOutsideClick(event) {
+                const target = event?.target;
+                if (!target) return;
+                if (target.closest('#doctorVisitDistancePopover')) return;
+                if (target.closest('[data-distance-entry="true"],[data-last-visit-entry="true"]')) return;
+                hideVisitDistancePopover();
+            }
+
+            function updateDoctorOverviewSummary({ doctorCount = 0, visitCount = 0, range = null }) {
+                if (doctorOverviewDoctorCount) doctorOverviewDoctorCount.textContent = String(doctorCount);
+                if (doctorOverviewVisitCount) doctorOverviewVisitCount.textContent = String(visitCount);
+                if (doctorOverviewRangeLabel) doctorOverviewRangeLabel.textContent = range ? formatDoctorRangeLabel(range.from, range.to) : '—';
+                if (doctorOverviewHelper) {
+                    if (doctorCount > 0) {
+                        const visitLabel = visitCount === 1 ? 'visit' : 'visits';
+                        doctorOverviewHelper.textContent = `Linked doctors: ${doctorCount}. Recorded ${visitCount} ${visitLabel} in this range.`;
+                    } else {
+                        doctorOverviewHelper.textContent = 'No doctors linked to this representative yet.';
+                    }
+                }
+            }
+
+            async function updateDoctorOverviewChart(range, dailyCounts) {
+                if (!doctorOverviewChartContainer || !doctorOverviewChartCanvas) return;
+
+                if (doctorOverviewChart) {
+                    doctorOverviewChart.destroy();
+                    doctorOverviewChart = null;
+                }
+
+                const dateKeys = buildDoctorDateSeries(range?.from, range?.to);
+                const countsMap = new Map(Array.isArray(dailyCounts) ? dailyCounts.map((item) => [item.date, Number(item.count) || 0]) : []);
+                const labels = dateKeys.map((key) => {
+                    const parsed = new Date(`${key}T00:00:00`);
+                    return Number.isNaN(parsed.getTime())
+                        ? key
+                        : parsed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                });
+                const values = dateKeys.map((key) => countsMap.get(key) || 0);
+                const hasData = values.some((value) => value > 0);
+
+                if (!dateKeys.length || !hasData) {
+                    if (doctorOverviewChartContainer) doctorOverviewChartContainer.classList.add('hidden');
+                    if (doctorOverviewChartEmpty) {
+                        doctorOverviewChartEmpty.textContent = 'No doctor visits to display on the chart.';
+                        doctorOverviewChartEmpty.classList.remove('hidden');
+                    }
+                    return;
+                }
+
+                // Fetch leave dates for the selected representative
+                let leaveDates = new Set();
+                if (selectedRepId && range?.from && range?.to) {
+                    try {
+                        const yearFromRange = new Date(range.from).getFullYear();
+                        console.log('=== LEAVE DATA FETCH ===');
+                        console.log('Selected Representative ID:', selectedRepId);
+                        console.log('Date Range:', range.from, 'to', range.to);
+                        console.log('Year:', yearFromRange);
+                        console.log('Fetching from URL:', `/api/leave/requests?userId=${selectedRepId}&year=${yearFromRange}`);
+                        
+                        const leaveResponse = await fetch(`/api/leave/requests?userId=${selectedRepId}&year=${yearFromRange}`, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        
+                        console.log('Leave API response status:', leaveResponse.status, leaveResponse.statusText);
+                        
+                        if (leaveResponse.ok) {
+                            const leaveData = await leaveResponse.json();
+                            console.log('Leave API raw response:', leaveData);
+                            const requests = leaveData.data || [];
+                            console.log('Number of leave requests found:', requests.length);
+                            
+                            requests.forEach((req, index) => {
+                                console.log(`Leave Request ${index + 1}:`, {
+                                    startDate: req.startDate,
+                                    endDate: req.endDate,
+                                    totalDays: req.totalDays,
+                                    leaveType: req.leaveTypeName
+                                });
+                                
+                                // Extract date strings (YYYY-MM-DD) directly - no timezone issues
+                                const startDateStr = req.startDate.split('T')[0];
+                                const endDateStr = req.endDate.split('T')[0];
+                                
+                                console.log('RAW startDate from DB:', req.startDate);
+                                console.log('EXTRACTED startDateStr:', startDateStr);
+                                console.log('RAW endDate from DB:', req.endDate);
+                                console.log('EXTRACTED endDateStr:', endDateStr);
+                                
+                                // Parse the date components manually to avoid timezone conversion
+                                const [startYear, startMonth, startDay] = startDateStr.split('-').map(Number);
+                                const [endYear, endMonth, endDay] = endDateStr.split('-').map(Number);
+                                
+                                const startDate = new Date(startYear, startMonth - 1, startDay);
+                                const endDate = new Date(endYear, endMonth - 1, endDay);
+                                
+                                // Add all dates from start to end (inclusive)
+                                const current = new Date(startDate);
+                                while (current <= endDate) {
+                                    const year = current.getFullYear();
+                                    const month = String(current.getMonth() + 1).padStart(2, '0');
+                                    const day = String(current.getDate()).padStart(2, '0');
+                                    const dateStr = `${year}-${month}-${day}`;
+                                    leaveDates.add(dateStr);
+                                    console.log('ADDED leave date to Set:', dateStr);
+                                    current.setDate(current.getDate() + 1);
+                                }
+                            });
+                            console.log('Total leave dates to highlight:', leaveDates.size);
+                            console.log('Leave dates:', Array.from(leaveDates).sort());
+                        } else {
+                            console.warn('Leave API returned error:', leaveResponse.status, leaveResponse.statusText);
+                            const errorText = await leaveResponse.text();
+                            console.warn('Error details:', errorText);
+                        }
+                    } catch (err) {
+                        console.error('Error fetching leave dates:', err);
+                    }
+                } else {
+                    console.log('Cannot fetch leave data - Missing:', {
+                        selectedRepId: selectedRepId,
+                        rangeFrom: range?.from,
+                        rangeTo: range?.to
+                    });
+                }
+
+                doctorOverviewChartContainer.classList.remove('hidden');
+                if (doctorOverviewChartEmpty) doctorOverviewChartEmpty.classList.add('hidden');
+
+                const ctx = doctorOverviewChartCanvas.getContext('2d');
+                
+                // Determine which labels are leave dates or Sundays
+                const labelColors = dateKeys.map((key) => {
+                    const parsed = new Date(`${key}T00:00:00`);
+                    
+                    // Priority order: Leave > Sunday > Default
+                    // Check if it's a leave date (green) - highest priority
+                    if (leaveDates.has(key)) {
+                        console.log('Date', key, '- LEAVE (green)');
+                        return 'rgb(34, 197, 94)'; // Green for leave days
+                    }
+                    // Check if it's Sunday (red)
+                    if (parsed.getDay() === 0) {
+                        console.log('Date', key, '- SUNDAY (red)');
+                        return 'rgb(220, 38, 38)'; // Red for Sundays
+                    }
+                    return 'rgb(75, 85, 99)'; // Default gray for all other days
+                });
+                
+                console.log('Chart colors applied. Green dates:', Array.from(leaveDates));
+                
+                doctorOverviewChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Doctor visits',
+                                data: values,
+                                backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                                borderColor: 'rgba(37, 99, 235, 1)',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                ticks: {
+                                    maxRotation: 60,
+                                    minRotation: 45,
+                                    color: function(context) {
+                                        return labelColors[context.index];
+                                    },
+                                    font: function(context) {
+                                        // Make Sunday labels bold
+                                        return {
+                                            weight: labelColors[context.index].includes('220') ? 'bold' : 'normal'
+                                        };
+                                    }
+                                }
+                            },
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    precision: 0
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Visits'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+            }
+
+            async function refreshDoctorOverview(options = {}) {
+                if (!selectedRepId) {
+                    resetDoctorOverview();
+                    return;
+                }
+
+                const desiredRange = ensureDoctorRange({
+                    from: options.from ?? doctorOverviewFromInput?.value,
+                    to: options.to ?? doctorOverviewToInput?.value
+                });
+
+                doctorOverviewRange = { ...desiredRange };
+
+                if (doctorOverviewFromInput) {
+                    doctorOverviewFromInput.value = doctorOverviewRange.from || '';
+                }
+                if (doctorOverviewToInput) {
+                    doctorOverviewToInput.value = doctorOverviewRange.to || '';
+                }
+
+                setDoctorOverviewLoading();
+
+                try {
+                    const params = new URLSearchParams();
+                    if (doctorOverviewRange.from) params.set('from', doctorOverviewRange.from);
+                    if (doctorOverviewRange.to) params.set('to', doctorOverviewRange.to);
+
+                    const response = await fetch(`/api/doctor-work-log/representative/${encodeURIComponent(selectedRepId)}/doctors?${params.toString()}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const payload = await response.json();
+                    const data = payload?.data || {};
+                    const doctors = Array.isArray(data.doctors) ? data.doctors : [];
+                    const dailyCounts = Array.isArray(data.dailyCounts) ? data.dailyCounts : [];
+                    const totals = data.totals || {};
+                    const doctorCount = Number(totals.doctorCount) || doctors.length;
+                    const visitCount = Number(totals.visitCount) || doctors.reduce((sum, entry) => sum + (Number(entry.logCount) || 0), 0);
+
+                    if (data.range) {
+                        if (data.range.from) {
+                            doctorOverviewRange.from = normalizeDateInputValue(data.range.from) || doctorOverviewRange.from;
+                            if (doctorOverviewFromInput) {
+                                doctorOverviewFromInput.value = doctorOverviewRange.from || '';
+                            }
+                        }
+                        if (data.range.to) {
+                            doctorOverviewRange.to = normalizeDateInputValue(data.range.to) || doctorOverviewRange.to;
+                            if (doctorOverviewToInput) {
+                                doctorOverviewToInput.value = doctorOverviewRange.to || '';
+                            }
+                        }
+                    }
+
+                    if (doctorOverviewLoading) doctorOverviewLoading.classList.add('hidden');
+                    if (doctorOverviewSection) doctorOverviewSection.classList.remove('hidden');
+
+                    updateDoctorOverviewSummary({ doctorCount, visitCount, range: doctorOverviewRange });
+                    renderDoctorOverviewTable(doctors);
+                    await updateDoctorOverviewChart(doctorOverviewRange, dailyCounts);
+
+                    if (!doctors.length) {
+                        if (doctorOverviewEmpty) doctorOverviewEmpty.classList.remove('hidden');
+                        if (doctorOverviewTableWrapper) doctorOverviewTableWrapper.classList.add('hidden');
+                    } else {
+                        if (doctorOverviewEmpty) doctorOverviewEmpty.classList.add('hidden');
+                        if (doctorOverviewTableWrapper) doctorOverviewTableWrapper.classList.remove('hidden');
+                    }
+
+                    const label = formatDoctorRangeLabel(doctorOverviewRange.from, doctorOverviewRange.to);
+                    if (!options.suppressStatus) {
+                        const tone = visitCount > 0 ? 'success' : 'info';
+                        setStatus(`Doctor visits between ${label}.`, tone);
+                    }
+                } catch (error) {
+                    console.error('Failed to load doctor overview', error);
+                    if (doctorOverviewLoading) {
+                        doctorOverviewLoading.textContent = 'Failed to load doctor visits.';
+                        doctorOverviewLoading.classList.remove('hidden');
+                    }
+                    if (doctorOverviewEmpty) doctorOverviewEmpty.classList.remove('hidden');
+                    if (doctorOverviewTableWrapper) doctorOverviewTableWrapper.classList.add('hidden');
+                    if (doctorOverviewChart) {
+                        doctorOverviewChart.destroy();
+                        doctorOverviewChart = null;
+                    }
+                    if (doctorOverviewChartContainer) doctorOverviewChartContainer.classList.add('hidden');
+                    if (doctorOverviewChartEmpty) {
+                        doctorOverviewChartEmpty.textContent = 'Unable to render doctor visit chart.';
+                        doctorOverviewChartEmpty.classList.remove('hidden');
+                    }
+                    if (!options.suppressStatus) {
+                        setStatus(error.message || 'Unable to load doctor work logs.', 'error');
+                    }
+                }
             }
 
             function findDoctorById(repId, doctorId) {
@@ -1515,7 +2670,7 @@
                 setDoctorLoading();
                 const requestId = ++doctorsRequestToken;
                 try {
-                    const params = new URLSearchParams({ representativeId: normalized });
+                    const params = new URLSearchParams({ representativeId: normalized, status: '1' });
                     const res = await fetch(`/api/doctor-calls?${params.toString()}`, {
                         headers: {
                             'Authorization': `Bearer ${token}`,
@@ -2311,6 +3466,7 @@
                     setStatus('Unable to find the selected counter.', 'error');
                     return;
                 }
+                
                 setStatus('Capturing current location…');
                 const timestamp = new Date();
                 try {
@@ -2418,11 +3574,14 @@
                 resetReportSections();
                 resetDoctorDisplay();
                 resetDoctorLog();
+                resetDoctorOverview();
 
                 if (!selectedRepId) {
                     setStatus('Pick a representative to load counters.');
                     return;
                 }
+
+                setDoctorOverviewDefaults();
 
                 await ensureCountersLoaded();
                 const counters = getCountersForRep(selectedRepId);
@@ -2432,6 +3591,8 @@
                     loadMonthlySummary(selectedRepId),
                     loadDoctorsForRepresentative(selectedRepId)
                 ]);
+
+                await refreshDoctorOverview({ suppressStatus: true });
 
                 const doctorCount = Number.isFinite(doctorResult?.count) ? doctorResult.count : 0;
                 const doctorMessage = doctorResult?.error
@@ -2536,6 +3697,27 @@
                 });
             }
 
+            if (doctorOverviewApplyBtn) {
+                doctorOverviewApplyBtn.addEventListener('click', async () => {
+                    if (!selectedRepId) {
+                        setStatus('Select a representative to view doctor work logs.', 'error');
+                        return;
+                    }
+                    await refreshDoctorOverview({
+                        from: doctorOverviewFromInput?.value,
+                        to: doctorOverviewToInput?.value
+                    });
+                });
+            }
+
+            if (doctorOverviewTbody) {
+                doctorOverviewTbody.addEventListener('click', handleDoctorDistanceClick);
+            }
+
+            document.addEventListener('click', handleVisitPopoverOutsideClick);
+            window.addEventListener('scroll', hideVisitDistancePopover, true);
+            window.addEventListener('resize', hideVisitDistancePopover);
+
             logTbody.addEventListener('click', async (event) => {
                 const button = event.target.closest('.submit-log-btn');
                 if (!button) return;
@@ -2573,6 +3755,229 @@
                 });
             }
 
+            // Sorting function for doctor overview table
+            function updateDoctorSortIcons() {
+                const lastVisitIcon = document.getElementById('sortIconLastVisit');
+                const totalVisitsIcon = document.getElementById('sortIconTotalVisits');
+                
+                if (lastVisitIcon) {
+                    if (doctorOverviewSortColumn === 'lastVisitDate') {
+                        lastVisitIcon.textContent = doctorOverviewSortOrder === 'desc' ? '↓' : '↑';
+                    } else {
+                        lastVisitIcon.textContent = '↕';
+                    }
+                }
+                
+                if (totalVisitsIcon) {
+                    if (doctorOverviewSortColumn === 'totalVisits') {
+                        totalVisitsIcon.textContent = doctorOverviewSortOrder === 'desc' ? '↓' : '↑';
+                    } else {
+                        totalVisitsIcon.textContent = '↕';
+                    }
+                }
+            }
+
+            // Event listener for Last Visit Date sorting
+            const sortLastVisitDateHeader = document.getElementById('sortLastVisitDate');
+            if (sortLastVisitDateHeader) {
+                sortLastVisitDateHeader.addEventListener('click', () => {
+                    if (doctorOverviewSortColumn === 'lastVisitDate') {
+                        // Toggle order if already sorting by this column
+                        doctorOverviewSortOrder = doctorOverviewSortOrder === 'desc' ? 'asc' : 'desc';
+                    } else {
+                        // Switch to this column with descending order (most recent first)
+                        doctorOverviewSortColumn = 'lastVisitDate';
+                        doctorOverviewSortOrder = 'desc';
+                    }
+                    updateDoctorSortIcons();
+                    renderDoctorOverviewTable(doctorOverviewData);
+                });
+            }
+
+            // Event listener for Total Visits sorting
+            const sortTotalVisitsHeader = document.getElementById('sortTotalVisits');
+            if (sortTotalVisitsHeader) {
+                sortTotalVisitsHeader.addEventListener('click', () => {
+                    if (doctorOverviewSortColumn === 'totalVisits') {
+                        // Toggle order if already sorting by this column
+                        doctorOverviewSortOrder = doctorOverviewSortOrder === 'desc' ? 'asc' : 'desc';
+                    } else {
+                        // Switch to this column with descending order (most visits first)
+                        doctorOverviewSortColumn = 'totalVisits';
+                        doctorOverviewSortOrder = 'desc';
+                    }
+                    updateDoctorSortIcons();
+                    renderDoctorOverviewTable(doctorOverviewData);
+                });
+            }
+
+            // Initialize sort icons
+            updateDoctorSortIcons();
+
+            // Export Doctor Overview to PDF function
+            async function exportDoctorOverviewToPDF() {
+                if (!doctorOverviewData || !doctorOverviewData.length) {
+                    alert('No data available to export');
+                    return;
+                }
+
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF('l', 'mm', 'a4'); // Landscape orientation
+                    
+                    // Get report details
+                    const repName = selectedRepName || 'Representative';
+                    const dateFrom = formatDoctorDisplayDate(doctorOverviewRange.from) || '—';
+                    const dateTo = formatDoctorDisplayDate(doctorOverviewRange.to) || '—';
+                    const dateRange = `${dateFrom} to ${dateTo}`;
+                    const totalDoctors = doctorOverviewData.length;
+                    const totalVisits = doctorOverviewData.reduce((sum, doc) => sum + (Number(doc?.logCount) || 0), 0);
+                    const generatedDate = new Date().toLocaleString('en-IN', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+
+                    // Add header
+                    doc.setFontSize(18);
+                    doc.setFont(undefined, 'bold');
+                    doc.text('Doctor Activity Overview', 14, 15);
+                    
+                    doc.setFontSize(10);
+                    doc.setFont(undefined, 'normal');
+                    doc.text(`Representative: ${repName}`, 14, 22);
+                    doc.text(`Date Range: ${dateRange}`, 14, 27);
+                    doc.text(`Total Doctors: ${totalDoctors} | Total Visits: ${totalVisits}`, 14, 32);
+                    
+                    // Add sorting information
+                    const sortColumnName = doctorOverviewSortColumn === 'lastVisitDate' ? 'Last Visit Date' : 'Total Visits';
+                    const sortOrderName = doctorOverviewSortOrder === 'desc' ? 'Descending' : 'Ascending';
+                    doc.text(`Sorted by: ${sortColumnName} (${sortOrderName})`, 14, 37);
+                    doc.text(`Generated: ${generatedDate}`, 14, 42);
+
+                    // Prepare table data
+                    const sortedData = doctorOverviewData.slice().sort((a, b) => {
+                        let compareResult = 0;
+                        
+                        if (doctorOverviewSortColumn === 'lastVisitDate') {
+                            const dateA = a?.lastLogDate ? new Date(a.lastLogDate).getTime() : 0;
+                            const dateB = b?.lastLogDate ? new Date(b.lastLogDate).getTime() : 0;
+                            compareResult = dateB - dateA;
+                        } else if (doctorOverviewSortColumn === 'totalVisits') {
+                            const countA = Number(a?.logCount) || 0;
+                            const countB = Number(b?.logCount) || 0;
+                            compareResult = countB - countA;
+                        }
+                        
+                        if (doctorOverviewSortOrder === 'asc') {
+                            compareResult = -compareResult;
+                        }
+                        
+                        if (compareResult === 0) {
+                            const nameA = (a?.doctorName || '').toString().toLowerCase();
+                            const nameB = (b?.doctorName || '').toString().toLowerCase();
+                            compareResult = nameA.localeCompare(nameB);
+                        }
+                        
+                        return compareResult;
+                    });
+
+                    const tableData = sortedData.map((doctor, index) => {
+                        const doctorName = doctor?.doctorName || `Doctor #${doctor?.doctorId || index + 1}`;
+                        const address = doctor?.address ? String(doctor.address).trim() : '';
+                        const doctorNameWithAddress = address 
+                            ? `${doctorName.toUpperCase()}\n${address}` 
+                            : doctorName.toUpperCase();
+                        const speciality = doctor?.specialityName || doctor?.speciality || '—';
+                        const city = doctor?.cityName || '';
+                        const state = doctor?.stateName || '';
+                        const location = [city, state].filter(Boolean).join(', ') || '—';
+                        
+                        let lastVisitDate = '—';
+                        if (doctor?.lastLogDate) {
+                            const parsed = new Date(doctor.lastLogDate);
+                            if (!isNaN(parsed.getTime())) {
+                                lastVisitDate = parsed.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                            }
+                        }
+                        
+                        const totalVisits = Number(doctor?.logCount) || 0;
+                        
+                        return [
+                            index + 1,
+                            doctorNameWithAddress,
+                            speciality,
+                            location,
+                            lastVisitDate,
+                            totalVisits
+                        ];
+                    });
+
+                    // Add table
+                    doc.autoTable({
+                        startY: 47,
+                        head: [['#', 'Doctor', 'Speciality', 'Location', 'Last Visit', 'Total Visits']],
+                        body: tableData,
+                        theme: 'grid',
+                        headStyles: {
+                            fillColor: [59, 130, 246],
+                            textColor: 255,
+                            fontSize: 9,
+                            fontStyle: 'bold',
+                            halign: 'left'
+                        },
+                        bodyStyles: {
+                            fontSize: 8,
+                            cellPadding: 2,
+                            valign: 'top'
+                        },
+                        columnStyles: {
+                            0: { halign: 'center', cellWidth: 10 },
+                            1: { halign: 'left', cellWidth: 65 },
+                            2: { halign: 'left', cellWidth: 40 },
+                            3: { halign: 'left', cellWidth: 45 },
+                            4: { halign: 'left', cellWidth: 25 },
+                            5: { halign: 'center', cellWidth: 25 }
+                        },
+                        alternateRowStyles: {
+                            fillColor: [245, 247, 250]
+                        },
+                        margin: { top: 47, left: 14, right: 14 }
+                    });
+
+                    // Add footer
+                    const pageCount = doc.internal.getNumberOfPages();
+                    for (let i = 1; i <= pageCount; i++) {
+                        doc.setPage(i);
+                        doc.setFontSize(8);
+                        doc.setTextColor(128);
+                        doc.text(
+                            `Page ${i} of ${pageCount}`,
+                            doc.internal.pageSize.width / 2,
+                            doc.internal.pageSize.height - 10,
+                            { align: 'center' }
+                        );
+                    }
+
+                    // Save the PDF
+                    const fileName = `Doctor_Activity_Overview_${repName.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`;
+                    doc.save(fileName);
+                    
+                    setStatus('PDF exported successfully!', 'success');
+                } catch (error) {
+                    console.error('PDF export error:', error);
+                    alert('Failed to export PDF: ' + error.message);
+                }
+            }
+
+            // Event listener for Export PDF button
+            const exportPdfBtn = document.getElementById('exportDoctorOverviewPdfBtn');
+            if (exportPdfBtn) {
+                exportPdfBtn.addEventListener('click', exportDoctorOverviewToPDF);
+            }
+
             const userContext = await fetchUserContext(token);
             currentUserId = userContext.userId != null ? Number(userContext.userId) : null;
             designationId = userContext.designationId != null ? Number(userContext.designationId) : null;
@@ -2586,6 +3991,7 @@
             setRepHelperText();
 
             try {
+                // Fetch only Representatives (designation_id = 2) for the dropdown
                 const res = await fetch('/api/users/designation/2', {
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -2594,6 +4000,7 @@
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const json = await res.json();
                 const repsRaw = Array.isArray(json) ? json : Array.isArray(json.data) ? json.data : (json.users || json.results || []);
+                
                 availableReps = filterRepresentatives(repsRaw);
             } catch (err) {
                 console.error('Failed to load representatives', err);

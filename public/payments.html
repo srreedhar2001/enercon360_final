@@ -210,6 +210,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comments</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                     </tr>
                                 </thead>
@@ -480,13 +481,13 @@
             }
 
             getPaymentsBreakdownByType(from, to) {
-                // Filter payments strictly by date range
-                const fromDate = from ? new Date(from) : null;
-                const toDate = to ? new Date(to) : null;
+                const fromKey = from || null;
+                const toKey = to || null;
                 const sums = new Map();
                 (this.payments || []).forEach(p => {
-                    const d = new Date(p.paymentDate);
-                    if ((fromDate && d < fromDate) || (toDate && d > toDate)) return;
+                    const dateKey = this.normalizeDateString(p.paymentDate);
+                    if (!dateKey) return;
+                    if ((fromKey && dateKey < fromKey) || (toKey && dateKey > toKey)) return;
                     const label = (p.paymentType || 'Others').trim();
                     const cur = sums.get(label) || 0;
                     sums.set(label, cur + Number(p.amount || 0));
@@ -776,6 +777,8 @@
                 } else if (typeName === 'product purchase') {
                     badgeColor = 'bg-yellow-100 text-yellow-800';
                 }
+                const comments = (payment.comments || '').trim();
+                const commentText = comments ? this.escapeHtml(comments) : '&mdash;';
                 
                 tr.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#${payment.id}</td>
@@ -794,6 +797,9 @@
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Completed
                         </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500" title="${comments ? this.escapeHtml(comments) : ''}">
+                        <span class="block max-w-xs truncate">${commentText}</span>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         <button onclick="paymentManager.viewPayment(${payment.id})" class="text-indigo-600 hover:text-indigo-900 mr-2">View</button>
@@ -817,10 +823,9 @@
                         (payment.userName && payment.userName.toLowerCase().includes(searchTerm)) ||
                         (payment.counterName && payment.counterName.toLowerCase().includes(searchTerm)) ||
                         payment.amount.toString().includes(searchTerm);
-                    // Normalize to Date objects for robust comparison
-                    const payDate = new Date(payment.paymentDate);
-                    const matchesDateFrom = !dateFrom || payDate >= new Date(dateFrom);
-                    const matchesDateTo = !dateTo || payDate <= new Date(dateTo);
+                    const payDateKey = this.normalizeDateString(payment.paymentDate);
+                    const matchesDateFrom = !dateFrom || (payDateKey && payDateKey >= dateFrom);
+                    const matchesDateTo = !dateTo || (payDateKey && payDateKey <= dateTo);
                     const matchesMethod = !paymentMethod || (payment.paymentType && payment.paymentType.trim().toLowerCase() === paymentMethod);
 
                     return matchesSearch && matchesDateFrom && matchesDateTo && matchesMethod;
@@ -1090,6 +1095,27 @@
 
             formatCurrency(amount) {
                 return `₹${parseFloat(amount || 0).toFixed(2)}`;
+            }
+
+            normalizeDateString(dateValue) {
+                if (!dateValue) return null;
+                if (typeof dateValue === 'string') {
+                    const trimmed = dateValue.trim();
+                    if (!trimmed) return null;
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                        return trimmed;
+                    }
+                }
+                const d = new Date(dateValue);
+                if (Number.isNaN(d.getTime())) return null;
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            }
+
+            escapeHtml(value) {
+                return value.replace(/[&<>"]/g, match => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[match] || match));
             }
         }
 
