@@ -289,6 +289,11 @@
           "edit": true,
           "delete": true
         },
+        "counter-service-report": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
         "counters-due": {
           "view": true,
           "edit": true,
@@ -305,6 +310,11 @@
           "delete": true
         },
         "new-counters-report": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
+        "product-purchase": {
           "view": true,
           "edit": true,
           "delete": true

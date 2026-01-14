@@ -7,6 +7,7 @@ const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/users');
 const productRoutes = require('./routes/productRoutes');
 const counterRoutes = require('./routes/counterRoutes');
+const counterTypeRoutes = require('./routes/counterTypeRoutes');
 const cityRoutes = require('./routes/cityRoutes');
 const representativeRoutes = require('./routes/representativeRoutes');
 const orderRoutes = require('./routes/orderRoutes');
@@ -19,6 +20,7 @@ const doctorCallRoutes = require('./routes/doctorCallRoutes');
 const drWorkLogRoutes = require('./routes/drWorkLogRoutes');
 const userLogRoutes = require('./routes/userLogRoutes');
 const leaveRoutes = require('./routes/leave');
+const productPurchaseRoutes = require('./routes/productPurchaseRoutes');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware');
@@ -65,6 +67,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/counters', counterRoutes);
+app.use('/api/countertypes', counterTypeRoutes);
 app.use('/api/cities', cityRoutes);
 app.use('/api/representatives', representativeRoutes);
 app.use('/api/orders', orderRoutes);
@@ -78,6 +81,7 @@ app.use('/api/doctor-calls', doctorCallRoutes);
 app.use('/api/user-logs', userLogRoutes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/sample', sampleRoutes);
+app.use('/api/product-purchases', productPurchaseRoutes);
 
 // Quietly handle Chrome DevTools /.well-known requests to avoid noisy 404s
 app.use('/.well-known', (req, res) => {

@@ -119,6 +119,25 @@
                             </div>
 
                             <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Counter Type *</label>
+                                <select id="counterType" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                    <option value="">Select Counter Type</option>
+                                    <!-- Counter types will be loaded dynamically -->
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Doctor</label>
+                                <select id="counterDoctor"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        disabled>
+                                    <option value="">Select Representative first</option>
+                                    <!-- Doctors will be loaded based on representative -->
+                                </select>
+                            </div>
+
+                            <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Manager</label>
                                 <select id="counterManager"
                                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
@@ -167,6 +186,13 @@
                                           placeholder="Complete address of the counter..."
                                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
                             </div>
+
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Comments</label>
+                                <textarea id="counterComments" rows="3"
+                                          placeholder="Additional notes or comments about the counter..."
+                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"></textarea>
+                            </div>
                         </div>
 
                         <div class="flex space-x-3 pt-4">
@@ -191,6 +217,8 @@
         let cities = [];
         let representatives = [];
         let managers = [];
+        let doctors = [];
+        let counterTypes = [];
         let editingCounterId = null;
 
         // DOM elements
@@ -205,6 +233,8 @@
         const searchCounters = document.getElementById('searchCounters');
         const cityFilter = document.getElementById('cityFilter');
         const refreshBtn = document.getElementById('refreshBtn');
+        const counterRepSelect = document.getElementById('counterRep');
+        const counterDoctorSelect = document.getElementById('counterDoctor');
 
         // API Helper functions
         function getAuthToken() {
@@ -245,6 +275,60 @@
         }
 
         // API functions to fetch real data from database
+        // Fetch doctors for a representative from drcalls table
+        async function fetchDoctorsByRep(repId) {
+            try {
+                const token = getAuthToken();
+                const response = await fetch(`/api/doctor-calls/representative/${repId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                if (!response.ok) throw new Error('Failed to fetch doctors');
+                const json = await response.json();
+                console.log('Doctor API response:', json); // Debug log
+                // Handle nested data structure from formatResponse
+                return json.data?.data || json.data || [];
+            } catch (error) {
+                console.error('Error fetching doctors:', error);
+                return [];
+            }
+        }
+
+        // Populate doctor dropdown based on selected representative
+        async function loadDoctorsForRep(repId) {
+            const doctorSelect = document.getElementById('counterDoctor');
+            
+            if (!repId) {
+                doctorSelect.innerHTML = '<option value="">Select Representative first</option>';
+                doctorSelect.disabled = true;
+                return;
+            }
+            
+            doctorSelect.disabled = false;
+            doctorSelect.innerHTML = '<option value="">Loading doctors...</option>';
+            
+            const repDoctors = await fetchDoctorsByRep(repId);
+            console.log('Doctors loaded:', repDoctors); // Debug log
+            
+            doctorSelect.innerHTML = '<option value="">Select Doctor (Optional)</option>';
+            
+            if (repDoctors && repDoctors.length > 0) {
+                repDoctors.forEach(doctor => {
+                    const option = document.createElement('option');
+                    option.value = doctor.id;
+                    option.textContent = doctor.doctorName || doctor.drName || 'Unknown Doctor';
+                    doctorSelect.appendChild(option);
+                });
+            } else {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No doctors found for this representative';
+                option.disabled = true;
+                doctorSelect.appendChild(option);
+            }
+        }
+
         async function fetchCounters() {
             try {
                 const token = getAuthToken();
@@ -502,6 +586,41 @@
             return managers;
         }
 
+        async function fetchCounterTypes() {
+            try {
+                const token = getAuthToken();
+                if (!token) throw new Error('NoAuth');
+                
+                const response = await fetch('/api/countertypes', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    console.log('Using simulated counter type data');
+                    return await getSimulatedCounterTypeData();
+                }
+
+                const data = await response.json();
+                return data.data || data.counterTypes || data;
+            } catch (error) {
+                console.error('Error fetching counter types:', error);
+                return await getSimulatedCounterTypeData();
+            }
+        }
+
+        async function getSimulatedCounterTypeData() {
+            const counterTypes = [
+                { id: 1, type_name: 'counter', status: 1 },
+                { id: 2, type_name: 'agency', status: 1 },
+                { id: 3, type_name: 'subcounter', status: 1 }
+            ];
+            return counterTypes;
+        }
+
         // Utility functions
         function showError(message) {
             const errorDiv = document.createElement('div');
@@ -603,17 +722,20 @@
         async function loadInitialData() {
             try {
                 // Load data in parallel
-                const [countersData, citiesData, repsData, managersData] = await Promise.all([
+                const [countersData, citiesData, repsData, managersData, counterTypesData] = await Promise.all([
                     fetchCounters(),
                     fetchCities(),
                     fetchRepresentatives(),
-                    fetchManagers()
+                    fetchManagers(),
+                    fetchCounterTypes()
                 ]);
                 
                 counters = countersData;
                 cities = citiesData;
                 representatives = repsData;
                 managers = managersData;
+                counterTypes = counterTypesData;
+                counterTypes = counterTypesData;
                 
                 populateDropdowns();
                 renderRepresentativeStats(counters);
@@ -661,6 +783,16 @@
                 <option value="">Select Manager</option>
                 ${managerOptions}
             `;
+
+            const counterTypeOptions = counterTypes.map(type => 
+                `<option value="${type.id}">${type.type_name.charAt(0).toUpperCase() + type.type_name.slice(1)}</option>`
+            ).join('');
+            
+            const modalCounterTypeSelect = document.getElementById('counterType');
+            modalCounterTypeSelect.innerHTML = `
+                <option value="">Select Counter Type</option>
+                ${counterTypeOptions}
+            `;
         }
 
         function setupEventListeners() {
@@ -671,6 +803,12 @@
             searchCounters.addEventListener('input', filterCounters);
             cityFilter.addEventListener('change', filterCounters);
             refreshBtn.addEventListener('click', refreshData);
+            
+            // Listen to representative selection change to load doctors
+            counterRepSelect.addEventListener('change', async (e) => {
+                const repId = e.target.value;
+                await loadDoctorsForRep(repId);
+            });
 
             // Close modal when clicking outside
             counterModal.addEventListener('click', (e) => {
@@ -828,6 +966,7 @@
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter Details</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sales Rep</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GPS Coordinates</th>
@@ -844,6 +983,15 @@
                                                 <div class="text-sm text-gray-500">ID: ${counter.id}</div>
                                                 ${counter.gst ? `<div class="text-xs text-gray-500">GST: ${escapeHtml(counter.gst)}</div>` : ''}
                                             </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                counter.type_name === 'agency' ? 'bg-purple-100 text-purple-800' : 
+                                                counter.type_name === 'subcounter' ? 'bg-yellow-100 text-yellow-800' : 
+                                                'bg-green-100 text-green-800'
+                                            }">
+                                                ${counter.type_name ? counter.type_name.charAt(0).toUpperCase() + counter.type_name.slice(1) : 'Counter'}
+                                            </span>
                                         </td>
                                         <td class="px-6 py-4">
                                             <div class="text-sm text-gray-900">${escapeHtml(counter.cityName || 'N/A')}</div>
@@ -972,7 +1120,7 @@
             counterModal.classList.remove('hidden');
         }
 
-        function editCounter(id) {
+        async function editCounter(id) {
             const counter = counters.find(c => c.id === id);
             if (!counter) return;
 
@@ -984,11 +1132,22 @@
             document.getElementById('counterName').value = counter.CounterName;
             document.getElementById('counterCity').value = counter.CityID;
             document.getElementById('counterRep').value = counter.RepID;
+            document.getElementById('counterType').value = counter.counter_type || 1;
+            
+            // Load doctors for the selected representative
+            await loadDoctorsForRep(counter.RepID);
+            
+            // Set the doctor value if exists
+            if (counter.drID) {
+                document.getElementById('counterDoctor').value = counter.drID;
+            }
+            
             document.getElementById('counterLongitude').value = counter.longitude;
             document.getElementById('counterLatitude').value = counter.latitude;
             document.getElementById('counterPhone').value = counter.phone || '';
             document.getElementById('counterGst').value = counter.gst || '';
             document.getElementById('counterAddress').value = counter.address || '';
+            document.getElementById('counterComments').value = counter.comments || '';
             // Finance fields are not editable here per requirement, display only in grid
 
             // Populate created date if available
@@ -1063,11 +1222,14 @@
                 CounterName: document.getElementById('counterName').value.trim(),
                 CityID: parseInt(document.getElementById('counterCity').value),
                 RepID: parseInt(document.getElementById('counterRep').value),
+                counter_type: parseInt(document.getElementById('counterType').value),
+                drID: document.getElementById('counterDoctor').value ? parseInt(document.getElementById('counterDoctor').value) : null,
                 longitude: parseFloat(document.getElementById('counterLongitude').value),
                 latitude: parseFloat(document.getElementById('counterLatitude').value),
                 phone: document.getElementById('counterPhone').value.trim(),
                 gst: document.getElementById('counterGst').value.trim(),
-                address: document.getElementById('counterAddress').value.trim()
+                address: document.getElementById('counterAddress').value.trim(),
+                comments: document.getElementById('counterComments').value.trim()
             };
 
             // Include createdDate if provided
@@ -1077,7 +1239,7 @@
             }
 
             // Basic validation
-            if (!counterData.CounterName || !counterData.CityID || !counterData.RepID) {
+            if (!counterData.CounterName || !counterData.CityID || !counterData.RepID || !counterData.counter_type) {
                 showError('Please fill in all required fields');
                 return;
             }
@@ -1105,11 +1267,13 @@
                     if (!response.ok) {
                         if (response.status === 401) throw new Error('Unauthorized');
                         throw new Error('UpdateFailed');
-                    } else {
-                        // Refresh data from server
-                        await loadInitialData();
                     }
+                    
                     showSuccess('Counter updated successfully');
+                    
+                    // Refresh data from server
+                    await loadInitialData();
+                    filterCounters();
                 } else {
                     // Add new counter
                     const response = await fetch('/api/counters', {
@@ -1124,15 +1288,16 @@
                     if (!response.ok) {
                         if (response.status === 401) throw new Error('Unauthorized');
                         throw new Error('CreateFailed');
-                    } else {
-                        // Refresh data from server
-                        await loadInitialData();
                     }
+                    
                     showSuccess('Counter created successfully');
+                    
+                    // Refresh data from server
+                    await loadInitialData();
+                    filterCounters();
                 }
 
                 closeCounterModal();
-                filterCounters();
             } catch (error) {
                 console.error('Error saving counter:', error);
                 if (String(error).includes('Unauthorized') || String(error).includes('NoAuth')) {

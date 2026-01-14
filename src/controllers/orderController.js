@@ -3,6 +3,7 @@ const invoiceService = require('../services/invoiceService');
 
 class OrderController {
     // Aggregate outstanding dues per counter, optional filter by representative
+    // Exclude subcounter orders from dues calculation
     async getDuesByCounter(req, res) {
         try {
             const { repId, month } = req.query;
@@ -46,6 +47,7 @@ class OrderController {
                                         ) AS monthlyCollected,
                     DATE_FORMAT(MAX(o.orderDate), '%Y-%m-%d') AS latestOrderDate
                 FROM counters c
+                LEFT JOIN countertype ct ON c.counter_type = ct.id
                 LEFT JOIN users u ON c.RepID = u.id
                 LEFT JOIN orders o ON o.counterID = c.id
                 LEFT JOIN (
@@ -54,6 +56,7 @@ class OrderController {
                     GROUP BY orderID
                 ) col ON col.orderID = o.id
                 ${where}
+                AND (ct.type_name IS NULL OR ct.type_name != 'subcounter')
                 GROUP BY c.id, c.CounterName, c.counterStatus, c.RepID, c.openingBalance, c.collectionTarget, u.name, u.phone
                 HAVING totalDue > 0
                 ORDER BY totalDue DESC, c.CounterName ASC
@@ -204,6 +207,7 @@ class OrderController {
         try {
             const { repId } = req.query;
             // Fetch summed totals by year-month from DB for the last 12 months
+            // Exclude subcounter orders from totals
             let sql = `
                 SELECT 
                     DATE_FORMAT(o.orderDate, '%Y-%m') AS ym,
@@ -215,17 +219,21 @@ class OrderController {
                         FROM orders o2
                         LEFT JOIN orderdetails od ON od.orderId = o2.id
                         LEFT JOIN product p ON p.id = od.productId
-                        ${repId ? 'INNER JOIN counters c2 ON o2.counterID = c2.id' : ''}
+                        ${repId ? 'INNER JOIN counters c2 ON o2.counterID = c2.id LEFT JOIN countertype ct2 ON c2.counter_type = ct2.id' : 'LEFT JOIN counters c2 ON o2.counterID = c2.id LEFT JOIN countertype ct2 ON c2.counter_type = ct2.id'}
                         WHERE DATE_FORMAT(o2.orderDate, '%Y-%m') = DATE_FORMAT(o.orderDate, '%Y-%m')
+                        AND (ct2.type_name IS NULL OR ct2.type_name != 'subcounter')
                         ${repId ? 'AND c2.RepID = ?' : ''}
                     ) AS productCost
                 FROM orders o
             `;
             const params = [];
             if (repId) {
-                sql += ` INNER JOIN counters c ON o.counterID = c.id `;
+                sql += ` INNER JOIN counters c ON o.counterID = c.id LEFT JOIN countertype ct ON c.counter_type = ct.id `;
+            } else {
+                sql += ` LEFT JOIN counters c ON o.counterID = c.id LEFT JOIN countertype ct ON c.counter_type = ct.id `;
             }
             sql += ` WHERE o.orderDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH) `;
+            sql += ` AND (ct.type_name IS NULL OR ct.type_name != 'subcounter') `;
             if (repId) {
                 sql += ` AND c.RepID = ? `;
                 // First for subquery (c2.RepID), second for main filter (c.RepID)
@@ -360,6 +368,7 @@ class OrderController {
                     DATE_FORMAT(o.orderDate, '%Y-%m-%d') AS orderDate,
                     o.counterID,
                     c.CounterName AS counterName,
+                    ct.type_name as counter_type_name,
                     o.subTotal,
                     o.totalCGST,
                     o.totalSGST,
@@ -376,6 +385,7 @@ class OrderController {
                     (SELECT COALESCE(SUM(od.qty),0) FROM orderdetails od WHERE od.orderId = o.id) AS totalQuantity
                 FROM orders o
                 LEFT JOIN counters c ON o.counterID = c.id
+                LEFT JOIN countertype ct ON c.counter_type = ct.id
             `;
             if (repId) {
                 sql += ' LEFT JOIN counters cr ON o.counterID = cr.id ';
@@ -430,12 +440,14 @@ class OrderController {
                     c.CounterName as counterName,
                     c.phone as counterPhone,
                     c.address as counterAddress,
+                    ct.type_name as counter_type_name,
                     city.city as counterCity,
                     city.district as counterDistrict,
                     city.state as counterState,
                     u.name as userName
                 FROM orders o
                 LEFT JOIN counters c ON o.counterID = c.id
+                LEFT JOIN countertype ct ON c.counter_type = ct.id
                 LEFT JOIN city ON c.CityID = city.id
                 LEFT JOIN users u ON o.user_id = u.id
             `;
@@ -501,12 +513,14 @@ class OrderController {
                     c.CounterName as counterName,
                     c.phone as counterPhone,
                     c.address as counterAddress,
+                    ct.type_name as counter_type_name,
                     city.city as counterCity,
                     city.district as counterDistrict,
                     city.state as counterState,
                     u.name as userName
                 FROM orders o
                 LEFT JOIN counters c ON o.counterID = c.id
+                LEFT JOIN countertype ct ON c.counter_type = ct.id
                 LEFT JOIN city ON c.CityID = city.id
                 LEFT JOIN users u ON o.user_id = u.id
                 WHERE o.id = ?
@@ -579,14 +593,20 @@ class OrderController {
                 });
             }
 
-            // Validate counter exists
-            const counterCheck = await dbQuery('SELECT id FROM counters WHERE id = ?', [counterID]);
+            // Validate counter exists and get counter type
+            const counterCheck = await dbQuery(
+                'SELECT c.id, ct.type_name FROM counters c LEFT JOIN countertype ct ON c.counter_type = ct.id WHERE c.id = ?', 
+                [counterID]
+            );
             if (counterCheck.length === 0) {
                 return res.status(400).json({
                     success: false,
                     message: 'Invalid counter ID'
                 });
             }
+            
+            const counterTypeName = counterCheck[0].type_name;
+            const isSubcounter = (counterTypeName || '').toLowerCase() === 'subcounter';
 
             // Create order (initialize TotalDiscountAmount as 0; will update after inserting details)
             const orderQuery = `
@@ -676,16 +696,19 @@ class OrderController {
             ]);
 
             // Decrement product stock for each product in the order
+            // Skip inventory reduction if counter type is subcounter
             // Note: We clamp to zero to avoid negative inventory. For stricter control, add pre-checks and transactions.
-            for (const [pid, reduceBy] of productQtyToReduce.entries()) {
-                try {
-                    await dbQuery(
-                        'UPDATE product SET qty = GREATEST(COALESCE(qty,0) - ?, 0), updated_at = NOW() WHERE id = ?',
-                        [reduceBy, pid]
-                    );
-                } catch (invErr) {
-                    console.error(`Failed to decrement stock for product ${pid} by ${reduceBy}:`, invErr);
-                    // Continue without failing the whole order creation
+            if (!isSubcounter) {
+                for (const [pid, reduceBy] of productQtyToReduce.entries()) {
+                    try {
+                        await dbQuery(
+                            'UPDATE product SET qty = GREATEST(COALESCE(qty,0) - ?, 0), updated_at = NOW() WHERE id = ?',
+                            [reduceBy, pid]
+                        );
+                    } catch (invErr) {
+                        console.error(`Failed to decrement stock for product ${pid} by ${reduceBy}:`, invErr);
+                        // Continue without failing the whole order creation
+                    }
                 }
             }
 

@@ -111,7 +111,7 @@ async function applyNavPermissions() {
   const allowedModules = new Set(bundle.modules || []);
   // Explicitly allow certain nav items regardless of backend modules,
   // so users can discover utility pages like Work Log.
-  const ALWAYS_VISIBLE_LINKS = new Set(['work-log-report', 'leave']);
+  const ALWAYS_VISIBLE_LINKS = new Set(['work-log-report', 'leave', 'counter-service-report', 'product-purchase']);
 
   const isAllowed = (moduleKey) => {
     if (ALWAYS_VISIBLE_LINKS.has(moduleKey)) return true;

@@ -46,6 +46,32 @@ class DoctorCallController {
         }
     }
 
+    static async getByRepresentative(req, res) {
+        try {
+            const { repId } = req.params;
+            const numericRep = Number(repId);
+            
+            if (!Number.isFinite(numericRep)) {
+                const { response, statusCode } = formatErrorResponse(new Error('Invalid representative ID'), HTTP_STATUS.BAD_REQUEST);
+                return res.status(statusCode).json(response);
+            }
+
+            console.log('Fetching doctors for representative:', numericRep); // Debug log
+            const doctors = await DoctorCall.list({ representativeId: numericRep });
+            console.log('Doctors found:', doctors.length); // Debug log
+            
+            const { response, statusCode } = formatResponse(true, 'Doctors retrieved successfully', {
+                data: doctors,
+                count: doctors.length
+            });
+            return res.status(statusCode).json(response);
+        } catch (error) {
+            console.error('Error in getByRepresentative:', error); // Debug log
+            const { response, statusCode } = formatErrorResponse(error);
+            return res.status(statusCode).json(response);
+        }
+    }
+
     static async create(req, res) {
         try {
             const {

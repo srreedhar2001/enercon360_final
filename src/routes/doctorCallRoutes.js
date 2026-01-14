@@ -6,6 +6,7 @@ const { verifyToken } = require('../middleware/auth');
 router.use(verifyToken);
 
 router.get('/', DoctorCallController.list);
+router.get('/representative/:repId', DoctorCallController.getByRepresentative);
 router.post('/', DoctorCallController.create);
 router.get('/:id', DoctorCallController.get);
 router.put('/:id', DoctorCallController.update);

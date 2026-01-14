@@ -164,6 +164,8 @@ class NavigationLoader {
                     if (path.includes('RepSalesReport.html')) { pushKey('rep-sales-report'); pushKey('reports'); }
                     if (path.includes('SalesVsExpReport.html')) { pushKey('sales-vs-exp-report'); pushKey('reports'); }
                     if (path.includes('newCounters.html')) { pushKey('new-counters-report'); pushKey('reports'); }
+                    if (path.includes('counterservicereport.html')) { pushKey('counter-service-report'); pushKey('reports'); }
+                    if (path.includes('productpurchase.html')) { pushKey('product-purchase'); pushKey('reports'); }
                     if (path.includes('WorkLog.html')) { pushKey('work-log-report'); pushKey('reports'); }
                     if (path.includes('createdoctorslist.html')) { pushKey('doctor-calls'); pushKey('reports'); }
                     if (path.includes('logs.html')) { pushKey('user-logs'); pushKey('reports'); }

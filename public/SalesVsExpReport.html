@@ -106,11 +106,12 @@
         <div class="flex justify-between text-sm"><span class="text-gray-600" title="Discount amount deducted">Discount</span><span class="font-semibold text-amber-700">₹${Number(d.discount||0).toLocaleString('en-IN')}</span></div>
         <div class="flex justify-between text-sm"><span class="text-gray-600" title="Net = Gross - Discount">Total Sales (Net)</span><span class="font-semibold text-gray-900">₹${Number(d.sales||0).toLocaleString('en-IN')}</span></div>
                 <div class="flex justify-between text-sm cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded" data-action="show-exp" data-ym="${d.ym}" data-label="${d.label}"><span class="text-gray-600 underline decoration-dotted">Total Payments</span><span class="font-semibold text-gray-900">₹${Number(d.expenses||0).toLocaleString('en-IN')}</span></div>
-                <div class="flex justify-between text-sm"><span class="text-gray-600">Product Cost</span><span class="font-semibold text-gray-900">₹${Number(d.productCost||0).toLocaleString('en-IN')}</span></div>
+                <div class="flex justify-between text-sm"><span class="text-gray-600">Product Cost (from Sales)</span><span class="font-semibold text-gray-900">₹${Number(d.productCost||0).toLocaleString('en-IN')}</span></div>
+                <div class="flex justify-between text-sm"><span class="text-gray-600">Product Purchase Payments</span><span class="font-semibold text-gray-900">₹${Number(d.productPurchasePayments||0).toLocaleString('en-IN')}</span></div>
                 <div class="border-t border-gray-300 my-1"></div>
-        <div class="flex justify-between text-sm"><span class="text-gray-700 font-medium" title="Net Sales - (Payments + Product Cost)">Gross Profit</span><span class="font-semibold text-gray-900">₹${(Number(d.sales||0) - (Number(d.expenses||0) + Number(d.productCost||0))).toLocaleString('en-IN')}</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-700 font-medium" title="Net Sales - (Total Payments + Product Cost)">Gross Profit</span><span class="font-semibold text-gray-900">₹${(Number(d.sales||0) - (Number(d.expenses||0) + Number(d.productCost||0))).toLocaleString('en-IN')}</span></div>
                 <div class="flex justify-between text-sm"><span class="text-gray-600">Monthly Collection</span><span class="font-semibold text-gray-900">₹${Number(d.collection||0).toLocaleString('en-IN')}</span></div>
-                <div class="flex justify-between text-sm"><span class="text-gray-700 font-medium">Net Profit</span><span class="font-semibold text-gray-900">₹${(Number(d.collection||0) - (Number(d.expenses||0) + Number(d.productCost||0))).toLocaleString('en-IN')}</span></div>
+                <div class="flex justify-between text-sm"><span class="text-gray-700 font-medium" title="Total Collections - (Total Payments + Product Purchase Payments)">Net Profit</span><span class="font-semibold text-gray-900">₹${(Number(d.collection||0) - (Number(d.expenses||0) + Number(d.productPurchasePayments||0))).toLocaleString('en-IN')}</span></div>
               </div>
             </div>
           `).join('');
@@ -174,18 +175,23 @@
           colMap = Object.fromEntries(cols.map(c => [c.ym, Number(c.collectionsTotal||0)]));
         } catch (e) { console.error('Failed to fetch monthly collections', e); }
 
-        const expMap = Object.fromEntries(expData.map(e => [e.ym, Number(e.total || 0)]));
+        const expMap = Object.fromEntries(expData.map(e => [e.ym, {
+          total: Number(e.total || 0),
+          productPurchaseTotal: Number(e.productPurchaseTotal || 0)
+        }]));
         const data = salesData.map(m => {
           const gross = Number(m.grossTotal != null ? m.grossTotal : (m.total || 0));
           const net = Number(m.netTotal != null ? m.netTotal : (m.grandTotal != null ? m.grandTotal : gross));
           const discount = Math.max(gross - net, 0);
+          const expenseData = expMap[m.ym] || { total: 0, productPurchaseTotal: 0 };
           return {
             label: m.label,
             ym: m.ym,
             sales: net,
             gross,
             discount,
-          expenses: Number(expMap[m.ym] || 0),
+          expenses: expenseData.total,
+          productPurchasePayments: expenseData.productPurchaseTotal,
           productCost: Number(m.productCost || 0),
           collection: Number(colMap[m.ym] || 0)
           };

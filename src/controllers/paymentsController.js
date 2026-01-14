@@ -3,26 +3,95 @@ const { query: dbQuery } = require('../config/database');
 // Get all payments with related information
 const getPayments = async (req, res) => {
     try {
+        const { serviceTypeId, counterId, userId, fromDate, toDate } = req.query;
+        
+        // Build WHERE clause based on filters
+        let whereConditions = [];
+        let queryParams = [];
+        
+        if (serviceTypeId) {
+            whereConditions.push('p.serviceTypeId = ?');
+            queryParams.push(serviceTypeId);
+        }
+        
+        if (counterId) {
+            whereConditions.push('p.counterId = ?');
+            queryParams.push(counterId);
+        }
+        
+        if (userId) {
+            whereConditions.push('p.userId = ?');
+            queryParams.push(userId);
+        }
+        
+        if (fromDate && toDate) {
+            whereConditions.push('DATE(p.paymentDate) BETWEEN ? AND ?');
+            queryParams.push(fromDate, toDate);
+        }
+        
+        const whereClause = whereConditions.length > 0 
+            ? 'WHERE ' + whereConditions.join(' AND ') 
+            : '';
+        
         const query = `
             SELECT 
-                p.*,
-                pt.serviceTypeName as paymentType,
-                u.name as userName,
-                u.phone as userMobile,
-                c.CounterName as counterName,
-                c.phone as counterPhone
+                p.id AS PaymentID,
+                pt.serviceTypeName,
+                c.id AS CounterID,
+                c.CounterName,
+                c.CityID,
+                c.drID,
+                ct.type_name as counter_type_name,
+                u.id AS RepID,
+                u.name AS RepName,
+                u.designation,
+                u2.id AS UserID,
+                u2.name AS UserName,
+                u2.phone AS UserMobile,
+                c.phone,
+                c.gst,
+                c.address,
+                dr.drName AS DoctorName,
+                p.amount,
+                p.paymentDate,
+                DATE_FORMAT(p.paymentDate, '%Y-%m-%d') as serviceDate,
+                p.comments,
+                p.businessTarget,
+                p.createdAt
             FROM payments p
             LEFT JOIN paymenttype pt ON p.serviceTypeId = pt.id
-            LEFT JOIN users u ON p.userId = u.id
             LEFT JOIN counters c ON p.counterId = c.id
-            ORDER BY p.createdAt DESC
+            LEFT JOIN countertype ct ON c.counter_type = ct.id
+            LEFT JOIN users u ON c.RepID = u.id
+            LEFT JOIN users u2 ON p.userId = u2.id
+            LEFT JOIN drcalls dr ON c.drID = dr.id
+            ${whereClause}
+            ORDER BY p.paymentDate DESC, p.id DESC
         `;
         
-        const payments = await dbQuery(query);
+        const payments = await dbQuery(query, queryParams);
+        
+        // Transform to include both old format (paymentType as string) and new format (paymentType object)
+        // This maintains backward compatibility with existing pages while supporting new features
+        const transformedPayments = payments.map(payment => ({
+            ...payment,
+            id: payment.PaymentID, // Add lowercase id for frontend compatibility
+            paymentType: payment.serviceTypeName, // Keep old format for backward compatibility
+            paymentTypeObj: {  // New format for counter service report
+                id: payment.PaymentID,
+                serviceTypeName: payment.serviceTypeName,
+                isCounterService: (payment.serviceTypeName || '').toLowerCase() === 'counter service'
+            },
+            serviceType: payment.serviceTypeName,
+            representativeName: payment.RepName,
+            counterName: payment.CounterName,
+            userName: payment.UserName,
+            userMobile: payment.UserMobile
+        }));
         
         res.json({
             success: true,
-            data: payments,
+            data: transformedPayments,
             message: 'Payments retrieved successfully'
         });
     } catch (error) {
@@ -230,7 +299,7 @@ const getPaymentTypes = async (req, res) => {
 // Add new payment
 const addPayment = async (req, res) => {
     try {
-        const { serviceTypeId, userId, counterId, amount, paymentDate, comments } = req.body;
+        const { serviceTypeId, userId, counterId, amount, paymentDate, comments, businessTarget } = req.body;
         
         // Validate required fields
         if (!serviceTypeId || !amount || !paymentDate) {
@@ -290,8 +359,8 @@ const addPayment = async (req, res) => {
         
         // Insert payment record
         const insertQuery = `
-            INSERT INTO payments (serviceTypeId, userId, counterId, amount, paymentDate, comments, createdAt)
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
+            INSERT INTO payments (serviceTypeId, userId, counterId, amount, paymentDate, comments, businessTarget, createdAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
         `;
         const result = await dbQuery(insertQuery, [
             serviceTypeId, 
@@ -299,7 +368,8 @@ const addPayment = async (req, res) => {
             counterId || null, 
             amount, 
             paymentDate, 
-            comments || null
+            comments || null,
+            businessTarget || 0
         ]);
         
         res.status(201).json({
@@ -311,7 +381,8 @@ const addPayment = async (req, res) => {
                 counterId,
                 amount,
                 paymentDate,
-                comments
+                comments,
+                businessTarget
             },
             message: 'Payment added successfully'
         });
@@ -373,7 +444,7 @@ const getPaymentById = async (req, res) => {
 const updatePayment = async (req, res) => {
     try {
         const { id } = req.params;
-        const { serviceTypeId, userId, counterId, amount, paymentDate, comments } = req.body;
+        const { serviceTypeId, userId, counterId, amount, paymentDate, comments, businessTarget } = req.body;
         
         // Check if payment exists
         const existingQuery = `SELECT * FROM payments WHERE id = ?`;
@@ -392,6 +463,7 @@ const updatePayment = async (req, res) => {
         const effAmount = amount || existing.amount;
         const effPaymentDate = paymentDate || existing.paymentDate;
         const effComments = (comments !== undefined) ? comments : existing.comments;
+        const effBusinessTarget = (businessTarget !== undefined) ? businessTarget : existing.businessTarget;
 
         // Validate payment type exists and fetch name
         const paymentTypeQuery = `SELECT id, serviceTypeName FROM paymenttype WHERE id = ? AND isActive = 1`;
@@ -434,7 +506,7 @@ const updatePayment = async (req, res) => {
         const updateQuery = `
             UPDATE payments 
             SET serviceTypeId = ?, userId = ?, counterId = ?, amount = ?, 
-                paymentDate = ?, comments = ?
+                paymentDate = ?, comments = ?, businessTarget = ?
             WHERE id = ?
         `;
         
@@ -445,6 +517,7 @@ const updatePayment = async (req, res) => {
             effAmount,
             effPaymentDate,
             effComments,
+            effBusinessTarget || 0,
             id
         ]);
         

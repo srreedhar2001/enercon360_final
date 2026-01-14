@@ -86,6 +86,8 @@
         { key: 'sales-vs-exp-report', name: 'Sales vs Expenses Report', category: 'reports' },
         { key: 'new-counters-report', name: 'New Counters Report', category: 'reports' },
         { key: 'counters-due', name: 'Counters Due', category: 'reports' },
+        { key: 'counter-service-report', name: 'Counter Service Report', category: 'reports' },
+        { key: 'product-purchase', name: 'Product Purchase', category: 'reports' },
         { key: 'reports', name: 'Reports', category: 'reports' },
         { key: 'work-log-report', name: 'Work Log', category: 'reports' },
         { key: 'doctor-calls', name: 'Doctor Management', category: 'reports' },
@@ -97,7 +99,7 @@
         { key: 'counters', name: 'Counters', category: 'master' },
         { key: 'transactions', name: 'Transactions', category: 'transactions' }
       ];
-      const REPORT_KEYS = new Set(['rep-sales-report','sales-vs-exp-report','new-counters-report','counters-due','dashboard','reports','work-log-report','doctor-calls','user-logs']);
+      const REPORT_KEYS = new Set(['rep-sales-report','sales-vs-exp-report','new-counters-report','counters-due','dashboard','reports','work-log-report','doctor-calls','user-logs','counter-service-report','product-purchase']);
 
       const prettify = (text = '') => text.split(/[-_]/).filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
       const escapeHtml = (str = '') => str.replace(/[&<>"']/g, ch => {

@@ -117,12 +117,14 @@ class CounterController {
             const query = `
                 SELECT 
                     c.*,
+                    ct.type_name,
                     city.city as cityName,
                     city.district,
                     city.state,
                     u.name as repName,
                     u.phone as repMobile
                 FROM counters c
+                LEFT JOIN countertype ct ON c.counter_type = ct.id
                 LEFT JOIN city ON c.CityID = city.id
                 LEFT JOIN users u ON c.RepID = u.id
                 ORDER BY c.CounterName
@@ -154,12 +156,14 @@ class CounterController {
             const query = `
                 SELECT 
                     c.*,
+                    ct.type_name,
                     city.city as cityName,
                     city.district,
                     city.state,
                     u.name as repName,
                     u.phone as repMobile
                 FROM counters c
+                LEFT JOIN countertype ct ON c.counter_type = ct.id
                 LEFT JOIN city ON c.CityID = city.id
                 LEFT JOIN users u ON c.RepID = u.id
                 WHERE c.id = ?
@@ -196,11 +200,14 @@ class CounterController {
                 CounterName,
                 CityID,
                 RepID,
+                counter_type,
+                drID,
                 longitude,
                 latitude,
                 phone,
                 gst,
                 address,
+                comments,
                 createdDate
             } = req.body;
 
@@ -241,19 +248,22 @@ class CounterController {
             // Always set createdDate to provided value or today's date to ensure analytics include it
             const createdDateValue = createdDate || new Date().toISOString().slice(0, 10);
             const query = `
-                INSERT INTO counters (CounterName, CityID, RepID, longitude, latitude, phone, gst, address, createdDate)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO counters (CounterName, counter_type, CityID, RepID, drID, longitude, latitude, phone, gst, address, comments, createdDate)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `;
             
             const result = await dbQuery(query, [
                 CounterName,
+                counter_type || 1, // Default to 1 (counter) if not provided
                 CityID,
                 RepID,
+                drID || null,
                 longitude,
                 latitude,
                 phone || null,
                 gst || null,
                 address || null,
+                comments || null,
                 createdDateValue
             ]);
             
@@ -295,11 +305,14 @@ class CounterController {
                 CounterName,
                 CityID,
                 RepID,
+                counter_type,
+                drID,
                 longitude,
                 latitude,
                 phone,
                 gst,
                 address,
+                comments,
                 createdDate
             } = req.body;
 
@@ -342,36 +355,42 @@ class CounterController {
 
             const query = createdDate ? `
                 UPDATE counters 
-                SET CounterName = ?, CityID = ?, RepID = ?, longitude = ?, latitude = ?, 
-                    phone = ?, gst = ?, address = ?, createdDate = ?
+                SET CounterName = ?, counter_type = ?, CityID = ?, RepID = ?, drID = ?, longitude = ?, latitude = ?, 
+                    phone = ?, gst = ?, address = ?, comments = ?, createdDate = ?
                 WHERE id = ?
             ` : `
                 UPDATE counters 
-                SET CounterName = ?, CityID = ?, RepID = ?, longitude = ?, latitude = ?, 
-                    phone = ?, gst = ?, address = ?
+                SET CounterName = ?, counter_type = ?, CityID = ?, RepID = ?, drID = ?, longitude = ?, latitude = ?, 
+                    phone = ?, gst = ?, address = ?, comments = ?
                 WHERE id = ?
             `;
             
             await dbQuery(query, createdDate ? [
                 CounterName,
+                counter_type || 1,
                 CityID,
                 RepID,
+                drID || null,
                 lng,
                 lat,
                 phone || null,
                 gst || null,
                 address || null,
+                comments || null,
                 createdDate,
                 id
             ] : [
                 CounterName,
+                counter_type || 1,
                 CityID,
                 RepID,
+                drID || null,
                 lng,
                 lat,
                 phone || null,
                 gst || null,
                 address || null,
+                comments || null,
                 id
             ]);
             

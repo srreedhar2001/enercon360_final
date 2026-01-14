@@ -255,6 +255,13 @@
                             </select>
                         </div>
 
+                        <div id="businessTargetContainer" class="hidden">
+                            <label for="businessTarget" class="block text-sm font-medium text-gray-700">Business Target</label>
+                            <input type="number" id="businessTarget" step="0.01" min="0" 
+                                   class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                   placeholder="Enter business target">
+                        </div>
+
                         <div>
                             <label for="paymentAmount" class="block text-sm font-medium text-gray-700">Payment Amount *</label>
                             <input type="number" id="paymentAmount" step="0.01" min="0.01" required 
@@ -670,8 +677,10 @@
             handlePaymentTypeChange(selectedTypeId) {
                 const userContainer = document.getElementById('userSelectContainer');
                 const counterContainer = document.getElementById('counterSelectContainer');
+                const businessTargetContainer = document.getElementById('businessTargetContainer');
                 const userSelect = document.getElementById('userSelect');
                 const counterSelect = document.getElementById('counterSelect');
+                const businessTargetInput = document.getElementById('businessTarget');
                 
                 if (!userContainer || !counterContainer || !userSelect || !counterSelect) {
                     console.error('Modal elements not found');
@@ -681,10 +690,12 @@
                 // Reset selections
                 userSelect.value = '';
                 counterSelect.value = '';
+                if (businessTargetInput) businessTargetInput.value = '';
                 
                 // Hide all containers first
                 userContainer.classList.add('hidden');
                 counterContainer.classList.add('hidden');
+                if (businessTargetContainer) businessTargetContainer.classList.add('hidden');
                 
                 // Remove required attributes
                 userSelect.removeAttribute('required');
@@ -701,10 +712,11 @@
                             userContainer.classList.remove('hidden');
                             userSelect.setAttribute('required', 'required');
                         }
-                        // Show counter dropdown for Counter Service
+                        // Show counter dropdown and business target for Counter Service
                         else if (typeName === 'counter service') {
                             counterContainer.classList.remove('hidden');
                             counterSelect.setAttribute('required', 'required');
+                            if (businessTargetContainer) businessTargetContainer.classList.remove('hidden');
                         }
                         // For other types (Others, Product Purchase), no additional selection needed
                     }
@@ -853,6 +865,7 @@
 
                 const titleEl = document.querySelector('#paymentModal h3');
                 const submitBtn = document.querySelector('#paymentForm button[type="submit"]');
+                const businessTargetInput = document.getElementById('businessTarget');
                 if (mode === 'edit' && payment) {
                     this.editingPaymentId = payment.id;
                     if (titleEl) titleEl.textContent = 'Edit Payment Record';
@@ -863,6 +876,9 @@
                     }
                     if (payment.userId) userSelect.value = String(payment.userId);
                     if (payment.counterId) counterSelect.value = String(payment.counterId);
+                    if (businessTargetInput && payment.businessTarget) {
+                        businessTargetInput.value = payment.businessTarget;
+                    }
                     const amt = Number(payment.amount || 0);
                     document.getElementById('paymentAmount').value = isNaN(amt) ? '' : amt;
                     const d = new Date(payment.paymentDate);
@@ -887,6 +903,8 @@
                 // Reset conditional dropdowns
                 document.getElementById('userSelectContainer').classList.add('hidden');
                 document.getElementById('counterSelectContainer').classList.add('hidden');
+                const businessTargetContainer = document.getElementById('businessTargetContainer');
+                if (businessTargetContainer) businessTargetContainer.classList.add('hidden');
                 document.getElementById('userSelect').removeAttribute('required');
                 document.getElementById('counterSelect').removeAttribute('required');
                 
@@ -910,6 +928,8 @@
                 const serviceTypeId = document.getElementById('paymentType').value;
                 const userId = document.getElementById('userSelect').value || null;
                 const counterId = document.getElementById('counterSelect').value || null;
+                const businessTargetInput = document.getElementById('businessTarget');
+                const businessTarget = businessTargetInput && businessTargetInput.value ? parseFloat(businessTargetInput.value) : null;
                 const amount = parseFloat(document.getElementById('paymentAmount').value);
                 const paymentDate = document.getElementById('paymentDate').value;
                 const comments = document.getElementById('paymentNotes').value || null;
@@ -940,6 +960,7 @@
                     serviceTypeId,
                     userId,
                     counterId,
+                    businessTarget,
                     amount,
                     paymentDate,
                     comments
