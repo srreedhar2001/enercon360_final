@@ -393,8 +393,13 @@ class DrWorkLogController {
         rangeTo = temp;
       }
 
+      // Convert IST date range to UTC datetime range
+      // IST dates like '2026-01-01' should match data from UTC '2025-12-31 18:30:00' onwards
       const fromDateTime = `${rangeFrom} 00:00:00`;
       const toDateTime = `${rangeTo} 23:59:59`;
+
+      // Increase GROUP_CONCAT limit to handle large number of visits
+      await dbQuery('SET SESSION group_concat_max_len = 1000000');
 
       const doctorRows = await dbQuery(
         `SELECT d.id AS doctorId,
@@ -423,27 +428,27 @@ class DrWorkLogController {
          FROM drcalls d
          LEFT JOIN drworklog w
            ON w.callId = d.id
-          AND w.createdDate BETWEEN ? AND ?
+          AND DATE(CONVERT_TZ(w.createdDate, '+00:00', '+05:30')) BETWEEN ? AND ?
          LEFT JOIN productcategory pc ON pc.id = d.speciality
          LEFT JOIN city ON city.id = d.cityID
          WHERE d.userID = ?
            AND d.status = 1
          GROUP BY d.id, d.drName, d.address, d.speciality, pc.category_name, city.city, city.state
          ORDER BY logCount DESC, d.drName ASC`,
-        [fromDateTime, toDateTime, repIdNum]
+        [rangeFrom, rangeTo, repIdNum]
       );
 
       const dailyRows = await dbQuery(
-        `SELECT DATE(w.createdDate) AS logDate,
+        `SELECT DATE(CONVERT_TZ(w.createdDate, '+00:00', '+05:30')) AS logDate,
                 COUNT(*) AS visitCount
          FROM drworklog w
          INNER JOIN drcalls d ON d.id = w.callId
          WHERE d.userID = ?
            AND d.status = 1
-           AND w.createdDate BETWEEN ? AND ?
+           AND DATE(CONVERT_TZ(w.createdDate, '+00:00', '+05:30')) BETWEEN ? AND ?
          GROUP BY logDate
          ORDER BY logDate ASC`,
-        [repIdNum, fromDateTime, toDateTime]
+        [repIdNum, rangeFrom, rangeTo]
       );
 
       const doctors = Array.isArray(doctorRows)
@@ -522,6 +527,9 @@ class DrWorkLogController {
         : [];
 
       const visitCount = doctors.reduce((sum, row) => sum + (Number(row.logCount) || 0), 0);
+      
+      // Get doctor visit target from environment variable
+      const doctorVisitTarget = Number(process.env.DOCTOR_VISIT) || 200;
 
       return res.status(200).json({
         success: true,
@@ -532,7 +540,8 @@ class DrWorkLogController {
           dailyCounts,
           totals: {
             doctorCount: doctors.length,
-            visitCount
+            visitCount,
+            doctorVisitTarget
           }
         }
       });

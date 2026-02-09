@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="/js/navigation.js"></script>
+  <script src="/js/access.js"></script>
   <link rel="icon" href="/favicon.ico">
   <meta name="robots" content="noindex, nofollow">
   <meta name="description" content="Counter Service Report">
@@ -160,6 +161,7 @@
                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders Total (₹)</th>
                 <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Comments</th>
               </tr>
             </thead>
             <tbody id="dataTableBody" class="bg-white divide-y divide-gray-200">
@@ -182,7 +184,15 @@
     let performanceChart = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
+      // Enforce access for this page
+      if (window.ensurePagePermission) {
+        await window.ensurePagePermission('counterservicereport', 'view');
+      } else if (window.ensurePageAccess) {
+        await window.ensurePageAccess('counterservicereport');
+      }
+      
       try { await NavigationLoader.loadNavigation(); } catch (_) {}
+      if (window.applyNavPermissions) window.applyNavPermissions();
       
       const token = localStorage.getItem('token') || localStorage.getItem('authToken');
       if (!token) { window.location.href = '/login.html'; return; }
@@ -674,6 +684,15 @@
               View Orders
             </button>
           </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
+            <button onclick="viewComments(${item.PaymentID})" 
+                    class="inline-flex items-center px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+              </svg>
+              Comments
+            </button>
+          </td>
         </tr>
         `;
       }).join('');
@@ -720,6 +739,7 @@
             ${totalBusinessTarget > 0 ? `<div class="text-xs text-gray-600 mt-1 font-normal">${overallPercentage.toFixed(1)}% of target</div>` : ''}
           </td>
           <td class="px-4 py-4 text-sm text-center text-gray-600">${filteredPayments.length} records</td>
+          <td class="px-4 py-4 text-sm text-center text-gray-600">-</td>
         </tr>
       `;
     }
@@ -842,6 +862,136 @@
           modal.remove();
         }
       });
+    }
+
+    async function viewComments(paymentId) {
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      
+      try {
+        // Fetch existing comments
+        const res = await fetch(`/api/payments/${paymentId}/comments`, { 
+          headers: { 'Authorization': `Bearer ${token}` } 
+        });
+        
+        if (!res.ok) throw new Error('Failed to fetch comments');
+        
+        const json = await res.json();
+        const comments = json.data || [];
+        
+        showCommentsModal(paymentId, comments);
+      } catch (error) {
+        console.error('Error fetching comments:', error);
+        alert('Failed to load comments');
+      }
+    }
+
+    function showCommentsModal(paymentId, comments) {
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+      modal.id = 'commentsModal';
+      
+      modal.innerHTML = `
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-3xl shadow-lg rounded-md bg-white">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-900">Payment Comments</h3>
+            <button onclick="document.getElementById('commentsModal').remove()" 
+                    class="text-gray-400 hover:text-gray-600 text-2xl font-bold">
+              &times;
+            </button>
+          </div>
+          
+          <!-- Add Comment Section -->
+          <div class="mb-6 bg-gray-50 p-4 rounded-lg">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Add New Comment</label>
+            <textarea id="newCommentText" rows="3" 
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      placeholder="Enter your comment here..."></textarea>
+            <div class="mt-2 flex justify-end">
+              <button onclick="saveComment(${paymentId})" 
+                      class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition">
+                Add Comment
+              </button>
+            </div>
+          </div>
+          
+          <!-- Comments List -->
+          <div class="space-y-3 max-h-96 overflow-y-auto">
+            <h4 class="text-sm font-semibold text-gray-700 mb-3">Comment History (${comments.length})</h4>
+            ${comments.length === 0 ? 
+              '<p class="text-center text-gray-500 py-8">No comments yet. Be the first to add one!</p>' :
+              comments.map(comment => `
+                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition">
+                  <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs text-gray-500">
+                      ${new Date(comment.createdAt).toLocaleString('en-IN', { 
+                        dateStyle: 'medium', 
+                        timeStyle: 'short' 
+                      })}
+                    </span>
+                  </div>
+                  <p class="text-sm text-gray-800 whitespace-pre-wrap">${escapeHtml(comment.comment)}</p>
+                </div>
+              `).join('')
+            }
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Close on outside click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.remove();
+        }
+      });
+    }
+
+    async function saveComment(paymentId) {
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      const commentText = document.getElementById('newCommentText').value.trim();
+      
+      if (!commentText) {
+        alert('Please enter a comment');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`/api/payments/${paymentId}/comments`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ comment: commentText })
+        });
+        
+        if (!res.ok) throw new Error('Failed to save comment');
+        
+        const json = await res.json();
+        
+        // Close modal and reload comments
+        document.getElementById('commentsModal').remove();
+        
+        // Show success message briefly
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMsg.textContent = 'Comment added successfully!';
+        document.body.appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 3000);
+        
+        // Reopen modal with updated comments
+        setTimeout(() => viewComments(paymentId), 500);
+      } catch (error) {
+        console.error('Error saving comment:', error);
+        alert('Failed to save comment. Please try again.');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
     }
   </script>
 </body>

@@ -186,6 +186,20 @@
                         </div>
                         <p id="doctorOverviewChartEmpty" class="mt-2 text-sm text-gray-500 hidden">No doctor visits to display on the chart.</p>
                     </div>
+                    <div id="doctorPieChartsContainer" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 hidden">
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3 text-center">Doctor Visit Distribution</h3>
+                            <div class="relative h-64">
+                                <canvas id="doctorVisitDistributionChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white border border-gray-200 rounded-lg p-4">
+                            <h3 class="text-sm font-semibold text-gray-700 mb-3 text-center">Linked Doctors - Unique Visit Percentage</h3>
+                            <div class="relative h-64">
+                                <canvas id="linkedDoctorsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
                     <div id="doctorOverviewTableWrapper" class="bg-white border border-gray-200 rounded-lg overflow-x-auto hidden">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
@@ -386,6 +400,8 @@
             resetReportSections();
             resetDoctorDisplay();
             let doctorOverviewChart = null;
+            let doctorVisitDistributionChart = null;
+            let linkedDoctorsChart = null;
             let doctorOverviewRange = { from: null, to: null };
             let doctorOverviewSortColumn = 'lastVisitDate'; // 'lastVisitDate' or 'totalVisits'
             let doctorOverviewSortOrder = 'desc'; // 'asc' or 'desc'
@@ -1762,9 +1778,10 @@
 
             function getDefaultDoctorDateRange() {
                 const today = new Date();
+                // Set start to first day of current month
+                const start = new Date(today.getFullYear(), today.getMonth(), 1);
+                // Set end to today (not future dates)
                 const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                const start = new Date(end);
-                start.setDate(start.getDate() - 29);
                 return {
                     from: formatDateInputValue(start),
                     to: formatDateInputValue(end)
@@ -1895,6 +1912,19 @@
                 }
                 if (doctorOverviewChartContainer) doctorOverviewChartContainer.classList.add('hidden');
                 if (doctorOverviewChartEmpty) doctorOverviewChartEmpty.classList.add('hidden');
+                
+                // Reset pie charts
+                if (doctorVisitDistributionChart) {
+                    doctorVisitDistributionChart.destroy();
+                    doctorVisitDistributionChart = null;
+                }
+                if (linkedDoctorsChart) {
+                    linkedDoctorsChart.destroy();
+                    linkedDoctorsChart = null;
+                }
+                const pieChartsContainer = document.getElementById('doctorPieChartsContainer');
+                if (pieChartsContainer) pieChartsContainer.classList.add('hidden');
+                
                 if (doctorOverviewHelper) {
                     doctorOverviewHelper.textContent = 'Adjust the date range to review doctor visits for the selected representative.';
                 }
@@ -2512,6 +2542,147 @@
                 });
             }
 
+            function updateDoctorPieCharts(doctors, visitCount, doctorVisitTarget = 200) {
+                const pieChartsContainer = document.getElementById('doctorPieChartsContainer');
+                const visitDistributionCanvas = document.getElementById('doctorVisitDistributionChart');
+                const linkedDoctorsCanvas = document.getElementById('linkedDoctorsChart');
+
+                if (!pieChartsContainer || !visitDistributionCanvas || !linkedDoctorsCanvas) return;
+
+                // Destroy existing charts
+                if (doctorVisitDistributionChart) {
+                    doctorVisitDistributionChart.destroy();
+                    doctorVisitDistributionChart = null;
+                }
+                if (linkedDoctorsChart) {
+                    linkedDoctorsChart.destroy();
+                    linkedDoctorsChart = null;
+                }
+
+                // Hide if no target set
+                if (!doctorVisitTarget || doctorVisitTarget === 0) {
+                    pieChartsContainer.classList.add('hidden');
+                    return;
+                }
+
+                // Show the charts
+                pieChartsContainer.classList.remove('hidden');
+
+                // Chart 1: Doctor Visit Distribution - Achieved vs Target
+                const achievedVisits = Math.min(visitCount, doctorVisitTarget);
+                const remainingVisits = Math.max(0, doctorVisitTarget - visitCount);
+                const achievedPercentage = ((achievedVisits / doctorVisitTarget) * 100).toFixed(1);
+                const remainingPercentage = ((remainingVisits / doctorVisitTarget) * 100).toFixed(1);
+                
+                const distributionLabels = [
+                    `Achieved Visits: ${achievedVisits} (${achievedPercentage}%)`,
+                    remainingVisits > 0 ? `Remaining Target: ${remainingVisits} (${remainingPercentage}%)` : ''
+                ].filter(Boolean);
+                
+                const distributionData = [achievedVisits, remainingVisits].filter((v, i) => i === 0 || v > 0);
+                const distributionColors = [
+                    'rgb(16, 185, 129)',   // Green for achieved
+                    'rgb(209, 213, 219)'   // Gray for remaining
+                ];
+
+                // Chart 1: Doctor Visit Distribution
+                doctorVisitDistributionChart = new Chart(visitDistributionCanvas, {
+                    type: 'pie',
+                    data: {
+                        labels: distributionLabels,
+                        datasets: [{
+                            data: distributionData,
+                            backgroundColor: distributionColors,
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 10,
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        return label;
+                                    },
+                                    afterLabel: function(context) {
+                                        return `Target: ${doctorVisitTarget} visits`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Chart 2: Linked Doctors - Unique Visit Percentage
+                const doctorsWithVisits = doctors.filter(d => d.logCount > 0);
+                const linkedDoctorCount = doctorsWithVisits.length;
+                const doctorsWithoutVisits = doctors.length - linkedDoctorCount;
+                const totalDoctors = doctors.length;
+                
+                const linkedPercentage = totalDoctors > 0 ? ((linkedDoctorCount / totalDoctors) * 100).toFixed(1) : 0;
+                const unlinkedPercentage = totalDoctors > 0 ? ((doctorsWithoutVisits / totalDoctors) * 100).toFixed(1) : 0;
+                
+                const linkedLabels = [
+                    `Doctors with Visits: ${linkedDoctorCount} (${linkedPercentage}%)`,
+                    `Doctors without Visits: ${doctorsWithoutVisits} (${unlinkedPercentage}%)`
+                ];
+                const linkedData = [linkedDoctorCount, doctorsWithoutVisits];
+                const linkedColors = ['rgb(16, 185, 129)', 'rgb(209, 213, 219)'];
+                
+                linkedDoctorsChart = new Chart(linkedDoctorsCanvas, {
+                    type: 'pie',
+                    data: {
+                        labels: linkedLabels,
+                        datasets: [{
+                            data: linkedData,
+                            backgroundColor: linkedColors,
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 10,
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed || 0;
+                                        const total = linkedDoctorCount + doctorsWithoutVisits;
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return `${label}: ${percentage}%`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
             async function refreshDoctorOverview(options = {}) {
                 if (!selectedRepId) {
                     resetDoctorOverview();
@@ -2556,6 +2727,7 @@
                     const totals = data.totals || {};
                     const doctorCount = Number(totals.doctorCount) || doctors.length;
                     const visitCount = Number(totals.visitCount) || doctors.reduce((sum, entry) => sum + (Number(entry.logCount) || 0), 0);
+                    const doctorVisitTarget = Number(totals.doctorVisitTarget) || 200;
 
                     if (data.range) {
                         if (data.range.from) {
@@ -2578,6 +2750,7 @@
                     updateDoctorOverviewSummary({ doctorCount, visitCount, range: doctorOverviewRange });
                     renderDoctorOverviewTable(doctors);
                     await updateDoctorOverviewChart(doctorOverviewRange, dailyCounts);
+                    updateDoctorPieCharts(doctors, visitCount, doctorVisitTarget);
 
                     if (!doctors.length) {
                         if (doctorOverviewEmpty) doctorOverviewEmpty.classList.remove('hidden');
@@ -3592,7 +3765,11 @@
                     loadDoctorsForRepresentative(selectedRepId)
                 ]);
 
-                await refreshDoctorOverview({ suppressStatus: true });
+                await refreshDoctorOverview({ 
+                    from: doctorOverviewRange.from, 
+                    to: doctorOverviewRange.to, 
+                    suppressStatus: true 
+                });
 
                 const doctorCount = Number.isFinite(doctorResult?.count) ? doctorResult.count : 0;
                 const doctorMessage = doctorResult?.error

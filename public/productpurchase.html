@@ -6,6 +6,7 @@
   <title>Product Purchase - Enercon 360</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="/js/navigation.js"></script>
+  <script src="/js/access.js"></script>
   <link rel="icon" href="/favicon.ico">
   <meta name="robots" content="noindex, nofollow">
   <meta name="description" content="Product Purchase Management">
@@ -190,7 +191,15 @@
     let categories = [];
 
     document.addEventListener('DOMContentLoaded', async () => {
+      // Enforce access for this page
+      if (window.ensurePagePermission) {
+        await window.ensurePagePermission('productpurchase', 'view');
+      } else if (window.ensurePageAccess) {
+        await window.ensurePageAccess('productpurchase');
+      }
+      
       try { await NavigationLoader.loadNavigation(); } catch (_) {}
+      if (window.applyNavPermissions) window.applyNavPermissions();
       
       const token = localStorage.getItem('token') || localStorage.getItem('authToken');
       if (!token) { window.location.href = '/login.html'; return; }
