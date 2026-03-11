@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/navigation.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation Container -->
+    <div id="navigation-container"></div>
+
+    <!-- Main Content -->
+    <div class="container mx-auto px-4 py-8 pt-24">
+        <div class="max-w-6xl mx-auto">
+            <!-- Doctor Visit Tracking Section -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4">Doctor Visit Tracking</h2>
+                
+                <!-- Filters -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <!-- Representatives Multi-Select -->
+                    <div>
+                        <label for="representativesSelect" class="block text-sm font-medium text-gray-700 mb-2">
+                            Select Representatives
+                        </label>
+                        <select 
+                            id="representativesSelect" 
+                            multiple 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            style="min-height: 100px;">
+                            <option value="">Loading...</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+                    </div>
+
+                    <!-- From Date -->
+                    <div>
+                        <label for="doctorVisitFrom" class="block text-sm font-medium text-gray-700 mb-2">
+                            From Date
+                        </label>
+                        <input 
+                            type="date" 
+                            id="doctorVisitFrom" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <!-- To Date -->
+                    <div>
+                        <label for="doctorVisitTo" class="block text-sm font-medium text-gray-700 mb-2">
+                            To Date
+                        </label>
+                        <input 
+                            type="date" 
+                            id="doctorVisitTo" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                </div>
+
+                <!-- Apply Button -->
+                <div class="mb-6 flex gap-3">
+                    <button 
+                        id="applyDoctorVisitFilters" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-md transition duration-200">
+                        Apply Filters
+                    </button>
+                    <button 
+                        id="exportAllChartsBtn"
+                        style="display: none;"
+                        class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-6 rounded-md transition duration-200 flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        Export All as JPG
+                    </button>
+                </div>
+
+                <!-- Loading State -->
+                <div id="doctorVisitLoading" class="hidden text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p class="text-gray-600 mt-2">Loading data...</p>
+                </div>
+
+                <!-- Summary -->
+                <div id="doctorVisitSummary" class="hidden mb-6 p-4 bg-blue-50 rounded-lg">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div>
+                            <p class="text-sm text-gray-600">Total Visits</p>
+                            <p id="totalVisitsCount" class="text-2xl font-bold text-gray-900">0</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Unique Doctors</p>
+                            <p id="uniqueDoctorsCount" class="text-2xl font-bold text-gray-900">0</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Representatives</p>
+                            <p id="selectedRepsCount" class="text-2xl font-bold text-gray-900">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Individual Representative Charts -->
+                <div id="doctorVisitChartsContainer" class="hidden space-y-6">
+                    <!-- Individual charts will be dynamically inserted here -->
+                </div>
+
+                <!-- No Data Message -->
+                <div id="doctorVisitNoData" class="hidden text-center py-8">
+                    <p class="text-gray-600">No data available for the selected filters.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let individualCharts = []; // Store all chart instances
+        let allRepresentatives = [];
+
+        // Utility: Get current month date range
+        function getCurrentMonthDateRange() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            
+            return {
+                from: `${year}-${month}-01`,
+                to: `${year}-${month}-${day}`
+            };
+        }
+
+        // Get representative name by ID
+        function getRepresentativeName(repId) {
+            const rep = allRepresentatives.find(r => r.id == repId);
+            return rep ? (rep.name || rep.username || `Rep ${repId}`) : `Rep ${repId}`;
+        }
+
+        // Load representatives
+        async function loadRepresentatives() {
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            if (!token) {
+                const select = document.getElementById('representativesSelect');
+                select.innerHTML = '<option value="">Please login to view representatives</option>';
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/users/designation/2', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                const repsRaw = Array.isArray(data) ? data : Array.isArray(data.data) ? data.data : (data.users || data.results || []);
+                allRepresentatives = repsRaw.filter(rep => rep && rep.id);
+
+                const select = document.getElementById('representativesSelect');
+                select.innerHTML = '';
+
+                if (allRepresentatives.length === 0) {
+                    select.innerHTML = '<option value="">No representatives available</option>';
+                    return;
+                }
+
+                allRepresentatives.forEach(rep => {
+                    const option = document.createElement('option');
+                    option.value = rep.id;
+                    option.textContent = rep.name || rep.username || `User ${rep.id}`;
+                    select.appendChild(option);
+                });
+
+            } catch (error) {
+                console.error('Error loading representatives:', error);
+                const select = document.getElementById('representativesSelect');
+                select.innerHTML = '<option value="">Error loading representatives</option>';
+            }
+        }
+
+        // Fetch doctor data for selected representatives
+        async function fetchDoctorVisitData(representativeIds, fromDate, toDate) {
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            if (!token) {
+                alert('Please login to view doctor visit data');
+                return null;
+            }
+
+            const representativesData = [];
+            let totalVisits = 0;
+            let totalUniqueDoctors = new Set();
+
+            // Fetch data for each representative individually
+            for (const repId of representativeIds) {
+                try {
+                    const params = new URLSearchParams();
+                    if (fromDate) params.set('from', fromDate);
+                    if (toDate) params.set('to', toDate);
+
+                    const response = await fetch(`/api/doctor-work-log/representative/${encodeURIComponent(repId)}/doctors?${params.toString()}`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (!response.ok) continue;
+
+                    const payload = await response.json();
+                    const data = payload?.data || {};
+                    const doctors = Array.isArray(data.doctors) ? data.doctors : [];
+                    const totals = data.totals || {};
+                    
+                    const visitCount = Number(totals.visitCount) || 0;
+                    const doctorVisitTarget = Number(totals.doctorVisitTarget) || 200;
+                    const uniqueDoctorCount = doctors.length;
+
+                    totalVisits += visitCount;
+                    doctors.forEach(doc => {
+                        if (doc.doctorId) totalUniqueDoctors.add(doc.doctorId);
+                    });
+
+                    representativesData.push({
+                        repId,
+                        repName: getRepresentativeName(repId),
+                        doctors,
+                        visitCount,
+                        doctorVisitTarget,
+                        uniqueDoctorCount
+                    });
+
+                } catch (error) {
+                    console.error(`Error fetching data for rep ${repId}:`, error);
+                }
+            }
+
+            return {
+                representativesData,
+                totalVisits,
+                totalUniqueDoctors: totalUniqueDoctors.size,
+                selectedRepsCount: representativeIds.length
+            };
+        }
+
+        // Destroy all existing charts
+        function destroyAllCharts() {
+            individualCharts.forEach(chart => {
+                if (chart) chart.destroy();
+            });
+            individualCharts = [];
+        }
+
+        // Export all charts as single JPG
+        function exportAllChartsAsJPG() {
+            const allRepsData = window.currentRepresentativesData;
+            if (!allRepsData || allRepsData.length === 0) {
+                alert('No data available to export');
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Calculate canvas dimensions
+            const headerHeight = 200;
+            const summaryHeight = 150;
+            const repCardHeight = 850;
+            const footerHeight = 80;
+            const canvasWidth = 2100;
+            const canvasHeight = headerHeight + summaryHeight + (repCardHeight * allRepsData.length) + footerHeight;
+            
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            
+            // Gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+            gradient.addColorStop(0, '#f8f9fa');
+            gradient.addColorStop(1, '#e9ecef');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Header section with brand color
+            ctx.fillStyle = '#4f46e5';
+            ctx.fillRect(0, 0, canvas.width, headerHeight);
+            
+            // Header decorative elements
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.arc(100, 100, 80, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(canvasWidth - 100, 100, 100, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Company logo placeholder / Icon
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 60px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('📊', canvasWidth / 2, 80);
+            
+            // Main title
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 42px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Doctor Visit Analysis Report', canvasWidth / 2, 135);
+            
+            // Date range
+            const fromDate = document.getElementById('doctorVisitFrom').value;
+            const toDate = document.getElementById('doctorVisitTo').value;
+            ctx.font = '20px Arial';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillText(`Period: ${fromDate} to ${toDate}`, canvasWidth / 2, 170);
+            
+            // Summary section with rounded corners effect
+            const summaryY = headerHeight + 20;
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetY = 10;
+            ctx.fillRect(80, summaryY, canvasWidth - 160, summaryHeight - 40);
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // Calculate totals
+            const totalVisits = allRepsData.reduce((sum, rep) => sum + rep.visitCount, 0);
+            const totalTarget = allRepsData.reduce((sum, rep) => sum + rep.doctorVisitTarget, 0);
+            const achievementRate = totalTarget > 0 ? ((totalVisits / totalTarget) * 100).toFixed(1) : 0;
+            
+            // Summary content
+            const boxWidth = (canvasWidth - 160) / 3;
+            
+            // Box 1: Total Visits
+            ctx.fillStyle = '#10b981';
+            ctx.fillRect(100, summaryY + 20, boxWidth - 40, 90);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('TOTAL VISITS', 100 + (boxWidth - 40) / 2, summaryY + 45);
+            ctx.font = 'bold 36px Arial';
+            ctx.fillText(totalVisits.toString(), 100 + (boxWidth - 40) / 2, summaryY + 85);
+            
+            // Box 2: Target
+            ctx.fillStyle = '#6366f1';
+            ctx.fillRect(100 + boxWidth, summaryY + 20, boxWidth - 40, 90);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText('TOTAL TARGET', 100 + boxWidth + (boxWidth - 40) / 2, summaryY + 45);
+            ctx.font = 'bold 36px Arial';
+            ctx.fillText(totalTarget.toString(), 100 + boxWidth + (boxWidth - 40) / 2, summaryY + 85);
+            
+            // Box 3: Achievement
+            const achievementColor = achievementRate >= 90 ? '#10b981' : achievementRate >= 50 ? '#f59e0b' : '#ef4444';
+            ctx.fillStyle = achievementColor;
+            ctx.fillRect(100 + boxWidth * 2, summaryY + 20, boxWidth - 40, 90);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText('ACHIEVEMENT', 100 + boxWidth * 2 + (boxWidth - 40) / 2, summaryY + 45);
+            ctx.font = 'bold 36px Arial';
+            ctx.fillText(`${achievementRate}%`, 100 + boxWidth * 2 + (boxWidth - 40) / 2, summaryY + 85);
+            
+            // Draw each representative's section
+            allRepsData.forEach((repData, index) => {
+                const yOffset = headerHeight + summaryHeight + (index * repCardHeight);
+                
+                // Card background
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+                ctx.shadowBlur = 15;
+                ctx.shadowOffsetY = 8;
+                ctx.fillRect(80, yOffset, canvasWidth - 160, repCardHeight - 30);
+                ctx.shadowBlur = 0;
+                ctx.shadowOffsetY = 0;
+                
+                // Representative header bar
+                ctx.fillStyle = '#4f46e5';
+                ctx.fillRect(80, yOffset, canvasWidth - 160, 60);
+                
+                // Representative name
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 28px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(repData.repName, 110, yOffset + 40);
+                
+                // Stats badges
+                const badgeX = canvasWidth - 500;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.fillRect(badgeX, yOffset + 15, 130, 30);
+                ctx.fillRect(badgeX + 145, yOffset + 15, 130, 30);
+                ctx.fillRect(badgeX + 290, yOffset + 15, 130, 30);
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Visits: ${repData.visitCount}`, badgeX + 65, yOffset + 35);
+                ctx.fillText(`Target: ${repData.doctorVisitTarget}`, badgeX + 210, yOffset + 35);
+                const repAchieve = repData.doctorVisitTarget > 0 ? ((repData.visitCount / repData.doctorVisitTarget) * 100).toFixed(1) : 0;
+                ctx.fillText(`${repAchieve}%`, badgeX + 355, yOffset + 35);
+                
+                // Chart labels
+                ctx.fillStyle = '#6b7280';
+                ctx.font = 'bold 18px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Visit Distribution', 530, yOffset + 100);
+                ctx.fillText('Linked Doctors Analysis', 1570, yOffset + 100);
+                
+                // Get chart canvases
+                const visitCanvas = document.getElementById(`visitChart_${index}`);
+                const linkedCanvas = document.getElementById(`linkedChart_${index}`);
+                
+                if (visitCanvas && linkedCanvas) {
+                    const chartSize = 650;  // Square dimensions to keep pie charts round
+                    const leftX = 105;
+                    const rightX = 1245;
+                    const topY = yOffset + 130;
+                    
+                    // Draw charts with border
+                    ctx.strokeStyle = '#e5e7eb';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(leftX - 5, topY - 5, chartSize + 10, chartSize + 10);
+                    ctx.drawImage(visitCanvas, leftX, topY, chartSize, chartSize);
+                    
+                    ctx.strokeRect(rightX - 5, topY - 5, chartSize + 10, chartSize + 10);
+                    ctx.drawImage(linkedCanvas, rightX, topY, chartSize, chartSize);
+                }
+            });
+            
+            // Footer
+            const footerY = canvasHeight - footerHeight;
+            ctx.fillStyle = '#1f2937';
+            ctx.fillRect(0, footerY, canvasWidth, footerHeight);
+            
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            const now = new Date();
+            ctx.fillText(`Report Period: ${fromDate} to ${toDate} | Generated: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, canvasWidth / 2, footerY + 35);
+            ctx.fillText('📊 Doctor Visit Tracking System - Confidential Report', canvasWidth / 2, footerY + 60);
+            
+            // Convert to JPG and download
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                link.download = `Doctor_Visit_Report_${timestamp}.jpg`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+            }, 'image/jpeg', 0.95);
+        }
+
+        // Export charts as JPG
+        function exportChartsAsJPG(repName, visitChartId, linkedChartId) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            canvas.width = 2100;
+            canvas.height = 1100;
+            
+            // Gradient background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#f8f9fa');
+            gradient.addColorStop(1, '#e9ecef');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Header section
+            ctx.fillStyle = '#4f46e5';
+            ctx.fillRect(0, 0, canvas.width, 160);
+            
+            // Decorative circles
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.arc(100, 80, 70, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(canvas.width - 100, 80, 90, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Icon
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 50px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('📊', canvas.width / 2, 65);
+            
+            // Title
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 36px Arial';
+            ctx.fillText('Doctor Visit Analysis', canvas.width / 2, 115);
+            
+            // Get date range
+            const fromDate = document.getElementById('doctorVisitFrom').value;
+            const toDate = document.getElementById('doctorVisitTo').value;
+            
+            // Representative name badge
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.fillRect(canvas.width / 2 - 400, 130, 800, 35);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 20px Arial';
+            ctx.fillText(`${repName} (${fromDate} to ${toDate})`, canvas.width / 2, 152);
+            
+            // Main content area
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetY = 10;
+            ctx.fillRect(50, 190, canvas.width - 100, 850);
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // Chart labels with background
+            ctx.fillStyle = '#4f46e5';
+            ctx.fillRect(70, 210, 450, 45);
+            ctx.fillRect(canvas.width / 2 + 30, 210, 500, 45);
+            
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 22px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Visit Distribution', 295, 240);
+            ctx.fillText('Linked Doctors Analysis', canvas.width / 2 + 280, 240);
+            
+            // Get the two chart canvases
+            const visitCanvas = document.getElementById(visitChartId);
+            const linkedCanvas = document.getElementById(linkedChartId);
+            
+            if (visitCanvas && linkedCanvas) {
+                const chartSize = 700;  // Square dimensions to keep pie charts round
+                const leftX = 120;
+                const rightX = canvas.width / 2 + 80;
+                const topY = 270;
+                
+                // Draw charts with subtle borders
+                ctx.strokeStyle = '#e5e7eb';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(leftX - 5, topY - 5, chartSize + 10, chartSize + 10);
+                ctx.drawImage(visitCanvas, leftX, topY, chartSize, chartSize);
+                
+                ctx.strokeRect(rightX - 5, topY - 5, chartSize + 10, chartSize + 10);
+                ctx.drawImage(linkedCanvas, rightX, topY, chartSize, chartSize);
+            }
+            
+            // Footer
+            ctx.fillStyle = '#1f2937';
+            ctx.fillRect(0, 1040, canvas.width, 60);
+            
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = '14px Arial';
+            ctx.textAlign = 'center';
+            const now = new Date();
+            ctx.fillText(`Report Period: ${fromDate} to ${toDate} | Generated: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, canvas.width / 2, 1070);
+            
+            // Convert to JPG and download
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+                link.download = `${repName.replace(/\s+/g, '_')}_Doctor_Visit_Report_${timestamp}.jpg`;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+            }, 'image/jpeg', 0.95);
+        }
+
+        // Render individual pie charts for each representative
+        function renderIndividualCharts(representativesData) {
+            const container = document.getElementById('doctorVisitChartsContainer');
+            container.innerHTML = '';
+            destroyAllCharts();
+
+            representativesData.forEach((repData, index) => {
+                const { repName, doctors, visitCount, doctorVisitTarget } = repData;
+
+                // Create card for this representative
+                const repCard = document.createElement('div');
+                repCard.className = 'bg-white border border-gray-200 rounded-lg shadow-sm p-6';
+                repCard.innerHTML = `
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-gray-800">${repName}</h3>
+                        <button 
+                            onclick="exportChartsAsJPG('${repName.replace(/'/g, "\\'")}', 'visitChart_${index}', 'linkedChart_${index}')"
+                            class="bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded-md transition duration-200 flex items-center gap-2">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            Export as JPG
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Chart 1: Visit Distribution -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3 text-center">Doctor Visit Distribution</h4>
+                            <div style="position: relative; height: 250px;">
+                                <canvas id="visitChart_${index}"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Chart 2: Linked Doctors -->
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <h4 class="text-sm font-semibold text-gray-700 mb-3 text-center">Linked Doctors - Unique Visit Percentage</h4>
+                            <div style="position: relative; height: 250px;">
+                                <canvas id="linkedChart_${index}"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(repCard);
+
+                // Chart 1: Visit Distribution (Achieved vs Target)
+                const achievedVisits = Math.min(visitCount, doctorVisitTarget);
+                const remainingVisits = Math.max(0, doctorVisitTarget - visitCount);
+                const achievedPercentage = ((achievedVisits / doctorVisitTarget) * 100).toFixed(1);
+                const remainingPercentage = ((remainingVisits / doctorVisitTarget) * 100).toFixed(1);
+                
+                const distributionLabels = [
+                    `Achieved Visits: ${achievedVisits} (${achievedPercentage}%)`,
+                    remainingVisits > 0 ? `Remaining Target: ${remainingVisits} (${remainingPercentage}%)` : ''
+                ].filter(Boolean);
+                
+                const distributionData = [achievedVisits, remainingVisits].filter((v, i) => i === 0 || v > 0);
+                const distributionColors = ['rgb(16, 185, 129)', 'rgb(209, 213, 219)'];
+
+                const ctx1 = document.getElementById(`visitChart_${index}`);
+                const chart1 = new Chart(ctx1, {
+                    type: 'pie',
+                    data: {
+                        labels: distributionLabels,
+                        datasets: [{
+                            data: distributionData,
+                            backgroundColor: distributionColors,
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 10,
+                                    font: { size: 11 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label || '';
+                                    },
+                                    afterLabel: function(context) {
+                                        return `Target: ${doctorVisitTarget} visits`;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                individualCharts.push(chart1);
+
+                // Chart 2: Linked Doctors
+                const doctorsWithVisits = doctors.filter(d => d.logCount > 0);
+                const linkedDoctorCount = doctorsWithVisits.length;
+                const doctorsWithoutVisits = doctors.length - linkedDoctorCount;
+                const totalDoctors = doctors.length;
+                
+                const linkedPercentage = totalDoctors > 0 ? ((linkedDoctorCount / totalDoctors) * 100).toFixed(1) : 0;
+                const unlinkedPercentage = totalDoctors > 0 ? ((doctorsWithoutVisits / totalDoctors) * 100).toFixed(1) : 0;
+                
+                const linkedLabels = [
+                    `Doctors with Visits: ${linkedDoctorCount} (${linkedPercentage}%)`,
+                    `Doctors without Visits: ${doctorsWithoutVisits} (${unlinkedPercentage}%)`
+                ];
+                const linkedData = [linkedDoctorCount, doctorsWithoutVisits];
+                const linkedColors = ['rgb(16, 185, 129)', 'rgb(209, 213, 219)'];
+
+                const ctx2 = document.getElementById(`linkedChart_${index}`);
+                const chart2 = new Chart(ctx2, {
+                    type: 'pie',
+                    data: {
+                        labels: linkedLabels,
+                        datasets: [{
+                            data: linkedData,
+                            backgroundColor: linkedColors,
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 10,
+                                    font: { size: 11 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label || '';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+                individualCharts.push(chart2);
+            });
+        }
+
+        // Apply filters and load data
+        async function applyDoctorVisitFilters() {
+            const select = document.getElementById('representativesSelect');
+            const selectedOptions = Array.from(select.selectedOptions);
+            const representativeIds = selectedOptions.map(opt => opt.value).filter(Boolean);
+
+            if (representativeIds.length === 0) {
+                alert('Please select at least one representative');
+                return;
+            }
+
+            const fromDate = document.getElementById('doctorVisitFrom').value;
+            const toDate = document.getElementById('doctorVisitTo').value;
+
+            if (!fromDate || !toDate) {
+                alert('Please select both From and To dates');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('doctorVisitLoading').classList.remove('hidden');
+            document.getElementById('doctorVisitSummary').classList.add('hidden');
+            document.getElementById('doctorVisitChartsContainer').classList.add('hidden');
+            document.getElementById('doctorVisitNoData').classList.add('hidden');
+            document.getElementById('exportAllChartsBtn').style.display = 'none';
+
+            try {
+                const data = await fetchDoctorVisitData(representativeIds, fromDate, toDate);
+
+                // Hide loading
+                document.getElementById('doctorVisitLoading').classList.add('hidden');
+
+                if (!data || data.totalVisits === 0) {
+                    document.getElementById('doctorVisitNoData').classList.remove('hidden');
+                    return;
+                }
+
+                // Update summary
+                document.getElementById('totalVisitsCount').textContent = data.totalVisits;
+                document.getElementById('uniqueDoctorsCount').textContent = data.totalUniqueDoctors;
+                document.getElementById('selectedRepsCount').textContent = data.selectedRepsCount;
+                document.getElementById('doctorVisitSummary').classList.remove('hidden');
+
+                // Store data globally for export all function
+                window.currentRepresentativesData = data.representativesData;
+
+                // Render individual charts for each representative
+                renderIndividualCharts(data.representativesData);
+                document.getElementById('doctorVisitChartsContainer').classList.remove('hidden');
+
+                // Show export all button
+                document.getElementById('exportAllChartsBtn').style.display = 'flex';
+
+            } catch (error) {
+                console.error('Error applying filters:', error);
+                document.getElementById('doctorVisitLoading').classList.add('hidden');
+                document.getElementById('doctorVisitNoData').classList.remove('hidden');
+                document.getElementById('exportAllChartsBtn').style.display = 'none';
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', async function() {
+            NavigationLoader.loadNavigation();
+
+            // Set default date range
+            const dateRange = getCurrentMonthDateRange();
+            document.getElementById('doctorVisitFrom').value = dateRange.from;
+            document.getElementById('doctorVisitTo').value = dateRange.to;
+
+            // Load representatives
+            await loadRepresentatives();
+
+            // Attach event listeners
+            document.getElementById('applyDoctorVisitFilters').addEventListener('click', applyDoctorVisitFilters);
+            document.getElementById('exportAllChartsBtn').addEventListener('click', exportAllChartsAsJPG);
+        });
+
+        // Expose export functions to global scope for onclick handlers
+        window.exportChartsAsJPG = exportChartsAsJPG;
+        window.exportAllChartsAsJPG = exportAllChartsAsJPG;
+    </script>
+</body>
+</html>

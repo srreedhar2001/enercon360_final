@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Counter Service Report</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/js/navigation.js"></script>
+  <script src="/js/access.js"></script>
+  <link rel="icon" href="/favicon.ico">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="Counter Service Report">
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="navigation-container"></div>
+
+  <main class="container mx-auto px-4 py-8 pt-24">
+    <div class="max-w-full mx-auto">
+      <div class="bg-white rounded-lg shadow p-6">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6">Counter Service Report</h1>
+        
+        <!-- Monthly Summary Cards -->
+        <div id="monthlySummary" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 mb-6">
+        </div>
+        
+        <!-- Two Column Layout: Filters and Chart -->
+        <div class="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Left Column: Filters -->
+          <div class="space-y-4">
+            <!-- Date and Dropdown Filters -->
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+              <h3 class="text-lg font-semibold text-gray-800 mb-4">Filters</h3>
+              <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">From Date</label>
+                    <input type="date" id="fromDate" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">To Date</label>
+                    <input type="date" id="toDate" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Counter Name</label>
+                  <select id="counterFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">All Counters</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Doctor Name</label>
+                  <select id="doctorFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">All Doctors</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-2">Representative</label>
+                  <select id="repFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">All Representatives</option>
+                  </select>
+                </div>
+                <div class="flex gap-3">
+                  <button id="filterBtn" class="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition">
+                    Apply Filter
+                  </button>
+                  <button id="resetBtn" class="flex-1 px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition">
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Performance Checkboxes -->
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+              <h3 class="text-sm font-semibold text-gray-800 mb-3">Performance Filter</h3>
+              <div class="flex flex-wrap gap-4">
+                <label class="flex items-center">
+                  <input type="checkbox" id="perf90" class="form-checkbox h-4 w-4 text-green-600 rounded" checked>
+                  <span class="ml-2 text-sm text-gray-700">≥ 90% (Green)</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" id="perf50to90" class="form-checkbox h-4 w-4 text-yellow-600 rounded" checked>
+                  <span class="ml-2 text-sm text-gray-700">50% - 90% (Yellow)</span>
+                </label>
+                <label class="flex items-center">
+                  <input type="checkbox" id="perfBelow50" class="form-checkbox h-4 w-4 text-orange-600 rounded" checked>
+                  <span class="ml-2 text-sm text-gray-700">&lt; 50% (Orange)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Chart -->
+          <div class="bg-white rounded-lg border border-gray-200 p-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Performance Overview</h3>
+            <div class="relative" style="height: 350px;">
+              <canvas id="performanceChart"></canvas>
+            </div>
+            <!-- Summary Legend -->
+            <div id="chartSummary" class="mt-4 pt-4 border-t border-gray-200">
+              <div class="grid grid-cols-3 gap-4">
+                <div class="text-center">
+                  <div class="flex items-center justify-center mb-1">
+                    <div class="w-4 h-4 rounded mr-2" style="background-color: rgba(59, 130, 246, 0.7);"></div>
+                    <span class="text-xs font-medium text-gray-600">Amount</span>
+                  </div>
+                  <div id="summaryAmount" class="text-lg font-bold text-gray-900">₹0</div>
+                </div>
+                <div class="text-center">
+                  <div class="flex items-center justify-center mb-1">
+                    <div class="w-4 h-4 rounded mr-2" style="background-color: rgba(147, 51, 234, 0.7);"></div>
+                    <span class="text-xs font-medium text-gray-600">Business Target</span>
+                  </div>
+                  <div id="summaryTarget" class="text-lg font-bold text-gray-900">₹0</div>
+                </div>
+                <div class="text-center">
+                  <div class="flex items-center justify-center mb-1">
+                    <div class="w-4 h-4 rounded mr-2" style="background-color: rgba(34, 197, 94, 0.7);"></div>
+                    <span class="text-xs font-medium text-gray-600">Orders Total</span>
+                  </div>
+                  <div id="summaryOrders" class="text-lg font-bold text-green-700">₹0</div>
+                  <div id="summaryPercentage" class="text-xs text-gray-600 mt-1">0% of target</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="loadingSpinner" class="hidden text-center py-8">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          <p class="text-gray-600 mt-2">Loading data...</p>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No.</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortTable('counterName')">
+                  Counter Name <span id="sort-counterName">↕</span>
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortTable('counter_type_name')">
+                  Type <span id="sort-counter_type_name">↕</span>
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortTable('doctorName')">
+                  Doctor Name <span id="sort-doctorName">↕</span>
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortTable('representative')">
+                  Representative <span id="sort-representative">↕</span>
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortTable('serviceDate')">
+                  Service Date <span id="sort-serviceDate">↕</span>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortTable('amount')">
+                  Amount (₹) <span id="sort-amount">↕</span>
+                </th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onclick="sortTable('businessTarget')">
+                  Business Target (₹) <span id="sort-businessTarget">↕</span>
+                </th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remarks</th>
+                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders Total (₹)</th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Comments</th>
+              </tr>
+            </thead>
+            <tbody id="dataTableBody" class="bg-white divide-y divide-gray-200">
+            </tbody>
+            <tfoot id="dataTableFooter" class="bg-gray-100 border-t-2 border-gray-300">
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let allPayments = [];
+    let filteredPayments = [];
+    let sortColumn = null;
+    let sortDirection = 'asc';
+    let selectedMonths = [];
+    let ordersTotalCache = {};
+    let performanceChart = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Enforce access for this page
+      if (window.ensurePagePermission) {
+        await window.ensurePagePermission('counterservicereport', 'view');
+      } else if (window.ensurePageAccess) {
+        await window.ensurePageAccess('counterservicereport');
+      }
+      
+      try { await NavigationLoader.loadNavigation(); } catch (_) {}
+      if (window.applyNavPermissions) window.applyNavPermissions();
+      
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      if (!token) { window.location.href = '/login.html'; return; }
+
+      await loadData();
+
+      // Event listeners
+      document.getElementById('filterBtn').addEventListener('click', applyFilter);
+      document.getElementById('resetBtn').addEventListener('click', resetFilter);
+      document.getElementById('counterFilter').addEventListener('change', applyFilter);
+      document.getElementById('doctorFilter').addEventListener('change', applyFilter);
+      document.getElementById('repFilter').addEventListener('change', applyFilter);
+      document.getElementById('perf90').addEventListener('change', applyFilter);
+      document.getElementById('perf50to90').addEventListener('change', applyFilter);
+      document.getElementById('perfBelow50').addEventListener('change', applyFilter);
+    });
+
+    async function loadData() {
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      const loader = document.getElementById('loadingSpinner');
+      const tbody = document.getElementById('dataTableBody');
+
+      loader.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/payments', { 
+          headers: { 'Authorization': `Bearer ${token}` } 
+        });
+        
+        if (!res.ok) throw new Error('Failed to fetch data');
+        
+        const json = await res.json();
+        const allData = Array.isArray(json.data) ? json.data : [];
+        
+        // Filter for Counter Service payments
+        allPayments = allData.filter(item => {
+          return item.paymentTypeObj && item.paymentTypeObj.isCounterService === true;
+        });
+
+        filteredPayments = [...allPayments];
+        loader.classList.add('hidden');
+        
+        // Load orders totals for all payments
+        await loadOrdersTotals();
+        
+        // Populate dropdowns
+        populateDropdowns();
+        
+        renderMonthlySummary();
+        renderTable();
+        renderChart();
+
+      } catch (error) {
+        console.error('Error loading data:', error);
+        loader.classList.add('hidden');
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center text-red-600 py-8">Failed to load counter service data.</td></tr>';
+      }
+    }
+
+    async function loadOrdersTotals() {
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      ordersTotalCache = {};
+      
+      for (const payment of allPayments) {
+        const key = `${payment.CounterID}-${payment.serviceDate}`;
+        const nextServiceDate = findNextServiceDate(payment.CounterID, payment.serviceDate);
+        
+        try {
+          const url = `/api/orders/counter/${payment.CounterID}`;
+          const res = await fetch(url, { 
+            headers: { 'Authorization': `Bearer ${token}` } 
+          });
+          
+          if (res.ok) {
+            const json = await res.json();
+            let orders = Array.isArray(json.data) ? json.data : [];
+            
+            // Filter orders between service dates
+            const fromDate = new Date(payment.serviceDate);
+            fromDate.setHours(0, 0, 0, 0);
+            
+            const toDate = nextServiceDate ? new Date(nextServiceDate) : new Date();
+            toDate.setHours(23, 59, 59, 999);
+            
+            orders = orders.filter(order => {
+              const orderDate = new Date(order.orderDate);
+              return orderDate >= fromDate && orderDate < toDate;
+            });
+            
+            const total = orders.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
+            ordersTotalCache[key] = total;
+          }
+        } catch (error) {
+          console.error('Error loading orders total:', error);
+          ordersTotalCache[key] = 0;
+        }
+      }
+    }
+
+    function populateDropdowns() {
+      // Get unique counter names
+      const counters = [...new Set(allPayments.map(p => p.CounterName || p.counterName).filter(Boolean))].sort();
+      const counterSelect = document.getElementById('counterFilter');
+      counterSelect.innerHTML = '<option value="">All Counters</option>' + 
+        counters.map(c => `<option value="${c}">${c}</option>`).join('');
+      
+      // Get unique doctor names
+      const doctors = [...new Set(allPayments.map(p => p.DoctorName || p.doctorName).filter(Boolean))].sort();
+      const doctorSelect = document.getElementById('doctorFilter');
+      doctorSelect.innerHTML = '<option value="">All Doctors</option>' + 
+        doctors.map(d => `<option value="${d}">${d}</option>`).join('');
+      
+      // Get unique representative names
+      const reps = [...new Set(allPayments.map(p => p.RepName || p.representativeName || p.userName).filter(Boolean))].sort();
+      const repSelect = document.getElementById('repFilter');
+      repSelect.innerHTML = '<option value="">All Representatives</option>' + 
+        reps.map(r => `<option value="${r}">${r}</option>`).join('');
+    }
+
+    function applyFilter() {
+      const fromDate = document.getElementById('fromDate').value;
+      const toDate = document.getElementById('toDate').value;
+      const counterFilter = document.getElementById('counterFilter').value;
+      const doctorFilter = document.getElementById('doctorFilter').value;
+      const repFilter = document.getElementById('repFilter').value;
+      const perf90 = document.getElementById('perf90').checked;
+      const perf50to90 = document.getElementById('perf50to90').checked;
+      const perfBelow50 = document.getElementById('perfBelow50').checked;
+
+      // Clear month selection when using date filters
+      selectedMonths = [];
+
+      filteredPayments = allPayments.filter(item => {
+        // Date filter
+        const serviceDate = new Date(item.serviceDate || item.paymentDate);
+        const from = fromDate ? new Date(fromDate) : null;
+        const to = toDate ? new Date(toDate) : null;
+        if (from && serviceDate < from) return false;
+        if (to && serviceDate > to) return false;
+        
+        // Counter filter
+        if (counterFilter && (item.CounterName || item.counterName) !== counterFilter) return false;
+        
+        // Doctor filter
+        if (doctorFilter && (item.DoctorName || item.doctorName) !== doctorFilter) return false;
+        
+        // Representative filter
+        if (repFilter) {
+          const repName = item.RepName || item.representativeName || item.userName;
+          if (repName !== repFilter) return false;
+        }
+        
+        // Performance filter
+        const key = `${item.CounterID}-${item.serviceDate}`;
+        const ordersTotal = ordersTotalCache[key] || 0;
+        const businessTarget = Number(item.businessTarget || 0);
+        
+        if (businessTarget > 0) {
+          const percentage = (ordersTotal / businessTarget) * 100;
+          
+          if (percentage >= 90 && !perf90) return false;
+          if (percentage >= 50 && percentage < 90 && !perf50to90) return false;
+          if (percentage < 50 && !perfBelow50) return false;
+        }
+        
+        return true;
+      });
+
+      renderMonthlySummary();
+      renderTable();
+      renderChart();
+    }
+
+    function resetFilter() {
+      document.getElementById('fromDate').value = '';
+      document.getElementById('toDate').value = '';
+      document.getElementById('counterFilter').value = '';
+      document.getElementById('doctorFilter').value = '';
+      document.getElementById('repFilter').value = '';
+      document.getElementById('perf90').checked = true;
+      document.getElementById('perf50to90').checked = true;
+      document.getElementById('perfBelow50').checked = true;
+      selectedMonths = [];
+      filteredPayments = [...allPayments];
+      sortColumn = null;
+      sortDirection = 'asc';
+      resetSortIcons();
+      renderMonthlySummary();
+      renderTable();
+      renderChart();
+    }
+
+    function renderChart() {
+      const ctx = document.getElementById('performanceChart');
+      if (!ctx) return;
+
+      // Calculate totals from filtered payments
+      let totalAmount = 0;
+      let totalBusinessTarget = 0;
+      let totalOrdersTotal = 0;
+      
+      filteredPayments.forEach(item => {
+        const key = `${item.CounterID}-${item.serviceDate}`;
+        const ordersTotal = ordersTotalCache[key] || 0;
+        
+        totalAmount += Number(item.amount || 0);
+        totalBusinessTarget += Number(item.businessTarget || 0);
+        totalOrdersTotal += ordersTotal;
+      });
+      
+      // Update summary display
+      document.getElementById('summaryAmount').textContent = '₹' + totalAmount.toLocaleString('en-IN');
+      document.getElementById('summaryTarget').textContent = '₹' + totalBusinessTarget.toLocaleString('en-IN');
+      document.getElementById('summaryOrders').textContent = '₹' + totalOrdersTotal.toLocaleString('en-IN');
+      
+      const percentage = totalBusinessTarget > 0 ? (totalOrdersTotal / totalBusinessTarget) * 100 : 0;
+      document.getElementById('summaryPercentage').textContent = percentage.toFixed(1) + '% of target';
+
+      // Destroy previous chart instance if exists
+      if (performanceChart) {
+        performanceChart.destroy();
+      }
+
+      // Create new chart with totals
+      performanceChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Total'],
+          datasets: [
+            {
+              label: 'Amount',
+              data: [totalAmount],
+              backgroundColor: 'rgba(59, 130, 246, 0.7)',
+              borderColor: 'rgba(59, 130, 246, 1)',
+              borderWidth: 1
+            },
+            {
+              label: 'Business Target',
+              data: [totalBusinessTarget],
+              backgroundColor: 'rgba(147, 51, 234, 0.7)',
+              borderColor: 'rgba(147, 51, 234, 1)',
+              borderWidth: 1
+            },
+            {
+              label: 'Orders Total',
+              data: [totalOrdersTotal],
+              backgroundColor: 'rgba(34, 197, 94, 0.7)',
+              borderColor: 'rgba(34, 197, 94, 1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return '₹' + value.toLocaleString('en-IN');
+                }
+              }
+            },
+            x: {
+              ticks: {
+                maxRotation: 45,
+                minRotation: 45
+              }
+            }
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top'
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  let label = context.dataset.label || '';
+                  if (label) {
+                    label += ': ';
+                  }
+                  label += '₹' + context.parsed.y.toLocaleString('en-IN');
+                  
+                  // If this is Orders Total (dataset index 2), show percentage vs Business Target
+                  if (context.datasetIndex === 2) {
+                    const ordersTotal = context.parsed.y;
+                    const businessTarget = context.chart.data.datasets[1].data[context.dataIndex];
+                    
+                    if (businessTarget > 0) {
+                      const percentage = (ordersTotal / businessTarget) * 100;
+                      label += ` (${percentage.toFixed(1)}% of target)`;
+                    }
+                  }
+                  
+                  return label;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function sortTable(column) {
+      if (sortColumn === column) {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortColumn = column;
+        sortDirection = 'asc';
+      }
+
+      filteredPayments.sort((a, b) => {
+        let aVal, bVal;
+
+        switch(column) {
+          case 'counterName':
+            aVal = (a.CounterName || a.counterName || '').toLowerCase();
+            bVal = (b.CounterName || b.counterName || '').toLowerCase();
+            break;
+          case 'doctorName':
+            aVal = (a.DoctorName || a.doctorName || '').toLowerCase();
+            bVal = (b.DoctorName || b.doctorName || '').toLowerCase();
+            break;
+          case 'representative':
+            aVal = (a.RepName || a.representativeName || a.userName || '').toLowerCase();
+            bVal = (b.RepName || b.representativeName || b.userName || '').toLowerCase();
+            break;
+          case 'serviceDate':
+            aVal = new Date(a.serviceDate || a.paymentDate);
+            bVal = new Date(b.serviceDate || b.paymentDate);
+            break;
+          case 'amount':
+            aVal = Number(a.amount || 0);
+            bVal = Number(b.amount || 0);
+            break;
+          case 'businessTarget':
+            aVal = Number(a.businessTarget || 0);
+            bVal = Number(b.businessTarget || 0);
+            break;
+          default:
+            return 0;
+        }
+
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      updateSortIcons(column);
+      renderTable();
+    }
+
+    function updateSortIcons(column) {
+      resetSortIcons();
+      const icon = sortDirection === 'asc' ? '↑' : '↓';
+      document.getElementById(`sort-${column}`).textContent = icon;
+    }
+
+    function resetSortIcons() {
+      ['counterName', 'doctorName', 'representative', 'serviceDate', 'amount', 'businessTarget'].forEach(col => {
+        const elem = document.getElementById(`sort-${col}`);
+        if (elem) elem.textContent = '↕';
+      });
+    }
+
+    function renderMonthlySummary() {
+      const summaryContainer = document.getElementById('monthlySummary');
+      const now = new Date();
+      const monthlyTotals = {};
+
+      // Initialize last 12 months
+      for (let i = 11; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        monthlyTotals[key] = {
+          month: date.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
+          total: 0
+        };
+      }
+
+      // Calculate totals
+      allPayments.forEach(item => {
+        const serviceDate = new Date(item.serviceDate || item.paymentDate);
+        const key = `${serviceDate.getFullYear()}-${String(serviceDate.getMonth() + 1).padStart(2, '0')}`;
+        if (monthlyTotals[key]) {
+          monthlyTotals[key].total += Number(item.amount || 0);
+        }
+      });
+
+      // Render cards
+      summaryContainer.innerHTML = Object.entries(monthlyTotals).map(([key, data]) => `
+        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-lg p-4 border border-indigo-200 cursor-pointer hover:shadow-lg transition ${selectedMonths.includes(key) ? 'ring-2 ring-indigo-500' : ''}" 
+             onclick="filterByMonth('${key}')">
+          <div class="text-xs font-medium text-indigo-600 mb-1">${data.month}</div>
+          <div class="text-lg font-bold text-indigo-900">₹${data.total.toLocaleString('en-IN')}</div>
+        </div>
+      `).join('');
+    }
+
+    function filterByMonth(monthKey) {
+      // Toggle month selection
+      const index = selectedMonths.indexOf(monthKey);
+      if (index > -1) {
+        // Deselect - remove from array
+        selectedMonths.splice(index, 1);
+      } else {
+        // Select - add to array
+        selectedMonths.push(monthKey);
+      }
+      
+      // Filter payments by selected months
+      if (selectedMonths.length === 0) {
+        filteredPayments = [...allPayments];
+      } else {
+        filteredPayments = allPayments.filter(item => {
+          const serviceDate = new Date(item.serviceDate || item.paymentDate);
+          const itemKey = `${serviceDate.getFullYear()}-${String(serviceDate.getMonth() + 1).padStart(2, '0')}`;
+          return selectedMonths.includes(itemKey);
+        });
+      }
+      
+      // Reset date filters when using month cards
+      document.getElementById('fromDate').value = '';
+      document.getElementById('toDate').value = '';
+      
+      renderMonthlySummary();
+      renderTable();
+      renderChart();
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('dataTableBody');
+
+      if (filteredPayments.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center text-gray-600 py-8">No counter service records found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filteredPayments.map((item, idx) => {
+        const key = `${item.CounterID}-${item.serviceDate}`;
+        const ordersTotal = ordersTotalCache[key] || 0;
+        const businessTarget = Number(item.businessTarget || 0);
+        
+        // Calculate percentage and determine row background color
+        let percentage = 0;
+        let rowBgClass = '';
+        if (businessTarget > 0) {
+          percentage = (ordersTotal / businessTarget) * 100;
+          if (percentage >= 90) {
+            rowBgClass = 'bg-green-50';
+          } else if (percentage >= 50) {
+            rowBgClass = 'bg-yellow-50';
+          } else {
+            rowBgClass = 'bg-orange-50';
+          }
+        }
+        
+        return `
+        <tr class="hover:bg-gray-100 ${rowBgClass}">
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${idx + 1}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">${item.CounterName || item.counterName || 'N/A'}</td>
+          <td class="px-4 py-3 whitespace-nowrap">
+            ${(() => {
+              const typeName = (item.counter_type_name || 'counter').toLowerCase();
+              const badgeColors = {
+                'counter': 'bg-green-100 text-green-800',
+                'agency': 'bg-purple-100 text-purple-800',
+                'subcounter': 'bg-yellow-100 text-yellow-800'
+              };
+              const colorClass = badgeColors[typeName] || 'bg-gray-100 text-gray-800';
+              return `<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full ${colorClass}">${item.counter_type_name || 'counter'}</span>`;
+            })()}
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${item.DoctorName || item.doctorName || '-'}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${item.RepName || item.representativeName || item.userName || 'N/A'}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${new Date(item.serviceDate || item.paymentDate).toLocaleDateString('en-IN')}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">₹${Number(item.amount || 0).toLocaleString('en-IN')}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-blue-700">${item.businessTarget ? '₹' + Number(item.businessTarget).toLocaleString('en-IN') : '-'}</td>
+          <td class="px-4 py-3 text-sm text-gray-700">${item.comments || item.remarks || '-'}</td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-right">
+            <div class="font-semibold text-green-700">₹${ordersTotal.toLocaleString('en-IN')}</div>
+            ${businessTarget > 0 ? `<div class="text-xs text-gray-600 mt-1">${percentage.toFixed(1)}% of target</div>` : ''}
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
+            <button onclick="viewOrders(${item.PaymentID}, ${item.CounterID}, '${item.serviceDate}')" 
+                    class="text-indigo-600 hover:text-indigo-900 font-medium">
+              View Orders
+            </button>
+          </td>
+          <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
+            <button onclick="viewComments(${item.PaymentID})" 
+                    class="inline-flex items-center px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition">
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
+              </svg>
+              Comments
+            </button>
+          </td>
+        </tr>
+        `;
+      }).join('');
+      
+      // Calculate and render totals
+      renderTableTotals();
+    }
+
+    function renderTableTotals() {
+      const tfoot = document.getElementById('dataTableFooter');
+      
+      if (filteredPayments.length === 0) {
+        tfoot.innerHTML = '';
+        return;
+      }
+      
+      // Calculate totals
+      let totalAmount = 0;
+      let totalBusinessTarget = 0;
+      let totalOrdersTotal = 0;
+      
+      filteredPayments.forEach(item => {
+        const key = `${item.CounterID}-${item.serviceDate}`;
+        const ordersTotal = ordersTotalCache[key] || 0;
+        
+        totalAmount += Number(item.amount || 0);
+        totalBusinessTarget += Number(item.businessTarget || 0);
+        totalOrdersTotal += ordersTotal;
+      });
+      
+      // Calculate overall percentage
+      const overallPercentage = totalBusinessTarget > 0 
+        ? (totalOrdersTotal / totalBusinessTarget) * 100 
+        : 0;
+      
+      tfoot.innerHTML = `
+        <tr class="font-bold">
+          <td colspan="6" class="px-4 py-4 text-right text-sm text-gray-900">TOTAL:</td>
+          <td class="px-4 py-4 whitespace-nowrap text-sm text-right text-gray-900">₹${totalAmount.toLocaleString('en-IN')}</td>
+          <td class="px-4 py-4 whitespace-nowrap text-sm text-right text-blue-900">₹${totalBusinessTarget.toLocaleString('en-IN')}</td>
+          <td class="px-4 py-4 text-sm text-gray-700">-</td>
+          <td class="px-4 py-4 whitespace-nowrap text-sm text-right">
+            <div class="text-green-900">₹${totalOrdersTotal.toLocaleString('en-IN')}</div>
+            ${totalBusinessTarget > 0 ? `<div class="text-xs text-gray-600 mt-1 font-normal">${overallPercentage.toFixed(1)}% of target</div>` : ''}
+          </td>
+          <td class="px-4 py-4 text-sm text-center text-gray-600">${filteredPayments.length} records</td>
+          <td class="px-4 py-4 text-sm text-center text-gray-600">-</td>
+        </tr>
+      `;
+    }
+
+    async function viewOrders(paymentId, counterId, serviceDate) {
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      
+      // Find next service date for this counter
+      const nextServiceDate = findNextServiceDate(counterId, serviceDate);
+      
+      try {
+        // Fetch orders for this counter using the correct endpoint
+        const url = `/api/orders/counter/${counterId}`;
+        
+        const res = await fetch(url, { 
+          headers: { 'Authorization': `Bearer ${token}` } 
+        });
+        
+        if (!res.ok) throw new Error('Failed to fetch orders');
+        
+        const json = await res.json();
+        let orders = Array.isArray(json.data) ? json.data : [];
+        
+        // Filter orders between service dates
+        const fromDate = new Date(serviceDate);
+        fromDate.setHours(0, 0, 0, 0);
+        
+        const toDate = nextServiceDate ? new Date(nextServiceDate) : new Date();
+        toDate.setHours(23, 59, 59, 999);
+        
+        orders = orders.filter(order => {
+          const orderDate = new Date(order.orderDate);
+          return orderDate >= fromDate && orderDate < toDate;
+        });
+        
+        // Show orders in a modal
+        showOrdersModal(orders, serviceDate, nextServiceDate);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        alert('Failed to load orders');
+      }
+    }
+
+    function findNextServiceDate(counterId, currentServiceDate) {
+      // Find the next service date for this counter after current service date
+      const counterPayments = allPayments.filter(p => 
+        p.CounterID === counterId && p.serviceDate > currentServiceDate
+      ).sort((a, b) => new Date(a.serviceDate) - new Date(b.serviceDate));
+      
+      return counterPayments.length > 0 ? counterPayments[0].serviceDate : null;
+    }
+
+    function showOrdersModal(orders, fromDate, toDate) {
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+      modal.id = 'ordersModal';
+      
+      const toDateStr = toDate ? new Date(toDate).toLocaleDateString('en-IN') : 'Present';
+      
+      modal.innerHTML = `
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-5xl shadow-lg rounded-md bg-white">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-900">
+              Orders placed between ${new Date(fromDate).toLocaleDateString('en-IN')} and ${toDateStr}
+            </h3>
+            <button onclick="document.getElementById('ordersModal').remove()" 
+                    class="text-gray-400 hover:text-gray-600 text-2xl font-bold">
+              &times;
+            </button>
+          </div>
+          
+          ${orders.length === 0 ? 
+            '<p class="text-center text-gray-600 py-8">No orders found in this period.</p>' :
+            `<div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order Date</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Counter Name</th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Grand Total (₹)</th>
+                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Payment Status</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  ${orders.map(order => `
+                    <tr class="hover:bg-gray-50">
+                      <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">#${order.id}</td>
+                      <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${new Date(order.orderDate).toLocaleDateString('en-IN')}</td>
+                      <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">${order.counterName || 'N/A'}</td>
+                      <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-semibold text-gray-900">₹${Number(order.grandTotal || 0).toLocaleString('en-IN')}</td>
+                      <td class="px-4 py-3 whitespace-nowrap text-sm text-center">
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full ${order.paymentReceived ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+                          ${order.paymentReceived ? 'Paid' : 'Pending'}
+                        </span>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+                <tfoot class="bg-gray-50">
+                  <tr>
+                    <td colspan="3" class="px-4 py-3 text-right text-sm font-bold text-gray-900">Total:</td>
+                    <td class="px-4 py-3 whitespace-nowrap text-sm text-right font-bold text-gray-900">
+                      ₹${orders.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0).toLocaleString('en-IN')}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>`
+          }
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Close on outside click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.remove();
+        }
+      });
+    }
+
+    async function viewComments(paymentId) {
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      
+      try {
+        // Fetch existing comments
+        const res = await fetch(`/api/payments/${paymentId}/comments`, { 
+          headers: { 'Authorization': `Bearer ${token}` } 
+        });
+        
+        if (!res.ok) throw new Error('Failed to fetch comments');
+        
+        const json = await res.json();
+        const comments = json.data || [];
+        
+        showCommentsModal(paymentId, comments);
+      } catch (error) {
+        console.error('Error fetching comments:', error);
+        alert('Failed to load comments');
+      }
+    }
+
+    function showCommentsModal(paymentId, comments) {
+      const modal = document.createElement('div');
+      modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+      modal.id = 'commentsModal';
+      
+      modal.innerHTML = `
+        <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-3xl shadow-lg rounded-md bg-white">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-900">Payment Comments</h3>
+            <button onclick="document.getElementById('commentsModal').remove()" 
+                    class="text-gray-400 hover:text-gray-600 text-2xl font-bold">
+              &times;
+            </button>
+          </div>
+          
+          <!-- Add Comment Section -->
+          <div class="mb-6 bg-gray-50 p-4 rounded-lg">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Add New Comment</label>
+            <textarea id="newCommentText" rows="3" 
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      placeholder="Enter your comment here..."></textarea>
+            <div class="mt-2 flex justify-end">
+              <button onclick="saveComment(${paymentId})" 
+                      class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition">
+                Add Comment
+              </button>
+            </div>
+          </div>
+          
+          <!-- Comments List -->
+          <div class="space-y-3 max-h-96 overflow-y-auto">
+            <h4 class="text-sm font-semibold text-gray-700 mb-3">Comment History (${comments.length})</h4>
+            ${comments.length === 0 ? 
+              '<p class="text-center text-gray-500 py-8">No comments yet. Be the first to add one!</p>' :
+              comments.map(comment => `
+                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition">
+                  <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs text-gray-500">
+                      ${new Date(comment.createdAt).toLocaleString('en-IN', { 
+                        dateStyle: 'medium', 
+                        timeStyle: 'short' 
+                      })}
+                    </span>
+                  </div>
+                  <p class="text-sm text-gray-800 whitespace-pre-wrap">${escapeHtml(comment.comment)}</p>
+                </div>
+              `).join('')
+            }
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Close on outside click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.remove();
+        }
+      });
+    }
+
+    async function saveComment(paymentId) {
+      const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+      const commentText = document.getElementById('newCommentText').value.trim();
+      
+      if (!commentText) {
+        alert('Please enter a comment');
+        return;
+      }
+      
+      try {
+        const res = await fetch(`/api/payments/${paymentId}/comments`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ comment: commentText })
+        });
+        
+        if (!res.ok) throw new Error('Failed to save comment');
+        
+        const json = await res.json();
+        
+        // Close modal and reload comments
+        document.getElementById('commentsModal').remove();
+        
+        // Show success message briefly
+        const successMsg = document.createElement('div');
+        successMsg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        successMsg.textContent = 'Comment added successfully!';
+        document.body.appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 3000);
+        
+        // Reopen modal with updated comments
+        setTimeout(() => viewComments(paymentId), 500);
+      } catch (error) {
+        console.error('Error saving comment:', error);
+        alert('Failed to save comment. Please try again.');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>

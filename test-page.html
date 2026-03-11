@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMTP Test Page - Enercon</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .info-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+        
+        .info-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .info-card p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+        
+        .code-block {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            margin: 5px;
+        }
+        
+        .status-success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #999;
+            font-size: 12px;
+        }
+        
+        .timestamp {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-top: 20px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Server Connection Test</h1>
+        <p class="subtitle">SMTP Configuration Diagnostic Page</p>
+        
+        <div class="info-card">
+            <h3>📋 Current Configuration</h3>
+            <p><strong>SMTP Host:</strong> smtp.gmail.com</p>
+            <p><strong>SMTP Port:</strong> 587</p>
+            <p><strong>Security:</strong> STARTTLS</p>
+            <span class="status-badge status-warning">⚠️ Awaiting Fix</span>
+        </div>
+        
+        <div class="info-card">
+            <h3>❌ Error Details</h3>
+            <p><strong>Error Code:</strong> ECONNREFUSED</p>
+            <p><strong>Wrong IP:</strong> 192.178.211.108:465</p>
+            <p><strong>Expected:</strong> smtp.gmail.com:587</p>
+            <div class="code-block">
+Error: connect ECONNREFUSED 192.178.211.108:465
+  errno: -111,
+  code: 'ESOCKET',
+  syscall: 'connect'
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <h3>✅ Solution Applied</h3>
+            <p>✓ Removed 'service: gmail' parameter override</p>
+            <p>✓ Added explicit SMTP_HOST, SMTP_PORT env vars</p>
+            <p>✓ Added connection timeouts</p>
+            <p>✓ Rebuilt dist folder</p>
+            <span class="status-badge status-success">Ready for Deploy</span>
+        </div>
+        
+        <div class="info-card">
+            <h3>📦 Next Steps</h3>
+            <p>1. Upload <code>dist/</code> folder to production</p>
+            <p>2. Update <code>.env</code> file on server</p>
+            <p>3. Run test: <code>node test-smtp-connection.js</code></p>
+            <p>4. Restart application: <code>pm2 restart all</code></p>
+        </div>
+        
+        <button class="btn" onclick="testConnection()">
+            🔍 Test Connection Info
+        </button>
+        
+        <div class="timestamp" id="timestamp">
+            Page loaded: <span id="time"></span>
+        </div>
+        
+        <div class="footer">
+            Enercon Production Server Diagnostic | March 2026
+        </div>
+    </div>
+    
+    <script>
+        // Display current timestamp
+        document.getElementById('time').textContent = new Date().toLocaleString();
+        
+        // Test connection button
+        function testConnection() {
+            alert('✅ Page loads successfully!\n\n' +
+                  'Server: ' + window.location.hostname + '\n' +
+                  'Port: ' + window.location.port + '\n' +
+                  'Protocol: ' + window.location.protocol + '\n\n' +
+                  'This confirms your local server is running.\n' +
+                  'Deploy the fixed code to production server next!');
+        }
+        
+        // Add some animation
+        document.querySelector('.container').style.animation = 'fadeIn 0.5s ease-in';
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>

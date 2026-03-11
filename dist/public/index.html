@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node.js Express with Tailwind CSS</title>
+    <link href="/css/style.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-4">Welcome to Express with Tailwind CSS</h1>
+            <p class="text-xl text-gray-600">A modern Node.js backend with beautiful frontend styling</p>
+        </header>
+
+        <main class="max-w-4xl mx-auto">
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">API Endpoints</h2>
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-4">
+                        <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">GET</span>
+                        <code class="text-sm bg-gray-100 px-2 py-1 rounded">/api/items</code>
+                        <span class="text-gray-600">Get all items</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">GET</span>
+                        <code class="text-sm bg-gray-100 px-2 py-1 rounded">/api/items/:id</code>
+                        <span class="text-gray-600">Get item by ID</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">POST</span>
+                        <code class="text-sm bg-gray-100 px-2 py-1 rounded">/api/items</code>
+                        <span class="text-gray-600">Create new item</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">PUT</span>
+                        <code class="text-sm bg-gray-100 px-2 py-1 rounded">/api/items/:id</code>
+                        <span class="text-gray-600">Update item</span>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <span class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">DELETE</span>
+                        <code class="text-sm bg-gray-100 px-2 py-1 rounded">/api/items/:id</code>
+                        <span class="text-gray-600">Delete item</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Test API</h2>
+                <div class="space-y-4">
+                    <div>
+                        <button id="testGetItems" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition duration-300">
+                            Get All Items
+                        </button>
+                    </div>
+                    <div>
+                        <button id="testCreateItem" class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition duration-300">
+                            Create Sample Item
+                        </button>
+                    </div>
+                </div>
+                <div id="apiResult" class="mt-4 p-4 bg-gray-50 rounded-lg hidden">
+                    <h3 class="font-semibold mb-2">API Response:</h3>
+                    <pre id="apiResultContent" class="text-sm overflow-auto"></pre>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Tailwind CSS Demo</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4 rounded-lg">
+                        <h3 class="font-bold mb-2">Card 1</h3>
+                        <p class="text-sm">Beautiful gradients with Tailwind CSS</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-green-500 to-blue-500 text-white p-4 rounded-lg">
+                        <h3 class="font-bold mb-2">Card 2</h3>
+                        <p class="text-sm">Responsive grid system</p>
+                    </div>
+                    <div class="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-lg">
+                        <h3 class="font-bold mb-2">Card 3</h3>
+                        <p class="text-sm">Easy to customize components</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.getElementById('testGetItems').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/items');
+                const data = await response.json();
+                showResult(data);
+            } catch (error) {
+                showResult({ error: error.message });
+            }
+        });
+
+        document.getElementById('testCreateItem').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/items', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        name: 'Sample Item',
+                        description: 'This is a test item created from the frontend'
+                    })
+                });
+                const data = await response.json();
+                showResult(data);
+            } catch (error) {
+                showResult({ error: error.message });
+            }
+        });
+
+        function showResult(data) {
+            const resultDiv = document.getElementById('apiResult');
+            const resultContent = document.getElementById('apiResultContent');
+            resultContent.textContent = JSON.stringify(data, null, 2);
+            resultDiv.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

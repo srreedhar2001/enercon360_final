@@ -1,0 +1,431 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice #INV-26</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #333;
+        }
+        
+        .invoice-container {
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #2563eb;
+            padding-bottom: 20px;
+        }
+        
+        .company-info {
+            flex: 1;
+        }
+        
+        .company-logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .company-name {
+            font-size: 28px;
+            font-weight: bold;
+            color: #1e40af;
+            margin-bottom: 5px;
+        }
+        
+        .company-tagline {
+            color: #6b7280;
+            margin-bottom: 10px;
+        }
+        
+        .company-address {
+            color: #6b7280;
+            font-size: 11px;
+        }
+        
+        .invoice-details {
+            text-align: right;
+        }
+        
+        .invoice-title {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2563eb;
+            margin-bottom: 10px;
+        }
+        
+        .invoice-meta {
+            color: #6b7280;
+            font-size: 11px;
+        }
+        
+        .bill-to-section {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        
+        .bill-to, .invoice-info {
+            flex: 1;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin: 0 10px;
+        }
+        
+        .bill-to {
+            margin-left: 0;
+        }
+        
+        .invoice-info {
+            margin-right: 0;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            color: #374151;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-title::before {
+            content: "📍";
+            margin-right: 8px;
+        }
+        
+        .invoice-info .section-title::before {
+            content: "📅";
+        }
+        
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .items-table thead {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+        }
+        
+        .items-table th {
+            padding: 15px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .items-table th.text-center {
+            text-align: center;
+        }
+        
+        .items-table th.text-right {
+            text-align: right;
+        }
+        
+        .items-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .items-table tbody tr:hover {
+            background: #f9fafb;
+        }
+        
+        .items-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .text-center {
+            text-align: center;
+        }
+        
+        .text-right {
+            text-align: right;
+        }
+        
+        .font-medium {
+            font-weight: 500;
+        }
+        
+        .font-bold {
+            font-weight: bold;
+        }
+        
+        .text-gray {
+            color: #6b7280;
+        }
+        
+        .summary-section {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+        }
+        
+        .terms {
+            flex: 1;
+            padding-right: 30px;
+        }
+        
+        .terms h4 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            color: #374151;
+        }
+        
+        .terms ul {
+            list-style: none;
+            font-size: 11px;
+            color: #6b7280;
+        }
+        
+        .terms li {
+            margin-bottom: 5px;
+            padding-left: 15px;
+            position: relative;
+        }
+        
+        .terms li::before {
+            content: "•";
+            color: #3b82f6;
+            position: absolute;
+            left: 0;
+        }
+        
+        .summary {
+            width: 300px;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 20px;
+        }
+        
+        .summary h4 {
+            font-size: 16px;
+            margin-bottom: 15px;
+            color: #374151;
+        }
+        
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 11px;
+        }
+        
+        .summary-row.total {
+            border-top: 2px solid #e5e7eb;
+            padding-top: 10px;
+            margin-top: 15px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #1e40af;
+        }
+        
+        .amount-words {
+            margin-top: 15px;
+            padding: 12px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .amount-words .label {
+            font-size: 10px;
+            color: #6b7280;
+            margin-bottom: 5px;
+        }
+        
+        .amount-words .value {
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            font-size: 10px;
+            color: #6b7280;
+        }
+        
+        .footer p {
+            margin-bottom: 5px;
+        }
+        
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            
+            .invoice-container {
+                box-shadow: none;
+                max-width: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <!-- Header Section -->
+        <div class="header">
+            <div class="company-info">
+                <div class="company-logo">E</div>
+                <div class="company-name">Enercon 360</div>
+                <div class="company-tagline">Pharmaceutical Distribution System</div>
+                <div class="company-address">
+                    123 Medical Complex, Pharmaceutical District<br>
+                    Hyderabad, Telangana - 500001<br>
+                    GST: 36ABCDE1234F1Z5 | Phone: +91 40 1234 5678<br>
+                    Email: orders@enercon360.com | Web: www.enercon360.com
+                </div>
+            </div>
+            <div class="invoice-details">
+                <div class="invoice-title">INVOICE</div>
+                <div class="invoice-meta">
+                    <strong>Invoice No:</strong> INV-26<br>
+                    <strong>Order No:</strong> SO-26<br>
+                    <strong>Date:</strong> 12/8/2025<br>
+                    <strong>Time:</strong> 1:20:17 pm
+                </div>
+            </div>
+        </div>
+
+        <!-- Bill To Section -->
+        <div class="bill-to-section">
+            <div class="bill-to">
+                <div class="section-title">Bill To:</div>
+                <div class="font-bold">Eswar Pharma</div>
+                <div class="text-gray">
+                    Test Address, Test City<br>
+                    Visakhapatnam, Andhra Pradesh<br>
+                    Phone: 9876543210<br>
+                    GST: 29ABCDE1234F1Z5
+                </div>
+            </div>
+            <div class="invoice-info">
+                <div class="section-title">Order Details:</div>
+                <strong>Order Date:</strong> 12/8/2025<br>
+                <strong>Payment Terms:</strong> Net 30 Days<br>
+                <strong>Payment Status:</strong> Pending<br>
+                <strong>Total Items:</strong> 1 items
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Product Description</th>
+                    <th class="text-center">Qty</th>
+                    <th class="text-right">Offer Price</th>
+                    <th class="text-center">Disc%</th>
+                    <th class="text-right">CGST</th>
+                    <th class="text-right">SGST</th>
+                    <th class="text-right">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+                <tr>
+                    <td class="text-center font-medium">1</td>
+                    <td>
+                        <div class="font-medium">GARPACTIN</div>
+                        <div class="text-gray" style="font-size: 10px;">PROD0005</div>
+                    </td>
+                    <td class="text-center">100</td>
+                    <td class="text-right">₹49.29</td>
+                    <td class="text-center">0.00%</td>
+                    <td class="text-right">₹295.74</td>
+                    <td class="text-right">₹295.74</td>
+                    <td class="text-right font-bold">₹5520.48</td>
+                </tr>
+                
+            </tbody>
+        </table>
+
+        <!-- Summary Section -->
+        <div class="summary-section">
+            <div class="terms">
+                <h4>📋 Terms & Conditions:</h4>
+                <ul>
+                    <li>All pharmaceutical products are subject to batch verification</li>
+                    <li>Delivery within 24-48 hours of order confirmation</li>
+                    <li>Returns accepted within 7 days for unopened items</li>
+                    <li>Payment terms as per agreement</li>
+                    <li>All disputes subject to local jurisdiction</li>
+                    <li>Goods once sold will not be taken back</li>
+                    <li>Subject to Hyderabad jurisdiction only</li>
+                </ul>
+            </div>
+            <div class="summary">
+                <h4>💰 Invoice Summary</h4>
+                <div class="summary-row">
+                    <span>Subtotal:</span>
+                    <span>₹4929.00</span>
+                </div>
+                <div class="summary-row">
+                    <span>CGST (6%):</span>
+                    <span>₹295.74</span>
+                </div>
+                <div class="summary-row">
+                    <span>SGST (6%):</span>
+                    <span>₹295.74</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Grand Total:</span>
+                    <span>₹5520.48</span>
+                </div>
+                <div class="amount-words">
+                    <div class="label">Amount in Words:</div>
+                    <div class="value">Five Thousand Five Hundred Twenty Rupees and Forty Eight Paise Only</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Thank you for your business!</strong></p>
+            <p>This is a computer-generated invoice and does not require a signature.</p>
+            <p>For any queries, please contact us at orders@enercon360.com or +91 40 1234 5678</p>
+        </div>
+    </div>
+</body>
+</html>
