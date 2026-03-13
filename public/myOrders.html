@@ -154,6 +154,7 @@
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order #</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Counter Type</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Representative</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
                                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
@@ -167,7 +168,7 @@
                         </thead>
                         <tbody id="ordersTableBody" class="bg-white divide-y divide-gray-200">
                             <tr>
-                                <td colspan="12" class="px-6 py-8 text-center text-gray-500">
+                                <td colspan="13" class="px-6 py-8 text-center text-gray-500">
                                     <div class="flex flex-col items-center">
                                         <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
@@ -439,7 +440,7 @@
                 try {
                     const uniqMonths = Array.from(new Set((months || []).filter(Boolean)));
                     if (!uniqMonths.length) { this.resetOrdersView(); return; }
-            const base = `/api/orders/summary?months=${encodeURIComponent(uniqMonths.join(','))}`;
+            const base = `/api/orders/summary?months=${encodeURIComponent(uniqMonths.join(','))}&includeSubcounters=true`;
             const effectiveRepId = this.isRep ? this.repId : (this.selectedRepId || '');
             const url = effectiveRepId ? `${base}&repId=${encodeURIComponent(effectiveRepId)}` : base;
                     const res = await fetch(url, { headers: getAuthHeaders() });
@@ -553,8 +554,10 @@
                 const card = document.getElementById('overdueAgingSummary');
                 if (!card) return;
 
-                // Only calculate for unpaid/partial orders
+                // Only calculate for unpaid/partial orders, excluding subcounters
                 const overdueOrders = this.filtered.filter(order => {
+                    const typeName = (order.counter_type_name || '').toLowerCase();
+                    if (typeName === 'subcounter') return false; // Exclude subcounters
                     const total = Number(order.grandTotal || 0);
                     const collected = Number(order.collectedTotal || 0);
                     return collected < total; // Has outstanding amount
@@ -647,7 +650,7 @@
                 if (!this.filtered.length) {
                     tbody.innerHTML = `
                         <tr>
-                            <td colspan="12" class="px-6 py-8 text-center text-gray-500">No orders found</td>
+                            <td colspan="13" class="px-6 py-8 text-center text-gray-500">No orders found</td>
                         </tr>`;
                     return;
                 }
@@ -657,6 +660,17 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${this.formatDate(order.orderDate)}</td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <a href="#" class="text-sm text-blue-600 hover:text-blue-800 hover:underline" data-action="view-counter-orders" data-counter-id="${order.counterID || ''}" data-counter-name="${order.counterName || 'Unknown'}">${order.counterName || 'Unknown'}</a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            ${(() => {
+                                const typeName = (order.counter_type_name || '').toLowerCase();
+                                if (typeName === 'subcounter') {
+                                    return '<span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Subcounter</span>';
+                                } else if (typeName) {
+                                    return `<span class="text-sm text-gray-700">${order.counter_type_name}</span>`;
+                                }
+                                return '<span class="text-sm text-gray-400">-</span>';
+                            })()}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-900">${order.repName || order.representativeName || 'N/A'}</div>
@@ -754,6 +768,12 @@
                 const orders = Array.isArray(this.filtered) ? this.filtered : [];
                 if (!orders.length) { card.classList.add('hidden'); return; }
 
+                // Exclude subcounters from summary totals
+                const ordersForTotals = orders.filter(o => {
+                    const typeName = (o.counter_type_name || '').toLowerCase();
+                    return typeName !== 'subcounter';
+                });
+
                 let totalAmount = 0;
                 let paidAmount = 0;
                 let partialAmount = 0;
@@ -762,7 +782,7 @@
                 let partialCount = 0;
                 let duesCount = 0;
 
-                for (const o of orders) {
+                for (const o of ordersForTotals) {
                     const total = Number(o.grandTotal || 0);
                     const collected = Math.min(Number(o.collectedTotal || 0), total);
                     totalAmount += total;
@@ -787,7 +807,7 @@
                     <tr>
                         <td class="px-4 py-2">Total</td>
                         <td class="px-4 py-2 text-right font-medium">${fmt(totalAmount)}</td>
-                        <td class="px-4 py-2 text-right text-gray-600">${orders.length}</td>
+                        <td class="px-4 py-2 text-right text-gray-600">${ordersForTotals.length}</td>
                     </tr>
                     <tr>
                         <td class="px-4 py-2">Dues</td>
@@ -875,7 +895,13 @@
                 doc.setFont(undefined, 'bold');
                 doc.text('Orders Details', 14, startY);
                 
-                const tableData = this.filtered.map(order => {
+                // Exclude subcounters from PDF export totals
+                const ordersForPdf = this.filtered.filter(o => {
+                    const typeName = (o.counter_type_name || '').toLowerCase();
+                    return typeName !== 'subcounter';
+                });
+                
+                const tableData = ordersForPdf.map(order => {
                     const total = Number(order.grandTotal || 0);
                     const collected = Number(order.collectedTotal || 0);
                     const isPaid = collected >= total && total > 0;
@@ -886,10 +912,13 @@
                     if (collected >= total && total > 0) paymentStatus = 'Paid';
                     else if (collected > 0 && collected < total) paymentStatus = 'Partial';
                     
+                    const counterType = (order.counter_type_name || '-').toLowerCase() === 'subcounter' ? 'Subcounter' : (order.counter_type_name || '-');
+                    
                     return [
                         `#${order.id}`,
                         this.formatDate(order.orderDate),
                         order.counterName || 'Unknown',
+                        counterType,
                         order.repName || 'N/A',
                         `Rs.${this.formatCurrency(order.grandTotal || 0)}`,
                         balance > 0 ? `Rs.${this.formatCurrency(balance)}` : '-',
@@ -901,34 +930,35 @@
                 
                 doc.autoTable({
                     startY: startY + 5,
-                    head: [['Order #', 'Date', 'Counter', 'Representative', 'Amount', 'Balance', 'Days Overdue', 'Payment', 'Latest Comment']],
+                    head: [['Order #', 'Date', 'Counter', 'Type', 'Representative', 'Amount', 'Balance', 'Days Overdue', 'Payment', 'Latest Comment']],
                     body: tableData,
                     theme: 'striped',
                     headStyles: { fillColor: [59, 130, 246], fontSize: 8 },
                     bodyStyles: { fontSize: 7 },
                     columnStyles: {
                         0: { cellWidth: 15 },
-                        1: { cellWidth: 22 },
-                        2: { cellWidth: 32 },
-                        3: { cellWidth: 32 },
-                        4: { cellWidth: 22 },
-                        5: { cellWidth: 22 },
-                        6: { cellWidth: 18 },
-                        7: { cellWidth: 18 },
-                        8: { cellWidth: 'auto' }
+                        1: { cellWidth: 20 },
+                        2: { cellWidth: 28 },
+                        3: { cellWidth: 18 },
+                        4: { cellWidth: 28 },
+                        5: { cellWidth: 20 },
+                        6: { cellWidth: 20 },
+                        7: { cellWidth: 16 },
+                        8: { cellWidth: 16 },
+                        9: { cellWidth: 'auto' }
                     },
                     margin: { left: 14, right: 14 }
                 });
                 
-                // Add totals
+                // Add totals (excluding subcounters)
                 const finalY = doc.lastAutoTable.finalY + 10;
-                const totalAmount = this.filtered.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
-                const totalCollected = this.filtered.reduce((sum, o) => sum + Math.min(Number(o.collectedTotal || 0), Number(o.grandTotal || 0)), 0);
+                const totalAmount = ordersForPdf.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
+                const totalCollected = ordersForPdf.reduce((sum, o) => sum + Math.min(Number(o.collectedTotal || 0), Number(o.grandTotal || 0)), 0);
                 const totalDue = totalAmount - totalCollected;
                 
                 doc.setFontSize(10);
                 doc.setFont(undefined, 'bold');
-                doc.text(`Total Orders: ${this.filtered.length}`, 14, finalY);
+                doc.text(`Total Orders: ${ordersForPdf.length}`, 14, finalY);
                 doc.text(`Total Amount: Rs.${totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}`, 14, finalY + 6);
                 doc.text(`Total Collected: Rs.${totalCollected.toLocaleString('en-IN', {minimumFractionDigits: 2})}`, 14, finalY + 12);
                 doc.text(`Total Due: Rs.${totalDue.toLocaleString('en-IN', {minimumFractionDigits: 2})}`, 14, finalY + 18);

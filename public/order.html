@@ -973,7 +973,7 @@
             const monthsParam = Array.from(selectedMonths).join(',');
             if (!monthsParam) return;
             try {
-                const params = new URLSearchParams({ months: monthsParam });
+                const params = new URLSearchParams({ months: monthsParam, includeSubcounters: 'true' });
                 if (statusFilter.value && statusFilter.value !== 'all') params.append('status', statusFilter.value);
                 if (paymentFilter.value) params.append('payment', paymentFilter.value);
                 if (counterFilter.value) params.append('counterId', counterFilter.value);

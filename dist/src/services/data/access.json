@@ -289,7 +289,7 @@
           "edit": true,
           "delete": true
         },
-        "counter-service-report": {
+        "counterservicereport": {
           "view": true,
           "edit": true,
           "delete": true
@@ -309,12 +309,17 @@
           "edit": true,
           "delete": true
         },
+        "doctor-visit-tracking": {
+          "view": true,
+          "edit": true,
+          "delete": true
+        },
         "new-counters-report": {
           "view": true,
           "edit": true,
           "delete": true
         },
-        "product-purchase": {
+        "productpurchase": {
           "view": true,
           "edit": true,
           "delete": true

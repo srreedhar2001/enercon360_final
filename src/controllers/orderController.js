@@ -205,9 +205,10 @@ class OrderController {
     // Get last 12 months order totals (including current month)
     async getLastSixMonthsTotals(req, res) {
         try {
-            const { repId } = req.query;
+            const { repId, includeSubcounters } = req.query;
             // Fetch summed totals by year-month from DB for the last 12 months
-            // Exclude subcounter orders from totals
+            // Include/exclude subcounter orders based on query param
+            const shouldIncludeSubcounters = includeSubcounters === 'true' || includeSubcounters === '1';
             let sql = `
                 SELECT 
                     DATE_FORMAT(o.orderDate, '%Y-%m') AS ym,
@@ -221,7 +222,7 @@ class OrderController {
                         LEFT JOIN product p ON p.id = od.productId
                         ${repId ? 'INNER JOIN counters c2 ON o2.counterID = c2.id LEFT JOIN countertype ct2 ON c2.counter_type = ct2.id' : 'LEFT JOIN counters c2 ON o2.counterID = c2.id LEFT JOIN countertype ct2 ON c2.counter_type = ct2.id'}
                         WHERE DATE_FORMAT(o2.orderDate, '%Y-%m') = DATE_FORMAT(o.orderDate, '%Y-%m')
-                        AND (ct2.type_name IS NULL OR ct2.type_name != 'subcounter')
+                        ${!shouldIncludeSubcounters ? "AND (ct2.type_name IS NULL OR ct2.type_name != 'subcounter')" : ''}
                         ${repId ? 'AND c2.RepID = ?' : ''}
                     ) AS productCost
                 FROM orders o
@@ -232,8 +233,10 @@ class OrderController {
             } else {
                 sql += ` LEFT JOIN counters c ON o.counterID = c.id LEFT JOIN countertype ct ON c.counter_type = ct.id `;
             }
-            sql += ` WHERE o.orderDate >= DATE_SUB(CURDATE(), INTERVAL 11 MONTH) `;
-            sql += ` AND (ct.type_name IS NULL OR ct.type_name != 'subcounter') `;
+            sql += ` WHERE o.orderDate >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) `;
+            if (!shouldIncludeSubcounters) {
+                sql += ` AND (ct.type_name IS NULL OR ct.type_name != 'subcounter') `;
+            }
             if (repId) {
                 sql += ` AND c.RepID = ? `;
                 // First for subquery (c2.RepID), second for main filter (c.RepID)
@@ -266,7 +269,7 @@ class OrderController {
 
             return res.status(200).json({
                 success: true,
-                message: 'Last 6 months totals fetched',
+                message: 'Last 12 months totals fetched',
                 data
             });
         } catch (error) {
@@ -393,8 +396,11 @@ class OrderController {
             `;
             sql += ` WHERE DATE_FORMAT(o.orderDate, '%Y-%m') IN (${placeholders})`;
             params.push(...monthList);
-            // Exclude subcounter orders from totals (to match stats endpoint)
-            sql += ` AND (ct.type_name IS NULL OR ct.type_name != 'subcounter')`;
+            // Include subcounter orders (configurable via includeSubcounters query param)
+            const includeSubcounters = req.query.includeSubcounters === 'true' || req.query.includeSubcounters === '1';
+            if (!includeSubcounters) {
+                sql += ` AND (ct.type_name IS NULL OR ct.type_name != 'subcounter')`;
+            }
             // status filtering skipped (orders.status column not present in current schema)
             if (payment === '0' || payment === '1') {
                 sql += ' AND o.paymentReceived = ?';
